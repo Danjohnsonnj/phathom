@@ -1,0 +1,41 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+
+# Per-user Xcode data (scheme user data may live inside; shared schemes stay committed)
+**/xcuserdata/
+
+# CocoaPods / Carthage (if added later)
+Pods/
+Carthage/Build/
+
+# Swift Package Manager
+.build/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+.swiftpm/configuration/
+
+# Accio dependency manager
+Dependencies/
+.accio/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Archives
+*.ipa
+*.dSYM.zip
+
+# Instruments
+*.trace
+
+# Bundled apps (normally not checked in unless intentional)
+*.app/
