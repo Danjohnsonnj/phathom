@@ -8,7 +8,7 @@ struct LibraryTab: View {
     private var items: [ContentItem]
 
     @State private var filterKind: ContentKind?
-    @State private var searchTapped = false
+    @State private var searchText = ""
     @State private var navPath = NavigationPath()
 
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
@@ -16,8 +16,24 @@ struct LibraryTab: View {
     }
 
     private var filteredItems: [ContentItem] {
-        guard let filterKind else { return items }
-        return items.filter { $0.kind == filterKind }
+        let kindFiltered: [ContentItem]
+        if let filterKind {
+            kindFiltered = items.filter { $0.kind == filterKind }
+        } else {
+            kindFiltered = items
+        }
+
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return kindFiltered }
+
+        return kindFiltered.filter { item in
+            let titleMatch = (item.title ?? "").lowercased().contains(query)
+            let rawTextMatch = (item.rawText ?? "").lowercased().contains(query)
+            let hostMatch = (item.displayHost ?? "").lowercased().contains(query)
+            let mediaMatch = (item.mediaDescription ?? "").lowercased().contains(query)
+            let tagsMatch = item.tags.map(\.name).joined(separator: " ").lowercased().contains(query)
+            return titleMatch || rawTextMatch || hostMatch || mediaMatch || tagsMatch
+        }
     }
 
     var body: some View {
@@ -32,7 +48,7 @@ struct LibraryTab: View {
                     FilterPills(selected: $filterKind)
 
                     if filteredItems.isEmpty {
-                        Text("No items yet")
+                        Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No items yet" : "No matches")
                             .font(.subheadline)
                             .foregroundStyle(AppPalette.textSecondary)
                             .frame(maxWidth: .infinity)
@@ -59,15 +75,8 @@ struct LibraryTab: View {
                     DetailView(item: item)
                 }
             }
+            .searchable(text: $searchText, prompt: "Search title, tags, source text")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        searchTapped = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
-                    .accessibilityLabel("Search")
-                }
                 ToolbarItem(placement: .principal) {
                     Text("Phathom")
                         .font(.headline)
@@ -82,11 +91,6 @@ struct LibraryTab: View {
                     }
                     .accessibilityLabel("Settings")
                 }
-            }
-            .alert("Search", isPresented: $searchTapped) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Search is not available in this build.")
             }
         }
         .onChange(of: deepLinkItemID) { _, newValue in

@@ -37,3 +37,7 @@ A private, local-first iOS "Personal Brain" that captures digital content (links
 - Status Transparency: Clear UI indicators for "Processing," "Analyzed," and "Pending" states to manage expectations around local LLM speed.
 - Resource Awareness: AI tasks are throttled based on thermal state and battery level, prioritizing execution during charging cycles.
 - Utility over Friction: The app stays out of the way during "Capture" and provides a focused, chat-centric experience during "Review."
+
+## 5. Archive & recovery (soft delete)
+
+**Archive** removes an item from the library immediately (same mental model as delete), with a short on-screen **Undo** and a **Recently Deleted** area under Settings. The app retains the underlying record for **48 hours** from archive time, then **permanently deletes** it. Conversational discovery and the main library **exclude** archived content. Detail: [decisions.md](decisions.md) and [handoff/phase-1-ui-shell.md](handoff/phase-1-ui-shell.md).

@@ -14,6 +14,7 @@ enum WebIngestError: Error, LocalizedError {
 
 enum WebIngestService {
     static func scrape(url: URL) async throws -> (text: String, thumbnailData: Data?, displayHost: String) {
+        let displayHost = url.host ?? url.absoluteString
         var request = URLRequest(url: url)
         request.timeoutInterval = 25
         request.setValue(
@@ -28,7 +29,6 @@ enum WebIngestService {
             throw WebIngestError.emptyContent
         }
 
-        let host = url.host ?? url.absoluteString
         let ogImageURL = extractOgImageURL(from: html, pageURL: url)
         var thumb: Data?
         if let ogImageURL {
@@ -40,7 +40,7 @@ enum WebIngestService {
             throw WebIngestError.emptyContent
         }
 
-        return (text, thumb, host)
+        return (text, thumb, displayHost)
     }
 
     private static func extractOgImageURL(from html: String, pageURL: URL) -> URL? {

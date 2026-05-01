@@ -83,7 +83,9 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
 
         var contextParams = llama_context_default_params()
         contextParams.n_ctx = config.contextWindow
-        contextParams.n_batch = 512
+        // Must be >= largest single llama_decode batch. We pass the whole prompt on the first decode
+        // (`llama_batch_get_one(pBuf, nPrompt)`); n_batch=512 aborted when nPrompt>512 (SIGABRT in llama_decode).
+        contextParams.n_batch = config.contextWindow
 
         let nThreads = max(1, min(8, ProcessInfo.processInfo.processorCount - 2))
         contextParams.n_threads = Int32(nThreads)

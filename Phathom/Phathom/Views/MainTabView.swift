@@ -26,7 +26,7 @@ struct MainTabView: View {
                 }
                 .tag(1)
 
-            AddNewTab()
+            AddNewTab(selectedTab: $selectedTab)
                 .tabItem {
                     Label("Add new", systemImage: "plus")
                 }
@@ -34,8 +34,14 @@ struct MainTabView: View {
         }
         .tint(AppPalette.accent)
         .preferredColorScheme(.dark)
+        .onAppear {
+            ModelManager.validateSelection()
+        }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background || phase == .inactive {
+            if phase == .active {
+                ModelManager.validateSelection()
+                BackgroundPipeline.scheduleForegroundDrain()
+            } else if phase == .background || phase == .inactive {
                 BackgroundPipeline.scheduleAll()
             }
         }

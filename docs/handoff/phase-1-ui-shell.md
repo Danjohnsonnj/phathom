@@ -37,9 +37,9 @@ Concrete example: the mockup shows "LinkSavr" and a FAB button. The decision log
 - **Build, don't plan.** Your job is to produce working code that passes the acceptance criteria. Do not produce planning documents, QA scripts, architectural write-ups, or ask to "draft an approach" before starting. Read the spec, then implement.
 - **Do not invent features.** If something appears in the mockup but is not mentioned in this hand-off document (e.g., a profile avatar, a search history, onboarding screens), it does not exist. Do not build it, stub it, or ask about it.
 - **Do not re-litigate decisions.** The decisions log records choices that have already been debated and resolved. Do not propose alternatives to logged decisions (e.g., suggesting CloudKit, FoundationModels, or a different tab structure). If you believe a decision is causing a technical problem during implementation, state the problem factually and ask the user.
-- **Schema is frozen.** The `ContentItem`, `Tag`, `ChatThread`, and `ChatMessage` models in this document are the final schema for the entire project. Do not add properties, remove properties, rename properties, or change types. If you cannot build a feature without a schema change, stop and escalate.
+- **Schema is frozen** except where **`docs/decisions.md`** explicitly extends it. The models in this document are the contract for the project; the only approved addition to date is **`archivedAt`** on **`ContentItem`** (archive retention). Do not add any **other** properties or change types without escalation.
 - **No third-party dependencies.** Phase 1 uses only Apple frameworks (SwiftUI, SwiftData, Foundation). Do not add any Swift packages, CocoaPods, or other external dependencies.
-- **Stay in your phase.** Do not build, prototype, or "prepare for" Phase 2 or Phase 3 features. No AI integration stubs, no BGTaskScheduler registration, no Llama.cpp references. The Chat, Add New, and Settings tabs are **placeholders** — minimal views with a label, not functional screens.
+- **Stay in your phase.** Do not build, prototype, or "prepare for" Phase 2 or Phase 3 features. No AI integration stubs, no BGTaskScheduler registration, no Llama.cpp references. **Chat** and **Add New** remain **placeholders** (minimal UX). **Settings** must include **Recently Deleted** (see [Archive & Recently Deleted](#archive--recently-deleted-soft-delete)) and basic about/version rows — **not** model management (Phase 2).
 - **Preserve what works.** Do not modify test stubs in `PhathomTests/` or `PhathomUITests/` unless the acceptance criteria require it. Do not change the Xcode project structure (groups, targets, build settings) beyond what is needed to add the specified files.
 
 ### Decision framework — handling unknowns
@@ -63,7 +63,7 @@ The spec doesn't say what should happen in a specific scenario (e.g., empty stat
 **Step 3: Is it a product decision?**
 You've identified something that could reasonably go multiple ways and the choice would change what the user sees or how the app behaves in a non-trivial way.
 - **Action**: **Stop and ask the user.** Frame it as: "The spec doesn't cover [situation]. I see two options: [A] or [B]. [A] is simpler / matches the mockup better / is more conventional. Which do you prefer?" Do not block all other work while waiting — continue with unrelated tasks if possible.
-- Examples that require asking: whether filter pill selection persists across app launches, whether "Archive" removes the item from the list or shows a visual indicator, whether the "Add New" placeholder should actually create real `ContentItem` records.
+- Examples that require asking: whether filter pill selection persists across app launches, whether the "Add New" placeholder should actually create real `ContentItem` records. (**Archive** behavior is **decided** — see [Archive & Recently Deleted](#archive--recently-deleted-soft-delete) and `docs/decisions.md`.)
 
 **Step 4: Is it a structural constraint?**
 You need to change something in the guardrails' "must escalate" list (schema, dependencies, tab structure, navigation hierarchy).
@@ -75,7 +75,7 @@ You need to change something in the guardrails' "must escalate" list (schema, de
 
 When you believe the work is done:
 1. Verify every acceptance criteria checkbox can be checked.
-2. Confirm the app builds without warnings or errors targeting iPhone 16 Pro Simulator.
+2. Confirm the app builds without warnings or errors targeting an **iPhone 16 or newer** Simulator (e.g. iPhone 16 Pro, iPhone 17). For CLI builds, use `-destination 'platform=iOS Simulator,name=…'`; if Xcode reports no matching device, run `xcodebuild -scheme Phathom -showdestinations` and pick a listed iPhone **16 or newer**.
 3. Confirm SwiftUI Previews render for the library and detail screens.
 4. State which acceptance criteria are met and which (if any) are not, with reasons.
 5. List any decisions you made under Steps 1-2 of the decision framework (technical workarounds or ambiguity defaults) so the user can review them.
@@ -131,7 +131,8 @@ Phathom/Phathom/
 │   ├── AddNew/
 │   │   └── AddNewTab.swift      # Placeholder — minimal manual entry form
 │   └── Settings/
-│       └── SettingsTab.swift    # Placeholder — app version, about
+│       ├── SettingsTab.swift        # App version, about, navigation to Recently Deleted
+│       └── RecentlyDeletedView.swift # Recover or permanently delete archived items (48h window)
 └── PhathomApp.swift             # Updated ModelContainer registration
 ```
 
@@ -193,6 +194,8 @@ final class ContentItem {
     var lastProcessedChunk: Int = 0
     var failureReason: String?
     var isArchived: Bool = false
+    /// Set to `Date()` when the user archives; cleared on restore. Used for the 48-hour retention window (see Archive & Recently Deleted).
+    var archivedAt: Date? = nil
     @Relationship(deleteRule: .nullify) var tags: [Tag] = []
 
     init(
@@ -279,6 +282,68 @@ final class ChatMessage {
     }
 }
 ```
+
+---
+
+## Archive & Recently Deleted (soft delete)
+
+**Product behavior (decision: Option B — see [docs/decisions.md](../decisions.md)):** Archiving **removes the item from the Library and all type filters** as if it were deleted from the user's data. The row must not appear in search-on-device lists that mirror the main library (`@Query` must exclude `isArchived == true`). Internally the `ContentItem` remains in SwiftData until **48 hours after `archivedAt`**, after which it is **permanently deleted** by a purge pass.
+
+### Mutations
+
+| Action | `isArchived` | `archivedAt` | Notes |
+|--------|--------------|--------------|--------|
+| User archives | `true` | `Date()` | Immediately after setting, **pop** the navigation stack if archiving from detail so the user returns to the library. |
+| **Undo** (toast, ~5s) | `false` | `nil` | Same session undo; no navigation required if still on library. |
+| **Restore** (Recently Deleted) | `false` | `nil` | User returns item to the library. |
+| **Delete Permanently** (Recently Deleted) | — | — | `modelContext.delete(item)`. |
+| Purge (system) | `true` | `< now − 48h` | Hard-delete matching rows (see below). |
+
+### Library `@Query` predicate
+
+All library lists (including search field filtering **over the main catalog**) must only include **non-archived** items, e.g. `#Predicate<ContentItem> { !$0.isArchived }` combined with existing `contentKind` / text filters.
+
+**Optional UX:** a **swipe action** on a library row ("Archive") performs the same mutation + undo toast — mirrors Mail/Notes and avoids opening detail only to archive.
+
+### Undo toast (immediate recovery)
+
+On archive (from **detail** or **swipe**):
+
+1. Apply the mutation above.
+2. Show a **bottom toast / snackbar** (or `safeAreaInset`) with copy such as **"Archived. You can restore it from Recently Deleted within 2 days."** and a prominent **Undo** action.
+3. **Undo** expires within **~5 seconds** (match iOS Mail-style expectations). Tapping **Undo** sets `isArchived = false` and `archivedAt = nil`. If the user had been popped from detail, **do not** automatically push detail again unless you keep a local flag — simplest acceptable behavior: Undo restores the item **in the library only** (user can tap the row again).
+
+### Settings → Recently Deleted
+
+`RecentlyDeletedView` is pushed from **Settings** (navigation destination or sheet — pick one pattern and use it consistently).
+
+- **`@Query`**: `FetchDescriptor` with predicate `isArchived == true`, sort by `archivedAt` **descending** (newest archives first).
+- **Each row**: thumbnail/title/host (reuse row styling from the library if practical), plus secondary text for **time until permanent deletion**, e.g. **"Permanently deletes in 1 day"**, **"Deletes today"**, derived from `archivedAt!.addingTimeInterval(48 * 3600)` vs `Date()`.
+- **Swipe or trailing actions**: **Restore** (un-archive), **Delete Permanently** (confirm with `confirmationDialog` / alert).
+- **Toolbar (optional):** **Delete All** — only enabled when the list is non-empty; confirm before deleting every archived item immediately.
+- **Empty state:** short explanation — *Nothing in Recently Deleted.*
+
+**Optional:** When `count > 0`, show a **small numeric badge** on the Settings tab or on the "Recently Deleted" row in `SettingsTab` so users know items are pending expulsion.
+
+### Purge expired archives (Phase 1 minimum)
+
+Run a **single efficient fetch** before relying on a "clean" library (and to honor the 48-hour contract without timers):
+
+```swift
+// Pseudocode — adjust for your SwiftData `#Predicate` / optional unwrapping rules
+let retentionSeconds: TimeInterval = 48 * 60 * 60
+let cutoff = Date().addingTimeInterval(-retentionSeconds)
+// Fetch items where isArchived == true AND archivedAt != nil AND archivedAt < cutoff
+// modelContext.delete(each) then save
+```
+
+**When to run:** at least on **`MainTabView.onAppear`** and when the app becomes **active** (`scenePhase == .active` on the root view or app entry). That covers normal use; **Phase 2** duplicates this inside **`BGAppRefreshTask`** so items are purged even if the user does not open the app for days.
+
+**Efficiency:** one fetch + batch delete. No polling. No per-row timers.
+
+### Phase 2 hooks (do not implement in Phase 1)
+
+See [phase-2-pipeline.md](phase-2-pipeline.md): **Spotlight** de-index on archive, re-index on restore when applicable; **background pipeline** must **skip** `isArchived == true` items; **BG refresh** runs the same purge.
 
 ---
 
@@ -450,7 +515,7 @@ Refer to [docs/assets/detail-screen.PNG](../assets/detail-screen.PNG).
 4. **AI Summary section**: section header "AI Summary" (`.headline.bold()`), followed by bullet points. Each bullet is a `Text` with a leading bullet character ("• ") in a `VStack(alignment: .leading)`. If `processingStatus != .completed`, show 3-4 skeleton/redacted placeholder lines.
 5. **Tags section**: header "Tags", then a wrapping horizontal flow of capsule chips. Each chip: rounded rect, label in `.caption.weight(.medium)`. Use a `FlowLayout` or a simple `LazyVGrid` with flexible columns.
 6. **Extracts section**: header "Extracted Key Figures" (keep the mockup's label), bullet-style label · value pairs.
-7. **Action buttons**: horizontal row of rounded-rect buttons — "Read Full Text (AI Parsed)", "Translate", "Archive". These should look like secondary action buttons (outlined or filled secondary style).
+7. **Action buttons**: horizontal row of rounded-rect buttons — "Read Full Text (AI Parsed)", "Translate", **"Archive"** (see [Archive & Recently Deleted](#archive--recently-deleted-soft-delete): sets `isArchived = true`, `archivedAt = Date()`, pops back to library, shows undo toast). These should look like secondary action buttons (outlined or filled secondary style).
 8. **Source Content section**: header "Source Content", collapsed preview of `rawText` (3-4 lines), tappable to expand via `DisclosureGroup` or a "Show more" button.
 
 ---
@@ -589,7 +654,7 @@ struct PhathomApp: App {
 
 Phase 1 is complete when ALL of the following are true:
 
-- [ ] The app compiles and runs in Simulator (iPhone 16 Pro) without errors
+- [ ] The app compiles and runs in Simulator (**iPhone 16 or newer**, e.g. iPhone 16 Pro or iPhone 17) without errors
 - [ ] `Item.swift` and the template `ContentView.swift` are deleted
 - [ ] All four SwiftData models (`ContentItem`, `Tag`, `ChatThread`, `ChatMessage`) are registered in the `ModelContainer`
 - [ ] The tab bar shows 4 tabs: Library (selected by default), Chat, Add new, Settings
@@ -603,7 +668,10 @@ Phase 1 is complete when ALL of the following are true:
 - [ ] The Detail screen shows: hero, domain, title, timestamp, AI Summary bullets, Tags, Extracts, action buttons, source content — matching the mockup layout
 - [ ] The "Visit Site" button appears on the hero for `.web` items
 - [ ] Tags display as horizontally wrapping chips
-- [ ] Chat, Add new, and Settings tabs show placeholder content
+- [ ] **Archive**: tapping Archive on the detail screen removes the item from the library list immediately, pops back to the library, and shows an undo affordance (~5s); **Recently Deleted** under Settings lists archived items with restore / delete permanently and optional countdown copy
+- [ ] **Purge**: expired archived items (`archivedAt` older than 48h, still `isArchived`) are permanently removed when the app becomes active / `MainTabView` appears (see spec — Phase 2 adds BG refresh purge)
+- [ ] Chat and Add new tabs show placeholder content
+- [ ] The Settings tab includes **Recently Deleted** (and basic about/version — model UI is Phase 2)
 - [ ] The app uses system dark mode correctly (no hardcoded colors)
 - [ ] SwiftUI Previews work for the library and detail screens
 
@@ -634,7 +702,7 @@ The implementing agent MAY decide on their own:
 
 The implementing agent MUST escalate / ask before:
 
-- Adding any new SwiftData model properties not in this spec
+- Adding any new SwiftData model properties **not** in this spec **and not** logged in `docs/decisions.md`
 - Adding any third-party Swift packages
 - Changing the tab structure or navigation hierarchy
 - Modifying the `ContentItem` schema in any way

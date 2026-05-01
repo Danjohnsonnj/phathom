@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import MarkdownUI
 
 struct DetailView: View {
     @Bindable var item: ContentItem
@@ -47,6 +48,8 @@ struct DetailView: View {
                         .foregroundStyle(AppPalette.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+                noteRenderedSection
 
                 summarySection
 
@@ -103,8 +106,27 @@ struct DetailView: View {
     }
 
     private var summarySnippet: String? {
+        if item.kind == .note { return nil }
         if let md = item.mediaDescription, !md.isEmpty { return md }
         return item.decodedSummaryBullets.first.map { "Summary, \($0)" }
+    }
+
+    @ViewBuilder
+    private var noteRenderedSection: some View {
+        if item.kind == .note, let raw = item.rawText, !raw.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Note")
+                    .font(.headline.bold())
+                    .foregroundStyle(AppPalette.textPrimary)
+                Markdown(raw)
+                    .markdownTheme(.gitHub)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppPalette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
     }
 
     @ViewBuilder
@@ -183,6 +205,7 @@ struct DetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(AppPalette.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
                 } label: {
                     Text(raw.prefixLinePreview(lineCount: 4))
                         .font(.subheadline)

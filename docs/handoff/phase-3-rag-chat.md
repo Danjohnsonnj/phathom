@@ -84,6 +84,10 @@ When you believe the work is done:
 8. State which acceptance criteria are met and which (if any) are not, with reasons.
 9. List any decisions you made under Steps 1-2 of the decision framework so the user can review them.
 
+### Build and simulator destinations (agents)
+
+For `xcodebuild` and simulator-based tests, use an **iPhone 16 or newer** simulator (for example `-destination 'platform=iOS Simulator,name=iPhone 16'`, **iPhone 16 Pro**, or **iPhone 17**). Current Xcode installs may not ship older device types; if the build fails with “Unable to find a device matching…”, run `xcodebuild -scheme Phathom -showdestinations` and pick a listed iPhone simulator that is **iPhone 16 or newer**.
+
 ---
 
 ## What Exists After Phase 2
@@ -93,7 +97,7 @@ Phase 2 (as implemented) adds:
 - **Llama.cpp**: vendored **`Phathom/vendor/llama/llama.xcframework`**, first-party types in **`Phathom/Phathom/Inference/`** (`LlamaCppRuntime`, `LlamaContentAnalyzer`, `LlamaCppBridge`, `GenerationOptions`, `LlamaInferenceError`). Prompts use the GGUF’s **chat template** via **`startTemplatedUserPrompt`** (Llama-3 Instruct–compatible GGUFs expected).
 - **Model management**: **`Services/ModelManager.swift`**, **`Views/Settings/SettingsTab.swift`** (pick / import / test / links).
 - **Background work**: **`Services/BackgroundPipeline.swift`**, **`Services/WebIngestService.swift`**, **`Services/ThermalMonitor.swift`**. No **embedding vectors** stored yet — **`embedding`** is only a pipeline stage before Llama work.
-- **Spotlight + deep links**: **`Models/ContentItem+Spotlight.swift`**, **`AppIntents/OpenPhathomItemIntent.swift`**, **`Helpers/Notifications+Phathom.swift`**, wired in **`MainTabView`** + **`LibraryTab`** (`NavigationStack` + `NavigationPath`).
+- **Spotlight + deep links**: **`Models/ContentItem+Spotlight.swift`**, **`AppIntents/OpenPhathomItemIntent.swift`**, **`Helpers/Notifications+Phathom.swift`**, wired in **`MainTabView`** + **`LibraryTab`** (`NavigationStack` + `NavigationPath`). **Archive**: de-index when soft-deleted; re-index completed items on restore; **BG refresh** purges archives older than 48h (see [phase-2-pipeline.md](phase-2-pipeline.md) §2D).
 - **Capture**: **`AddNewTab`** persists **`ContentItem`** (web → `pending`; note → `embedding` with `rawText`) and schedules background work.
 
 Chat tab remains a **placeholder**. **`ChatThread`** / **`ChatMessage`** are still unused until Phase 3.
@@ -145,7 +149,8 @@ User selects tags → fetch tagged ContentItems → chunk their rawText
 When the user creates a new chat thread, they select one or more tags. This defines the "scope."
 
 ```swift
-// Fetch all content items matching the selected tags
+// Fetch all content items matching the selected tags.
+// Exclude archived items — they are soft-deleted from the user's library (see docs/decisions.md).
 let tagNames = selectedTags.map(\.name)
 let descriptor = FetchDescriptor<ContentItem>(
     predicate: #Predicate<ContentItem> { item in

@@ -142,4 +142,9 @@ On an iPhone 16 Pro, the Neural Engine is powerful but can generate heat.
 | Capture | Share Extension | User Action    | Save URL/Image to SwiftData.      |
 | Ingest  | BGAppRefresh    | System-driven  | Scrape text, create Embeddings.   |
 | Analyze | BGProcessing    | Charging/Night | Llama.cpp Summarization & Vision. |
-| Cleanup | Foreground      | App Launch     | Finalize tags and refresh the UI. |
+| Cleanup | Foreground      | App Launch     | Purge **expired archived** items (48h after `archivedAt`); finalize tags; refresh UI. |
+| Cleanup | BGAppRefresh    | System-driven  | Same purge as foreground so archives expire without opening the app. |
+
+### 6. Archive retention (SwiftData)
+
+`ContentItem` carries **`isArchived`** and **`archivedAt`**. **Foreground** and **`BGAppRefresh`** run a single-query purge of records archived longer than **48 hours**. **Spotlight** entries are removed when archiving and restored when a **completed** item is un-archived. Background **ingest/analyze** skips archived rows. Spec: [docs/handoff/phase-1-ui-shell.md](handoff/phase-1-ui-shell.md), [docs/handoff/phase-2-pipeline.md](handoff/phase-2-pipeline.md) §2D, [docs/decisions.md](decisions.md).

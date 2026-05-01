@@ -3,10 +3,17 @@ import UniformTypeIdentifiers
 
 struct SettingsContent: View {
     @State private var modelFiles: [URL] = []
-    @State private var testOutput: String?
-    @State private var testRunning = false
+    @State private var testPhase: TestPhase = .idle
     @State private var showFileImporter = false
     @State private var importerError: String?
+    @State private var showTestResponse = false
+
+    enum TestPhase {
+        case idle
+        case running
+        case succeeded(summary: String, raw: String)
+        case failed(message: String)
+    }
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -45,6 +52,8 @@ struct SettingsContent: View {
                     ForEach(modelFiles, id: \.self) { url in
                         Button {
                             ModelManager.selectedModelURL = url
+                            testPhase = .idle
+                            showTestResponse = false
                         } label: {
                             HStack {
                                 Text(url.lastPathComponent)
@@ -61,17 +70,37 @@ struct SettingsContent: View {
                 Button("Test selected model") {
                     runModelTest()
                 }
-                .disabled(testRunning || ModelManager.selectedModelURL == nil)
+                .disabled(isTestRunning || ModelManager.selectedModelURL == nil)
 
-                if testRunning {
-                    Text("Running inference…")
+                switch testPhase {
+                case .idle:
+                    EmptyView()
+                case .running:
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Running test inference…")
+                            .font(.footnote)
+                            .foregroundStyle(AppPalette.textSecondary)
+                    }
+                case .succeeded(let summary, let raw):
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(summary, systemImage: "checkmark.circle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.green)
+                        DisclosureGroup("Show response", isExpanded: $showTestResponse) {
+                            Text(raw)
+                                .font(.footnote)
+                                .foregroundStyle(AppPalette.textSecondary)
+                                .textSelection(.enabled)
+                                .padding(.top, 6)
+                        }
                         .font(.footnote)
-                        .foregroundStyle(AppPalette.textSecondary)
-                } else if let testOutput {
-                    Text(testOutput)
+                    }
+                case .failed(let message):
+                    Label(message, systemImage: "xmark.circle.fill")
                         .font(.footnote)
-                        .foregroundStyle(AppPalette.textSecondary)
-                        .textSelection(.enabled)
+                        .foregroundStyle(.red)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -155,6 +184,8 @@ struct SettingsContent: View {
             }
             try FileManager.default.copyItem(at: sourceURL, to: dest)
             ModelManager.selectedModelURL = dest
+            testPhase = .idle
+            showTestResponse = false
             refreshModels()
         } catch {
             importerError = error.localizedDescription
@@ -163,8 +194,8 @@ struct SettingsContent: View {
 
     private func runModelTest() {
         guard let path = ModelManager.selectedModelURL?.path else { return }
-        testRunning = true
-        testOutput = nil
+        testPhase = .running
+        showTestResponse = false
         Task {
             let analyzer = LlamaContentAnalyzer()
             do {
@@ -172,18 +203,26 @@ struct SettingsContent: View {
                 let text = try await analyzer.runQuickTest()
                 await analyzer.unloadModel()
                 await MainActor.run {
-                    testOutput = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? "(empty response)"
-                        : text
-                    testRunning = false
+                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let response = trimmed.isEmpty ? "(empty response)" : trimmed
+                    testPhase = .succeeded(
+                        summary: "Model responded successfully.",
+                        raw: response
+                    )
                 }
             } catch {
                 await MainActor.run {
-                    testOutput = error.localizedDescription
-                    testRunning = false
+                    testPhase = .failed(message: error.localizedDescription)
                 }
             }
         }
+    }
+
+    private var isTestRunning: Bool {
+        if case .running = testPhase {
+            return true
+        }
+        return false
     }
 }
 

@@ -35,7 +35,7 @@ Read before starting:
 - **Build, don't plan.** Produce working code that passes the acceptance criteria. Do not produce planning documents, evaluation write-ups, or comparison matrices. The AI engine decision is already made — Llama.cpp. Do not revisit it.
 - **Do not re-litigate decisions.** The Llama.cpp-only decision, the user-provided model pattern, and the Llama-3 template-only constraint are all final. Do not suggest FoundationModels, bundled models, or multi-template support. If a logged decision causes a concrete implementation problem, state the problem and escalate.
 - **Do not break Phase 1.** The library, detail screen, filter pills, seed data, and tab structure from Phase 1 must continue to work exactly as they did. Run the app after your changes and verify Phase 1 functionality is intact. If a Phase 1 pattern needs modification (e.g., adding BG task scheduling to `PhathomApp.swift`), make the minimum change and do not refactor surrounding code.
-- **Schema is frozen.** Do not add, remove, or rename properties on `ContentItem`, `Tag`, `ChatThread`, or `ChatMessage`. The only new models you may propose are for embedding/vector storage — and that requires escalation.
+- **Schema is frozen** except where **`docs/decisions.md`** explicitly extends **`ContentItem`** (currently: **`archivedAt`** for archive retention). Do not add, remove, or rename **other** properties on `ContentItem`, `Tag`, `ChatThread`, or `ChatMessage`. The only other new models you may propose are for embedding/vector storage — and that requires escalation.
 - **Embedded Llama.cpp only (Intrai-style).** Link a vendored **`llama.xcframework`** built from upstream **llama.cpp**; use **`import llama`** and a **first-party** Swift bridge in the app target — **no** third-party Swift packages that ship or wrap Llama.cpp (e.g. `mattt/llama.swift`, `pgorzelany/swift-llama-cpp`). Do not add any **other** third-party packages without escalation.
 - **Stay in your phase.** Do not build RAG chat, conversation starters, or any Phase 3 features. The Chat tab remains a placeholder. Do not "prepare for Phase 3" by adding services or abstractions that aren't needed to pass Phase 2's acceptance criteria.
 - **Model lifecycle is critical.** Every code path that loads a llama.cpp model must unload it — including error paths, cancellation paths, and expiration handler paths. Memory leaks in background tasks cause iOS to kill the app.
@@ -81,6 +81,10 @@ When you believe the work is done:
 6. Append any new decisions to [docs/decisions.md](../decisions.md).
 7. State which acceptance criteria are met and which (if any) are not, with reasons.
 8. List any decisions you made under Steps 1-2 of the decision framework so the user can review them.
+
+### Build and simulator destinations (agents)
+
+For `xcodebuild` and simulator-based tests, use an **iPhone 16 or newer** simulator (for example `-destination 'platform=iOS Simulator,name=iPhone 16'`, **iPhone 16 Pro**, or **iPhone 17**). Current Xcode installs may not ship older device types; if the build fails with “Unable to find a device matching…”, run `xcodebuild -scheme Phathom -showdestinations` and pick a listed iPhone simulator that is **iPhone 16 or newer**.
 
 ---
 
@@ -570,13 +574,40 @@ Handle Spotlight via **`MainTabView`**: `onContinueUserActivity(CSSearchableItem
 
 ---
 
+## 2D. Archive retention, Spotlight, and background purge
+
+**Source of truth:** [docs/decisions.md](../decisions.md) (soft delete / Option B) and [phase-1-ui-shell.md](phase-1-ui-shell.md) (UI — Recently Deleted, undo toast). Phase 2 wires **system-facing** behavior so archived items behave like deleted content outside the app.
+
+### Pipeline and ingest
+
+- **Never process archived items:** all background work (ingest scrape, embedding queue, Llama analyze) must **skip** any `ContentItem` with `isArchived == true`. If the user archives while an item is mid-pipeline, treat it as **out of the active queue** — do not write new AI fields or advance `processingStatus` for that record until/unless it is restored.
+- **Race:** if a task already holds a non-archived item and the user archives it mid-flight, finish the current step safely **or** bail early after persisting a consistent state; do **not** call `indexInSpotlight()` for that item if it ends the step still archived.
+
+### Spotlight
+
+- **On archive** (whenever `isArchived` becomes `true`): call **`CSSearchableIndex.default().deleteSearchableItems(withIdentifiers: [id.uuidString])`** (same `uniqueIdentifier` used when indexing) so the item disappears from system search immediately.
+- **On restore** from Recently Deleted: if `processingStatus == .completed`, call the existing **`indexInSpotlight()`** (or equivalent) again so the item can be found. If not completed, omit indexing until it completes later.
+
+Implement these calls in the same code path that mutates `isArchived` / `archivedAt` (shared helper recommended) so UI and Spotlight stay consistent.
+
+### Purge expired archives
+
+Duplicate the **Phase 1** purge logic (single fetch: `isArchived && archivedAt != nil && archivedAt < now - 48h`, then delete):
+
+- Invoke from **`BGAppRefreshTask`** (`com.phathom.ingest` or a dedicated early step in that handler) **before** processing new ingest work, so retention is honored even when the user rarely opens the app.
+
+Optional shared implementation: e.g. `ArchiveRetention.purgeExpired(in: ModelContext)` called from Phase 1 foreground hooks and from this BG task.
+
+---
+
 ## What exists after Phase 2 (implementation)
 
 - **`Phathom/vendor/llama/llama.xcframework`** linked on the app target; **`OTHER_LDFLAGS = -lc++`**; inference code uses **`import llama`** under **`#if canImport(llama)`**.
 - **Inference**: `LlamaCppRuntime` + **`LlamaContentAnalyzer`** (templated user prompts for summarize / tags / extracts; JSON array parsing with graceful nil fields).
 - **Model UX**: `ModelManager` + **Settings** (list Documents `.gguf`, import, Hugging Face links, test inference).
 - **Background**: `BackgroundPipeline` registers `com.phathom.ingest` (refresh) and `com.phathom.analyze` (processing). **`Phase2-Info.plist`** merges permitted identifiers + `fetch` / `processing` background modes with the generated app Info.plist. Ingest scrapes pending **web** items; analyze runs Llama stages on **embedding** items. **`scheduleAll()`** runs when the app moves to **inactive/background** and after saving a new item.
-- **Spotlight**: `ContentItem.indexInSpotlight()` after **completed**; deep link + **`OpenPhathomItemIntent`** as above.
+- **Spotlight**: `ContentItem.indexInSpotlight()` after **completed**; deep link + **`OpenPhathomItemIntent`** as above; **de-index** when an item is **archived**, **re-index** on **restore** if **completed**.
+- **Archive retention**: BG refresh runs **purge** of items archived **≥ 48 hours**; pipeline **skips** `isArchived` items.
 - **Embeddings**: not persisted in SwiftData; `.embedding` is a queue state before Llama analysis.
 
 ---
@@ -597,7 +628,9 @@ Phase 2 is complete when:
 - [ ] The model is loaded at task start and unloaded at task end (no persistent memory hold)
 - [ ] Thermal throttling pauses processing when the device is hot
 - [ ] Completed items appear in Spotlight search with title, summary, and tags
-- [ ] Tapping a Spotlight result opens the app directly to that item's detail screen
+- [ ] **Archive + Spotlight**: archiving removes the item from Spotlight; restoring a completed item re-adds it; deep links do not surface stale archived IDs as searchable entries
+- [ ] **Archive + pipeline**: background ingest/analyze **ignores** `isArchived == true` items (no status advancement while archived)
+- [ ] **`BGAppRefreshTask`** runs **expired-archive purge** (48h after `archivedAt`) so data is removed without opening the app
 - [ ] State checkpointing works: killing the app mid-processing and relaunching resumes where it left off
 - [ ] JSON parsing failures for LLM output degrade gracefully (partial data, not `.failed` status)
 - [ ] The existing seed data and UI from Phase 1 still work correctly
@@ -629,6 +662,6 @@ The implementing agent MAY decide:
 The implementing agent MUST escalate / ask before:
 - Adding any new SwiftData models (e.g., `TextChunk` for embeddings)
 - Adding any **third-party** Swift packages (Phathom already uses **only** Apple frameworks **plus** the embedded **`llama.xcframework`** — any SPM/CocoaPods addition requires escalation)
-- Changing any existing SwiftData model properties from Phase 1
+- Changing any existing SwiftData model properties **except** those explicitly extended in **`docs/decisions.md`** (currently **`archivedAt`** on **`ContentItem`** only)
 - Changing the processing state enum values
 - Implementing support for non-Llama-3 chat templates (defer to future)

@@ -22,6 +22,21 @@ private final class CancelFlagBox: @unchecked Sendable {
     }
 }
 
+private enum SingleAnalyzeOutcome: Sendable {
+    case noItemToProcess
+    case finished(taskSuccess: Bool)
+    case cancelled
+}
+
+/// Serializes ingest, analyze, and foreground drains so BG and UI-triggered work never double-process the same item.
+private actor PipelineSerialGate {
+    static let shared = PipelineSerialGate()
+
+    func perform<R: Sendable>(_ work: @Sendable () async -> R) async -> R {
+        await work()
+    }
+}
+
 enum BackgroundPipeline: Sendable {
     nonisolated(unsafe) private static var containerRef: ModelContainer?
 
@@ -39,6 +54,14 @@ enum BackgroundPipeline: Sendable {
 
     nonisolated static func modelContainerOrNil() -> ModelContainer? {
         containerRef
+    }
+
+    nonisolated static func scheduleForegroundDrain() {
+        Task(priority: .utility) {
+            await PipelineSerialGate.shared.perform {
+                await runForegroundDrain()
+            }
+        }
     }
 
     nonisolated static func scheduleIngest() {
@@ -63,6 +86,85 @@ enum BackgroundPipeline: Sendable {
         scheduleAnalyze()
     }
 
+    /// After a crash mid-inference, rows can stay in `summarizing` / `tagging` / `scraping` forever because
+    /// `processNextEmbeddingItem` only fetches `embedding`. Rewind those so the next drain can finish them.
+    nonisolated private static func reviveAbortedPipelineItems(modelContainer: ModelContainer) {
+        let ctx = ModelContext(modelContainer)
+        let llmStuck = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { item in
+                item.processingStatus == "summarizing" || item.processingStatus == "tagging"
+            }
+        )
+        if let items = try? ctx.fetch(llmStuck) {
+            for item in items {
+                item.processingStatus = ProcessingStatus.embedding.rawValue
+                item.processingDetail = "Preparing analysis…"
+            }
+        }
+        let scraping = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { item in
+                item.processingStatus == "scraping"
+            }
+        )
+        if let items = try? ctx.fetch(scraping) {
+            for item in items {
+                guard item.contentKind == ContentKind.web.rawValue else { continue }
+                if item.rawText != nil {
+                    item.processingStatus = ProcessingStatus.embedding.rawValue
+                    item.processingDetail = "Preparing analysis…"
+                } else {
+                    item.processingStatus = ProcessingStatus.pending.rawValue
+                    item.processingDetail = "Queued for capture"
+                }
+            }
+        }
+        try? ctx.save()
+    }
+
+    /// Foreground drain body (call only inside `PipelineSerialGate.shared.perform`).
+    nonisolated static func runForegroundDrain() async {
+        guard let container = containerRef else { return }
+
+        reviveAbortedPipelineItems(modelContainer: container)
+
+        while true {
+            if ThermalMonitor.shouldThrottle {
+                scheduleAll()
+                return
+            }
+
+            let didIngest = await processNextPendingWebItem(modelContainer: container) { false }
+            if didIngest {
+                scheduleAnalyze()
+                continue
+            }
+
+            guard let modelPath = ModelManager.selectedModelURL?.path,
+                  FileManager.default.isReadableFile(atPath: modelPath) else {
+                scheduleAll()
+                return
+            }
+
+            let session = AnalyzeLlamaSession()
+            let outcome = await processNextEmbeddingItem(
+                modelContainer: container,
+                session: session,
+                modelPath: modelPath,
+                cancel: { false }
+            )
+
+            switch outcome {
+            case .noItemToProcess:
+                return
+            case .cancelled:
+                return
+            case .finished:
+                scheduleAnalyze()
+                continue
+            }
+        }
+    }
+
     nonisolated private static func handleIngest(task: BGAppRefreshTask) {
         guard let container = containerRef else {
             task.setTaskCompleted(success: false)
@@ -81,46 +183,13 @@ enum BackgroundPipeline: Sendable {
         }
 
         Task.detached {
-            let ctx = ModelContext(container)
-            var limited = FetchDescriptor<ContentItem>(
-                predicate: #Predicate<ContentItem> { item in
-                    item.processingStatus == "pending"
-                },
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-            )
-            limited.fetchLimit = 4
-
-            guard let items = try? ctx.fetch(limited) else {
-                task.setTaskCompleted(success: false)
-                scheduleIngest()
-                return
-            }
-
-            let webItems = items.filter { $0.contentKind == ContentKind.web.rawValue && $0.originalURL != nil }
-            var processed = 0
-            for item in webItems.prefix(3) {
-                guard !cancelFlag.value, processed < 3 else { break }
-                if item.originalURL == nil { continue }
-
-                item.processingStatus = ProcessingStatus.scraping.rawValue
-                item.processingDetail = "Fetching article…"
-                try? ctx.save()
-
-                do {
-                    guard let url = item.originalURL else { continue }
-                    let result = try await WebIngestService.scrape(url: url)
-                    item.rawText = result.text
-                    if let t = result.thumbnailData { item.thumbnailData = t }
-                    item.displayHost = result.displayHost
-                    item.processingStatus = ProcessingStatus.embedding.rawValue
-                    item.processingDetail = "Preparing analysis…"
-                    try? ctx.save()
+            await PipelineSerialGate.shared.perform {
+                reviveAbortedPipelineItems(modelContainer: container)
+                var processed = 0
+                while !cancelFlag.value, processed < 3 {
+                    let did = await processNextPendingWebItem(modelContainer: container) { cancelFlag.value }
+                    if !did { break }
                     processed += 1
-                } catch {
-                    item.processingStatus = ProcessingStatus.failed.rawValue
-                    item.failureReason = error.localizedDescription
-                    item.processingDetail = nil
-                    try? ctx.save()
                 }
             }
 
@@ -158,123 +227,180 @@ enum BackgroundPipeline: Sendable {
         }
 
         Task.detached {
-            let ctx = ModelContext(container)
-            var desc = FetchDescriptor<ContentItem>(
-                predicate: #Predicate<ContentItem> { item in
-                    item.processingStatus == "embedding"
-                },
-                sortBy: [SortDescriptor(\.createdAt, order: .forward)]
-            )
-            desc.fetchLimit = 1
+            let outcome = await PipelineSerialGate.shared.perform {
+                reviveAbortedPipelineItems(modelContainer: container)
+                return await processNextEmbeddingItem(
+                    modelContainer: container,
+                    session: session,
+                    modelPath: modelPath,
+                    cancel: { cancelFlag.value }
+                )
+            }
 
-            guard let item = try? ctx.fetch(desc).first else {
+            switch outcome {
+            case .noItemToProcess:
                 task.setTaskCompleted(success: true)
-                scheduleAnalyze()
-                return
-            }
-
-            if cancelFlag.value {
+            case .cancelled:
                 task.setTaskCompleted(success: false)
-                scheduleAnalyze()
-                return
-            }
-
-            guard let raw = item.rawText, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                item.processingStatus = ProcessingStatus.failed.rawValue
-                item.failureReason = "No article text to analyze."
-                try? ctx.save()
-                task.setTaskCompleted(success: false)
-                scheduleAnalyze()
-                return
-            }
-
-            let article = String(raw.prefix(12_000))
-
-            do {
-                try await session.load(path: modelPath)
-                if cancelFlag.value {
-                    await session.unload()
-                    checkpointAfterCancel(item: item)
-                    try? ctx.save()
-                    task.setTaskCompleted(success: false)
-                    scheduleAnalyze()
-                    return
-                }
-
-                item.processingStatus = ProcessingStatus.summarizing.rawValue
-                item.processingDetail = "Generating summary…"
-                try? ctx.save()
-
-                let bullets = try await session.summarize(article)
-                if bullets.isEmpty {
-                    item.summaryBullets = nil
-                } else {
-                    item.encodeSummaryBullets(bullets)
-                }
-                try? ctx.save()
-
-                if cancelFlag.value {
-                    await session.unload()
-                    checkpointAfterCancel(item: item)
-                    try? ctx.save()
-                    task.setTaskCompleted(success: false)
-                    scheduleAnalyze()
-                    return
-                }
-
-                item.processingStatus = ProcessingStatus.tagging.rawValue
-                item.processingDetail = "Auto-tagging…"
-                try? ctx.save()
-
-                let tagNames = try await session.tags(article)
-                for tagName in tagNames {
-                    let td = FetchDescriptor<Tag>(predicate: #Predicate<Tag> { $0.name == tagName })
-                    let existing = try? ctx.fetch(td).first
-                    let tag = existing ?? Tag(name: tagName)
-                    if existing == nil { ctx.insert(tag) }
-                    if !item.tags.contains(where: { $0.name == tag.name }) {
-                        item.tags.append(tag)
-                    }
-                }
-                try? ctx.save()
-
-                if cancelFlag.value {
-                    await session.unload()
-                    checkpointAfterCancel(item: item)
-                    try? ctx.save()
-                    task.setTaskCompleted(success: false)
-                    scheduleAnalyze()
-                    return
-                }
-
-                item.processingDetail = "Extracting key information…"
-                try? ctx.save()
-
-                let extracts = try await session.extracts(article)
-                if extracts.isEmpty {
-                    item.extracts = nil
-                } else {
-                    item.encodeExtracts(extracts)
-                }
-
-                item.processingStatus = ProcessingStatus.completed.rawValue
-                item.processingDetail = nil
-                item.failureReason = nil
-                try? ctx.save()
-
-                item.indexInSpotlight()
-
-                await session.unload()
-                task.setTaskCompleted(success: true)
-            } catch {
-                await session.unload()
-                item.processingStatus = ProcessingStatus.failed.rawValue
-                item.failureReason = error.localizedDescription
-                try? ctx.save()
-                task.setTaskCompleted(success: false)
+            case .finished(let taskSuccess):
+                task.setTaskCompleted(success: taskSuccess)
             }
 
             scheduleAnalyze()
+        }
+    }
+
+    nonisolated private static func processNextPendingWebItem(
+        modelContainer: ModelContainer,
+        cancel: @Sendable @escaping () -> Bool
+    ) async -> Bool {
+        let ctx = ModelContext(modelContainer)
+        var desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { item in
+                item.processingStatus == "pending" && item.contentKind == "web"
+            },
+            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+        )
+        desc.fetchLimit = 1
+
+        guard let item = try? ctx.fetch(desc).first,
+              item.originalURL != nil else {
+            return false
+        }
+
+        if cancel() { return false }
+
+        item.processingStatus = ProcessingStatus.scraping.rawValue
+        item.processingDetail = "Fetching article…"
+        try? ctx.save()
+
+        do {
+            guard let url = item.originalURL else { return true }
+            let result = try await WebIngestService.scrape(url: url)
+            item.rawText = result.text
+            if let t = result.thumbnailData { item.thumbnailData = t }
+            item.displayHost = result.displayHost
+            item.processingStatus = ProcessingStatus.embedding.rawValue
+            item.processingDetail = "Preparing analysis…"
+            try? ctx.save()
+        } catch {
+            item.processingStatus = ProcessingStatus.failed.rawValue
+            item.failureReason = error.localizedDescription
+            item.processingDetail = nil
+            try? ctx.save()
+        }
+
+        return true
+    }
+
+    nonisolated private static func processNextEmbeddingItem(
+        modelContainer: ModelContainer,
+        session: AnalyzeLlamaSession,
+        modelPath: String,
+        cancel: @Sendable @escaping () -> Bool
+    ) async -> SingleAnalyzeOutcome {
+        let ctx = ModelContext(modelContainer)
+        var desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { item in
+                item.processingStatus == "embedding"
+            },
+            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+        )
+        desc.fetchLimit = 1
+
+        guard let item = try? ctx.fetch(desc).first else {
+            return .noItemToProcess
+        }
+
+        if cancel() {
+            return .cancelled
+        }
+
+        guard let raw = item.rawText, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            item.processingStatus = ProcessingStatus.failed.rawValue
+            item.failureReason = "No article text to analyze."
+            try? ctx.save()
+            return .finished(taskSuccess: false)
+        }
+
+        let article = String(raw.prefix(12_000))
+
+        do {
+            try await session.load(path: modelPath)
+            if cancel() {
+                await session.unload()
+                checkpointAfterCancel(item: item)
+                try? ctx.save()
+                return .cancelled
+            }
+
+            item.processingStatus = ProcessingStatus.summarizing.rawValue
+            item.processingDetail = "Generating summary…"
+            try? ctx.save()
+
+            let bullets = try await session.summarize(article)
+            if bullets.isEmpty {
+                item.summaryBullets = nil
+            } else {
+                item.encodeSummaryBullets(bullets)
+            }
+            try? ctx.save()
+
+            if cancel() {
+                await session.unload()
+                checkpointAfterCancel(item: item)
+                try? ctx.save()
+                return .cancelled
+            }
+
+            item.processingStatus = ProcessingStatus.tagging.rawValue
+            item.processingDetail = "Auto-tagging…"
+            try? ctx.save()
+
+            let tagNames = try await session.tags(article)
+            for tagName in tagNames {
+                let td = FetchDescriptor<Tag>(predicate: #Predicate<Tag> { $0.name == tagName })
+                let existing = try? ctx.fetch(td).first
+                let tag = existing ?? Tag(name: tagName)
+                if existing == nil { ctx.insert(tag) }
+                if !item.tags.contains(where: { $0.name == tag.name }) {
+                    item.tags.append(tag)
+                }
+            }
+            try? ctx.save()
+
+            if cancel() {
+                await session.unload()
+                checkpointAfterCancel(item: item)
+                try? ctx.save()
+                return .cancelled
+            }
+
+            item.processingDetail = "Extracting key information…"
+            try? ctx.save()
+
+            let extracts = try await session.extracts(article)
+            if extracts.isEmpty {
+                item.extracts = nil
+            } else {
+                item.encodeExtracts(extracts)
+            }
+
+            item.processingStatus = ProcessingStatus.completed.rawValue
+            item.processingDetail = nil
+            item.failureReason = nil
+            try? ctx.save()
+
+            item.indexInSpotlight()
+
+            await session.unload()
+            return .finished(taskSuccess: true)
+        } catch {
+            await session.unload()
+            item.processingStatus = ProcessingStatus.failed.rawValue
+            item.failureReason = error.localizedDescription
+            try? ctx.save()
+            return .finished(taskSuccess: false)
         }
     }
 
