@@ -2,11 +2,18 @@ import SwiftData
 import SwiftUI
 
 struct LibraryTab: View {
+    @Binding var deepLinkItemID: UUID?
+
     @Query(sort: \ContentItem.createdAt, order: .reverse)
     private var items: [ContentItem]
 
     @State private var filterKind: ContentKind?
     @State private var searchTapped = false
+    @State private var navPath = NavigationPath()
+
+    init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
+        _deepLinkItemID = deepLinkItemID
+    }
 
     private var filteredItems: [ContentItem] {
         guard let filterKind else { return items }
@@ -14,7 +21,7 @@ struct LibraryTab: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Recent items")
@@ -33,9 +40,7 @@ struct LibraryTab: View {
                     } else {
                         LazyVStack(spacing: 12) {
                             ForEach(filteredItems, id: \.id) { item in
-                                NavigationLink {
-                                    DetailView(item: item)
-                                } label: {
+                                NavigationLink(value: item.id) {
                                     ContentCardRow(item: item)
                                 }
                                 .buttonStyle(.plain)
@@ -49,6 +54,11 @@ struct LibraryTab: View {
             .background(AppPalette.background)
             .navigationTitle("Recent Items")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: UUID.self) { id in
+                if let item = items.first(where: { $0.id == id }) {
+                    DetailView(item: item)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -78,6 +88,11 @@ struct LibraryTab: View {
             } message: {
                 Text("Search is not available in this build.")
             }
+        }
+        .onChange(of: deepLinkItemID) { _, newValue in
+            guard let id = newValue else { return }
+            navPath.append(id)
+            deepLinkItemID = nil
         }
     }
 }

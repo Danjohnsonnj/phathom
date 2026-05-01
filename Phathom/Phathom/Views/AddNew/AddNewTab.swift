@@ -1,9 +1,12 @@
+import SwiftData
 import SwiftUI
 
 struct AddNewTab: View {
+    @Environment(\.modelContext) private var modelContext
+
     @State private var title = ""
     @State private var urlString = ""
-    @State private var showSaveNotice = false
+    @State private var saveError: String?
 
     var body: some View {
         NavigationStack {
@@ -18,7 +21,7 @@ struct AddNewTab: View {
 
                 Section {
                     Button("Save") {
-                        showSaveNotice = true
+                        saveItem()
                     }
                     .foregroundStyle(AppPalette.accent)
                 }
@@ -28,11 +31,43 @@ struct AddNewTab: View {
             .tint(AppPalette.accent)
             .foregroundStyle(AppPalette.textPrimary)
             .navigationTitle("Add new")
-            .alert("Not saved", isPresented: $showSaveNotice) {
+            .alert("Could not save", isPresented: Binding(
+                get: { saveError != nil },
+                set: { if !$0 { saveError = nil } }
+            )) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Capturing new items will be available in a future build.")
+                Text(saveError ?? "")
             }
+        }
+    }
+
+    private func saveItem() {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let url = URL(string: trimmedURL), !trimmedURL.isEmpty, url.scheme != nil {
+            let item = ContentItem(contentKind: .web, originalURL: url)
+            item.title = trimmedTitle.isEmpty ? (url.host ?? trimmedURL) : trimmedTitle
+            item.processingStatus = ProcessingStatus.pending.rawValue
+            item.processingDetail = "Queued for capture"
+            modelContext.insert(item)
+        } else {
+            let item = ContentItem(contentKind: .note)
+            item.title = trimmedTitle.isEmpty ? "Untitled note" : trimmedTitle
+            item.rawText = trimmedTitle.isEmpty ? "Empty note" : trimmedTitle
+            item.processingStatus = ProcessingStatus.embedding.rawValue
+            item.processingDetail = "Preparing analysis…"
+            modelContext.insert(item)
+        }
+
+        do {
+            try modelContext.save()
+            title = ""
+            urlString = ""
+            BackgroundPipeline.scheduleAll()
+        } catch {
+            saveError = error.localizedDescription
         }
     }
 }

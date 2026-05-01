@@ -25,6 +25,10 @@ struct PhathomApp: App {
         }
     }()
 
+    init() {
+        BackgroundPipeline.register(modelContainer: sharedModelContainer)
+    }
+
     var body: some Scene {
         WindowGroup {
             MainTabView()

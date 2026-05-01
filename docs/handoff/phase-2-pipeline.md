@@ -4,7 +4,7 @@
 
 ## Project Snapshot
 
-**Phathom** is a local-only iOS personal brain app. Phase 1 built the UI shell — a TabView with Library (list + detail), Chat (placeholder), Add New, and Settings tabs, backed by a complete SwiftData schema with seed data.
+**Phathom** is a local-only iOS personal brain app. Phase 1 built the UI shell — a TabView with Library (list + detail, Settings reachable from the library toolbar), Chat (placeholder), and Add New, backed by a complete SwiftData schema with seed data.
 
 - **Platform**: iOS 18+, Swift 5, SwiftUI, SwiftData
 - **Storage**: Local-only — no CloudKit
@@ -36,7 +36,7 @@ Read before starting:
 - **Do not re-litigate decisions.** The Llama.cpp-only decision, the user-provided model pattern, and the Llama-3 template-only constraint are all final. Do not suggest FoundationModels, bundled models, or multi-template support. If a logged decision causes a concrete implementation problem, state the problem and escalate.
 - **Do not break Phase 1.** The library, detail screen, filter pills, seed data, and tab structure from Phase 1 must continue to work exactly as they did. Run the app after your changes and verify Phase 1 functionality is intact. If a Phase 1 pattern needs modification (e.g., adding BG task scheduling to `PhathomApp.swift`), make the minimum change and do not refactor surrounding code.
 - **Schema is frozen.** Do not add, remove, or rename properties on `ContentItem`, `Tag`, `ChatThread`, or `ChatMessage`. The only new models you may propose are for embedding/vector storage — and that requires escalation.
-- **One llama.cpp wrapper only.** Pick either `mattt/llama.swift` or `pgorzelany/swift-llama-cpp`. Do not integrate both. Do not add any other third-party packages without escalation.
+- **Embedded Llama.cpp only (Intrai-style).** Link a vendored **`llama.xcframework`** built from upstream **llama.cpp**; use **`import llama`** and a **first-party** Swift bridge in the app target — **no** third-party Swift packages that ship or wrap Llama.cpp (e.g. `mattt/llama.swift`, `pgorzelany/swift-llama-cpp`). Do not add any **other** third-party packages without escalation.
 - **Stay in your phase.** Do not build RAG chat, conversation starters, or any Phase 3 features. The Chat tab remains a placeholder. Do not "prepare for Phase 3" by adding services or abstractions that aren't needed to pass Phase 2's acceptance criteria.
 - **Model lifecycle is critical.** Every code path that loads a llama.cpp model must unload it — including error paths, cancellation paths, and expiration handler paths. Memory leaks in background tasks cause iOS to kill the app.
 - **After completing work, update the next phase.** Fill in the `[TBD after Phase 1]` sections in this document with actual file paths and patterns. Then fill in the `What Exists After Phase 2` section in [docs/handoff/phase-3-rag-chat.md](phase-3-rag-chat.md). Append any new decisions to [docs/decisions.md](../decisions.md).
@@ -47,7 +47,7 @@ You will encounter situations this spec does not explicitly cover. Use this orde
 
 **Step 1: Is it a technical blocker?**
 The spec says to do X but X doesn't compile, the llama.cpp API has changed, or an iOS API behaves unexpectedly.
-- **Action**: Find the closest equivalent that achieves the same result. For llama.cpp API changes, check the wrapper's README/examples first. For iOS API changes, use Apple's recommended replacement. Note what you changed and why in a code comment.
+- **Action**: Find the closest equivalent that achieves the same result. For llama.cpp API changes, consult the **linked XCFramework headers**, upstream **llama.cpp** docs/examples, and a known-good reference (e.g. Intrai `LlamaCppRuntime`) before adapting calls. For iOS API changes, use Apple's recommended replacement. Note what you changed and why in a code comment.
 - Example: if `llama_model_load_from_file` has a different signature in the current XCFramework version, adapt the call to match. If `BGTaskScheduler` registration requires a different pattern on the target SDK, adjust accordingly.
 
 **Step 2: Is it an ambiguity gap?**
@@ -102,15 +102,22 @@ When you believe the work is done:
 
 ## What Exists After Phase 1
 
-`[TBD after Phase 1 — update this section with actual file tree, model paths, and any deviations from the Phase 1 spec]`
+Implementation lives under **`Phathom/Phathom/`** (Xcode synchronized group). Notable locations:
+
+- **Models**: `Models/ContentItem.swift`, `Tag.swift`, `ChatThread.swift`, `ChatMessage.swift`, `Enums.swift`
+- **Library & detail**: `Views/Library/`, `Views/Detail/`
+- **Settings (sheet)**: `Views/Settings/SettingsTab.swift` — opened from Library toolbar, not a tab
+- **Tabs**: `MainTabView.swift` — Library, Chat (placeholder), Add New
+- **Appearance**: `Helpers/AppPalette.swift`, `AppAppearance.swift`
+- **Seed data**: `Helpers/SeedData.swift`; `PhathomApp.swift` seeds when the store is empty
 
 Expected state:
 - SwiftData models: `ContentItem`, `Tag`, `ChatThread`, `ChatMessage` in `Phathom/Phathom/Models/`
-- TabView shell with Library, Chat, Add New, Settings tabs
+- TabView shell with Library, Chat, Add New; **Settings** presented from the **Library** navigation toolbar (gear)
 - Library screen with filter pills, card rows, thumbnail fallback, processing badges
 - Detail screen with hero, AI summary, tags, extracts, actions
-- Seed data populating 4 items on first launch
-- No real AI or background processing — all summary/tag/extract data is hardcoded in seed
+- Seed data with multiple placeholder items (including processing-state demos); first launch seeds when store is empty
+- **Phase 2** replaces stub AI fields and wires background processing (see below).
 
 ---
 
@@ -134,18 +141,28 @@ Index completed items into system Spotlight search with deep links back into the
 
 ## 2A. Llama.cpp Integration
 
-### Swift Package
+### Embedded XCFramework (approved approach — same class as Intrai)
 
-Use `mattt/llama.swift` — a semantically versioned Swift Package that wraps the official llama.cpp XCFramework. It auto-tracks upstream releases and supports iOS 16+.
+**Do not** add `mattt/llama.swift`, `pgorzelany/swift-llama-cpp`, or any other SPM dependency for Llama.cpp. Phathom links **Apple-platform `llama.xcframework`** directly, exposes the C API as Swift module **`import llama`**, and implements inference in **first-party** Swift (e.g. a `LlamaCppBridge` protocol + runtime class).
 
-```swift
-// In Package.swift or Xcode SPM
-dependencies: [
-    .package(url: "https://github.com/mattt/llama.swift", .upToNextMajor(from: "2.8722.0"))
-]
-```
+**Build and vendor the framework:**
 
-This re-exports the llama.cpp C API directly. You call `llama_model_load_from_file`, `llama_init_from_model`, etc. For a higher-level Swift wrapper, `pgorzelany/swift-llama-cpp` (zero open issues, last updated April 2026) provides `LlamaService` with `AsyncSequence` token streaming — evaluate both and pick whichever fits the codebase better.
+1. Maintain a local clone of upstream **llama.cpp** (same workflow as sibling projects).
+2. Produce **`llama.xcframework`** with **iOS device** and **iOS Simulator** slices (arm64), **Metal** enabled for device; simulator typically **CPU-only** (`n_gpu_layers = 0`) for stable CI/simulator runs.
+3. Vendored framework path in-repo: **`Phathom/vendor/llama/llama.xcframework`** (static `.a` slices + headers). Refresh via **`scripts/setup-llama-xcframework.sh`** (copies from a local intrai-llama build) or build from **llama.cpp** the same way as **intrai-llama**’s `scripts/setup-llama-xcframework.sh`.
+
+**Xcode app target:**
+
+- Add **`llama.xcframework`** to **Frameworks, Libraries, and Embedded Content** (embed & sign as required for the framework type).
+- Set **`OTHER_LDFLAGS = -lc++`** (or equivalent) for C++ standard library linkage.
+- Confirm **`import llama`** resolves via the XCFramework’s **module map**.
+
+**First-party Swift seam:**
+
+- Prefer **`#if canImport(llama)`** with a **stub** implementation when the framework is not linked (optional but useful for incremental setup).
+- Implement **load / unload / infer** with explicit **`llama_model_free` / `llama_free`** (or current API) on **all** success, error, cancellation, and **BG task expiration** paths — see **Model lifecycle** below and Intrai **`LlamaCppRuntime`** for a working pattern (backend init, sampler chain, decode loop, abort callback).
+
+**Reference project** (read-only): `intrai-llama` — `docs/llama-xcframework-integration.md`, `scripts/setup-llama-xcframework.sh`, `Intrai/Inference/LlamaCppRuntime.swift`.
 
 ### Model Storage and Selection
 
@@ -153,12 +170,26 @@ Models are **not bundled**. The user places GGUF files on-device and selects the
 
 ```
 Phathom/Phathom/
+├── Inference/
+│   ├── GenerationOptions.swift
+│   ├── LlamaCppBridge.swift
+│   ├── LlamaCppRuntime.swift      # Real impl under #if canImport(llama); stub otherwise
+│   ├── LlamaInferenceError.swift
+│   └── LlamaContentAnalyzer.swift # Summarize / tag / extract prompts (Llama-3 instruct via model chat template)
 ├── Services/
-│   ├── LlamaService.swift        # Model loading, inference, memory management
-│   └── ModelManager.swift         # Discovers available models, persists user selection
+│   ├── ModelManager.swift         # Documents/*.gguf discovery + UserDefaults selection
+│   ├── WebIngestService.swift
+│   ├── ThermalMonitor.swift
+│   └── BackgroundPipeline.swift   # BGAppRefresh + BGProcessing handlers
+├── Models/
+│   └── ContentItem+Spotlight.swift
+├── AppIntents/
+│   └── OpenPhathomItemIntent.swift
 ├── Views/Settings/
-│   └── ModelPickerView.swift      # File picker / list of discovered models
+│   └── SettingsTab.swift          # Model list, import, test inference, HF links
 ```
+
+**Model discovery**: `ModelManager` scans the app **Documents** directory for `*.gguf`, persists the chosen file path in **UserDefaults** (`phathom.selectedGGUFPath`). **Settings** adds a **file importer** to copy a `.gguf` into Documents.
 
 **Model discovery**: scan the app's Documents directory (and optionally a shared App Group container) for `*.gguf` files. Display them in Settings with file name and size. Persist the selected model path in `UserDefaults`.
 
@@ -258,7 +289,7 @@ Expected output: `[{"label": "Carbon Reduction Target", "value": "~45%"}]`
 
 ### Settings UI — Model Setup Flow
 
-The Settings tab (currently a placeholder from Phase 1) needs:
+The Settings screen (presented from the Library navigation toolbar in Phase 1 — may still be placeholder) needs:
 
 1. **Model section**: shows currently selected model name + file size, or "No model selected"
 2. **"Select Model" button**: opens a file picker or lists `*.gguf` files found in the Documents directory
@@ -448,7 +479,7 @@ The `com.phathom.ingest` BGAppRefreshTask (~30s budget) handles:
 - An external binary file per item (more performant for vector math)
 - ObjectBox vector database (adds a dependency)
 
-`[TBD after Phase 1 — decide vector storage approach based on expected corpus size and Phase 3 retrieval needs. Can defer embedding storage entirely to Phase 3 if the ingest task scope needs trimming.]`
+`[TBD after Phase 1 — vector storage deferred: ingest sets status to `.embedding` without persisting vectors; Phase 3 may add chunk/embedding storage or an escalation-approved SwiftData model.]`
 
 ### Thermal and Power Management
 
@@ -535,7 +566,18 @@ extension Notification.Name {
 
 Handle the notification in `MainTabView` to switch to Library tab and push to the item's `DetailView`.
 
-Register `NSUserActivity` handling in `PhathomApp` so Spotlight taps route through `OpenItemIntent`.
+Handle Spotlight via **`MainTabView`**: `onContinueUserActivity(CSSearchableItemActionType)` sets a `libraryDeepLinkID` binding; **`LibraryTab`** appends it to a `NavigationPath` and opens **`DetailView`**. **`OpenPhathomItemIntent`** posts **`Notification.Name.openPhathomItem`** on the main actor for the same path.
+
+---
+
+## What exists after Phase 2 (implementation)
+
+- **`Phathom/vendor/llama/llama.xcframework`** linked on the app target; **`OTHER_LDFLAGS = -lc++`**; inference code uses **`import llama`** under **`#if canImport(llama)`**.
+- **Inference**: `LlamaCppRuntime` + **`LlamaContentAnalyzer`** (templated user prompts for summarize / tags / extracts; JSON array parsing with graceful nil fields).
+- **Model UX**: `ModelManager` + **Settings** (list Documents `.gguf`, import, Hugging Face links, test inference).
+- **Background**: `BackgroundPipeline` registers `com.phathom.ingest` (refresh) and `com.phathom.analyze` (processing). **`Phase2-Info.plist`** merges permitted identifiers + `fetch` / `processing` background modes with the generated app Info.plist. Ingest scrapes pending **web** items; analyze runs Llama stages on **embedding** items. **`scheduleAll()`** runs when the app moves to **inactive/background** and after saving a new item.
+- **Spotlight**: `ContentItem.indexInSpotlight()` after **completed**; deep link + **`OpenPhathomItemIntent`** as above.
+- **Embeddings**: not persisted in SwiftData; `.embedding` is a queue state before Llama analysis.
 
 ---
 
@@ -543,8 +585,8 @@ Register `NSUserActivity` handling in `PhathomApp` so Spotlight taps route throu
 
 Phase 2 is complete when:
 
-- [ ] `mattt/llama.swift` (or chosen wrapper) is integrated as a Swift Package dependency
-- [ ] Settings tab has a model picker that discovers `*.gguf` files and persists the selection
+- [ ] **`llama.xcframework`** is built (or copied) for **device + simulator**, vendored under the repo, linked in the Phathom app target, with **`import llama`** and **`-lc++`** verified on a clean build
+- [ ] **Settings** (screen reachable from Library) has a model picker that discovers `*.gguf` files and persists the selection
 - [ ] Settings shows recommended model suggestions with download guidance
 - [ ] A test inference button in Settings verifies the selected model works
 - [ ] `BGAppRefreshTask` and `BGProcessingTask` are registered and schedulable
@@ -579,14 +621,14 @@ Phase 2 is complete when:
 The implementing agent MAY decide:
 - HTML parsing strategy for web scraping (basic regex, `SwiftSoup` if justified, or `WKWebView` snapshot)
 - Whether to use `async let` parallelism within a single BG task or process items strictly sequentially
-- Whether to use `mattt/llama.swift` (lower-level, C API) or `pgorzelany/swift-llama-cpp` (higher-level `LlamaService`)
-- Exact `n_ctx` and `n_batch` values for the llama context (start with 4096/512)
+- Exact shape of the first-party inference API (actor vs class, streaming vs one-shot) as long as lifecycle rules are met
+- Exact `n_ctx` and `n_batch` values for the llama context (start with 4096/512; **device**: prefer full Metal offload where stable; **simulator**: CPU-only — see Intrai tuning notes)
 - Whether the Spotlight `AppIntent` uses `NSUserActivity` continuation or a custom notification
 - Layout and UX details of the model picker in Settings
 
 The implementing agent MUST escalate / ask before:
 - Adding any new SwiftData models (e.g., `TextChunk` for embeddings)
-- Adding any third-party Swift packages beyond the llama.cpp wrapper
+- Adding any **third-party** Swift packages (Phathom already uses **only** Apple frameworks **plus** the embedded **`llama.xcframework`** — any SPM/CocoaPods addition requires escalation)
 - Changing any existing SwiftData model properties from Phase 1
 - Changing the processing state enum values
 - Implementing support for non-Llama-3 chat templates (defer to future)

@@ -26,13 +26,13 @@ Read before starting:
 
 1. **`docs/decisions.md`** — highest authority. Includes decisions from all prior phases.
 2. **This hand-off document** — defines scope, deliverables, and acceptance criteria.
-3. **Phase 2 hand-off** — describes the LlamaService, BG pipeline, and model lifecycle patterns you must reuse. Do not reinvent these.
+3. **Phase 2 hand-off** — describes **`LlamaContentAnalyzer` / `LlamaCppRuntime`**, the BG pipeline, and model lifecycle patterns you must reuse. Do not reinvent these.
 4. **Phase 1 hand-off** — describes the original UI. Library and detail screens are not your concern unless this document explicitly says to modify them.
 
 ### Behavioral rules
 
 - **Build, don't plan.** Produce working code. No mockup exists for the chat screen — the spec in this document is the design. Do not produce wireframes, design alternatives, or ask for approval on visual direction. Follow the spec, use standard iOS messaging patterns, and let the user refine after seeing it work.
-- **Reuse Phase 2 patterns.** Use the same `LlamaService` from Phase 2 for inference. Use the same JSON parsing and fallback patterns. Use the same prompt template format (Llama-3 chat). Do not create parallel inference infrastructure or alternative LLM wrappers.
+- **Reuse Phase 2 patterns.** Use **`LlamaContentAnalyzer`** + **`LlamaCppRuntime`** for inference. Use the same JSON parsing and fallback patterns. Use the same prompt conventions (**Llama-3 Instruct** GGUFs via the model’s chat template). Do not add alternative LLM wrappers.
 - **Do not break Phases 1 or 2.** Library, detail, filter pills, BG processing, Spotlight indexing, and model management must all continue to work. Do not refactor Phase 1-2 code unless this document explicitly requires a change.
 - **Schema is frozen.** `ChatThread` and `ChatMessage` already exist from Phase 1. Use them as defined. Do not add properties without escalation. If RAG requires intermediate data structures (chunk caches, embedding buffers), use in-memory types — not new SwiftData models — unless you escalate first.
 - **Model lifecycle differs from Phase 2.** In Phase 2, the model is loaded and unloaded within a single BG task. In Phase 3, the model should stay warm for the duration of a chat session (foreground use). Unload when the user leaves the chat thread or the app backgrounds. Document this clearly in your code.
@@ -45,8 +45,8 @@ Read before starting:
 You will encounter situations this spec does not explicitly cover. Use this ordered framework to decide what to do:
 
 **Step 1: Is it a technical blocker?**
-The spec says to do X but the Phase 2 `LlamaService` API doesn't support it, or an embedding/retrieval approach doesn't work as expected.
-- **Action**: Adapt within the existing patterns. If the `LlamaService` needs a new method (e.g., a streaming variant), add it to the existing service rather than creating a new one. If the embedding approach from Phase 2 doesn't give good retrieval results, adjust parameters (chunk size, top-K) before considering an architectural change.
+The spec says to do X but the Phase 2 **`LlamaContentAnalyzer`** / **`LlamaCppRuntime`** API doesn't support it, or an embedding/retrieval approach doesn't work as expected.
+- **Action**: Adapt within the existing patterns. If the runtime needs a new method (e.g., streaming), extend **`LlamaCppRuntime`** / **`LlamaCppBridge`** rather than adding a parallel stack. If the embedding approach from Phase 2 doesn't give good retrieval results, adjust parameters (chunk size, top-K) before considering an architectural change.
 - Note what you changed and why in a code comment.
 
 **Step 2: Is it an ambiguity gap?**
@@ -88,15 +88,19 @@ When you believe the work is done:
 
 ## What Exists After Phase 2
 
-`[TBD after Phase 2 — update with actual file tree, embedding storage approach, AI engine integration patterns, and any schema changes]`
+Phase 2 (as implemented) adds:
 
-Expected state:
-- Library and Detail screens fully functional with real AI-generated data
-- BGTaskScheduler processing items through scrape → embed → summarize → tag → extract → completed
-- Embeddings stored somewhere (SwiftData model, external file, or vector DB — depends on Phase 2 decision)
-- Spotlight indexing for completed items
-- Chat tab still shows placeholder from Phase 1
-- `ChatThread` and `ChatMessage` SwiftData models exist but are unused
+- **Llama.cpp**: vendored **`Phathom/vendor/llama/llama.xcframework`**, first-party types in **`Phathom/Phathom/Inference/`** (`LlamaCppRuntime`, `LlamaContentAnalyzer`, `LlamaCppBridge`, `GenerationOptions`, `LlamaInferenceError`). Prompts use the GGUF’s **chat template** via **`startTemplatedUserPrompt`** (Llama-3 Instruct–compatible GGUFs expected).
+- **Model management**: **`Services/ModelManager.swift`**, **`Views/Settings/SettingsTab.swift`** (pick / import / test / links).
+- **Background work**: **`Services/BackgroundPipeline.swift`**, **`Services/WebIngestService.swift`**, **`Services/ThermalMonitor.swift`**. No **embedding vectors** stored yet — **`embedding`** is only a pipeline stage before Llama work.
+- **Spotlight + deep links**: **`Models/ContentItem+Spotlight.swift`**, **`AppIntents/OpenPhathomItemIntent.swift`**, **`Helpers/Notifications+Phathom.swift`**, wired in **`MainTabView`** + **`LibraryTab`** (`NavigationStack` + `NavigationPath`).
+- **Capture**: **`AddNewTab`** persists **`ContentItem`** (web → `pending`; note → `embedding` with `rawText`) and schedules background work.
+
+Chat tab remains a **placeholder**. **`ChatThread`** / **`ChatMessage`** are still unused until Phase 3.
+
+### Files to Create / Modify (Phase 3 starters)
+
+Reuse **`LlamaContentAnalyzer`** / **`LlamaCppRuntime`** for chat generation; add RAG-specific types under **`Phathom/Phathom/Services/`** and **`Phathom/Phathom/Views/Chat/`** per the tree in the Scope section below.
 
 ---
 
@@ -106,7 +110,7 @@ Phase 3 replaces the Chat tab placeholder with a complete RAG-powered conversati
 
 ### Files to Create / Modify
 
-`[TBD after Phase 2 — exact paths depend on Phase 2 file structure]`
+Phase 3 work extends the existing **`Phathom/Phathom/`** tree (see Phase 2 hand-off for inference and pipeline locations).
 
 Expected new files:
 ```
@@ -180,7 +184,7 @@ func chunkText(_ text: String, chunkSize: Int = 400, overlap: Int = 50) -> [Stri
 
 ### Step 3: Retrieval via Embedding Similarity
 
-`[TBD after Phase 2 — depends on how embeddings are stored]`
+Per **Phase 2**: embeddings were **not** persisted. Phase 3 must introduce an **escalation-approved** storage strategy (or run embedding in memory only with trade-offs documented) before implementing similarity search.
 
 Conceptual approach using Apple's NLEmbedding:
 
@@ -236,7 +240,7 @@ func buildRAGPrompt(question: String, chunks: [TextChunk]) -> String {
 
 ### Step 5: Generation (Llama.cpp)
 
-`[TBD after Phase 2 — use the same LlamaService and model lifecycle pattern established in Phase 2]`
+Use **`LlamaContentAnalyzer`** streaming path (extend **`LlamaCppBridge`** / **`LlamaCppRuntime`** if needed) consistent with Phase 2.
 
 Key differences from Phase 2's BG inference:
 - **Keep the model warm** during a chat session (user is actively waiting — don't load/unload per message)
@@ -264,7 +268,7 @@ When a user opens a new (empty) chat thread, show 3 auto-generated suggested que
 After the context is assembled (Step 1-2), run a quick generation using Llama.cpp:
 
 ```swift
-func generateStarters(for chunks: [TextChunk], llama: LlamaService) async throws -> [String] {
+func generateStarters(for chunks: [TextChunk], llama: LlamaContentAnalyzer) async throws -> [String] {
     let sample = chunks.prefix(10).map(\.text).joined(separator: "\n")
     let prompt = """
     Based on these saved items, suggest exactly 3 interesting questions a user might ask. \
@@ -320,9 +324,9 @@ Llama.cpp supports token-by-token streaming natively. Use this for chat response
 
 - Show a typing indicator while the model processes the prompt
 - As each token is generated, append it to `ChatMessage.text` — SwiftUI will re-render progressively
-- The `pgorzelany/swift-llama-cpp` wrapper provides `AsyncSequence`-based streaming; if using `mattt/llama.swift` directly, implement a callback-based token loop
+- Implement streaming in **first-party** Swift on top of **`import llama`** (decode loop + `AsyncStream` / `yield` pattern — same class as **Intrai** `LlamaCppInferenceEngine`)
 
-`[TBD after Phase 2 — use the exact streaming pattern established by the LlamaService wrapper chosen in Phase 2]`
+Use the exact streaming API and cancellation hooks established in Phase 2 (`LlamaCppBridge` / inference actor); Phase 3 only consumes that seam.
 
 ---
 
