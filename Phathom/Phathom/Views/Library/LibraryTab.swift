@@ -64,10 +64,13 @@ struct LibraryTab: View {
                         .foregroundStyle(AppPalette.textPrimary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Image(systemName: "person.crop.circle.fill")
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(AppPalette.dustGrey)
-                        .accessibilityLabel("Profile")
+                    NavigationLink {
+                        SettingsContent()
+                            .navigationTitle("Settings")
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
                 }
             }
             .alert("Search", isPresented: $searchTapped) {

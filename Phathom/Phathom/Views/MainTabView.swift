@@ -22,11 +22,6 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Add new", systemImage: "plus")
                 }
-
-            SettingsTab()
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
-                }
         }
         .tint(AppPalette.accent)
         .preferredColorScheme(.dark)

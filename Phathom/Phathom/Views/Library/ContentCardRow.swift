@@ -77,9 +77,8 @@ struct ProcessingStatusBadge: View {
                 Image(systemName: "exclamationmark.circle")
                     .font(.caption.weight(.semibold))
             } else {
-                ProgressView()
-                    .scaleEffect(0.65)
-                    .tint(AppPalette.floralWhite)
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.caption.weight(.semibold))
             }
             Text(badgeLabel)
                 .font(.caption.weight(.semibold))

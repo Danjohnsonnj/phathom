@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SettingsTab: View {
+struct SettingsContent: View {
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
@@ -10,21 +10,31 @@ struct SettingsTab: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("About") {
-                    LabeledContent("Version", value: appVersion)
-                    LabeledContent("Build", value: build)
-                    Text("Phathom keeps your library on this device only.")
-                        .font(.footnote)
-                        .foregroundStyle(AppPalette.textSecondary)
-                }
+        Form {
+            Section("About") {
+                LabeledContent("Version", value: appVersion)
+                LabeledContent("Build", value: build)
+                Text("Phathom keeps your library on this device only.")
+                    .font(.footnote)
+                    .foregroundStyle(AppPalette.textSecondary)
             }
-            .scrollContentBackground(.hidden)
-            .background(AppPalette.background)
-            .tint(AppPalette.accent)
-            .foregroundStyle(AppPalette.textPrimary)
-            .navigationTitle("Settings")
+        }
+        .scrollContentBackground(.hidden)
+        .background(AppPalette.background)
+        .tint(AppPalette.accent)
+        .foregroundStyle(AppPalette.textPrimary)
+    }
+}
+
+struct SettingsTab: View {
+    var body: some View {
+        NavigationStack {
+            SettingsContent()
+                .navigationTitle("Settings")
         }
     }
+}
+
+#Preview {
+    SettingsTab()
 }
