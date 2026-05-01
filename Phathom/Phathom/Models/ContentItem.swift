@@ -37,10 +37,7 @@ final class ContentItem {
     }
 
     static func deterministicColor(from uuid: UUID) -> String {
-        let colors = [
-            "#5E5CE6", "#BF5AF2", "#FF9F0A", "#30D158",
-            "#64D2FF", "#FF375F", "#FFD60A", "#AC8E68",
-        ]
+        let colors = AppPalette.thumbnailHexCycle
         let sum = withUnsafeBytes(of: uuid) { buffer in
             buffer.reduce(0) { $0 + Int($1) }
         }

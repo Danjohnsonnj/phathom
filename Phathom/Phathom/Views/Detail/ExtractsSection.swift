@@ -8,18 +8,21 @@ struct ExtractsSection: View {
             ForEach(extracts) { extract in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("•")
+                        .foregroundStyle(AppPalette.textSecondary)
                     Text(extract.label)
                         .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppPalette.textPrimary)
                     Text("·")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppPalette.textSecondary)
                     Text(extract.value)
                         .font(.subheadline)
+                        .foregroundStyle(AppPalette.textPrimary)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(AppPalette.surface)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

@@ -19,6 +19,7 @@ struct LibraryTab: View {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Recent items")
                         .font(.largeTitle.bold())
+                        .foregroundStyle(AppPalette.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     FilterPills(selected: $filterKind)
@@ -26,7 +27,7 @@ struct LibraryTab: View {
                     if filteredItems.isEmpty {
                         Text("No items yet")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppPalette.textSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 48)
                     } else {
@@ -45,7 +46,7 @@ struct LibraryTab: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(AppPalette.background)
             .navigationTitle("Recent Items")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -60,11 +61,12 @@ struct LibraryTab: View {
                 ToolbarItem(placement: .principal) {
                     Text("Phathom")
                         .font(.headline)
+                        .foregroundStyle(AppPalette.textPrimary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Image(systemName: "person.crop.circle.fill")
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppPalette.dustGrey)
                         .accessibilityLabel("Profile")
                 }
             }

@@ -11,9 +11,10 @@ struct TagChipsView: View {
             ForEach(tags, id: \.name) { tag in
                 Text(tag.name.localizedCapitalized)
                     .font(.caption.weight(.medium))
+                    .foregroundStyle(AppPalette.textPrimary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color(.tertiarySystemFill))
+                    .background(AppPalette.surfaceNested)
                     .clipShape(Capsule())
             }
         }

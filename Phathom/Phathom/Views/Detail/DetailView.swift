@@ -29,21 +29,22 @@ struct DetailView: View {
                     if let host = item.displayHost, item.kind == .web {
                         Text(host)
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(AppPalette.accent)
                     }
 
                     Text(item.title ?? "Untitled")
                         .font(.title.bold())
+                        .foregroundStyle(AppPalette.textPrimary)
 
                     if let snippet = summarySnippet {
                         Text(snippet)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppPalette.textSecondary)
                     }
 
                     Text(item.createdAt.formatted(Self.timestampFormat))
                         .font(.subheadline)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(AppPalette.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -52,10 +53,11 @@ struct DetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Tags")
                         .font(.headline.bold())
+                        .foregroundStyle(AppPalette.textPrimary)
                     if item.tags.isEmpty {
                         Text("No tags")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppPalette.textSecondary)
                     } else {
                         TagChipsView(tags: item.tags)
                     }
@@ -65,6 +67,7 @@ struct DetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Extracted Key Figures")
                             .font(.headline.bold())
+                            .foregroundStyle(AppPalette.textPrimary)
                         ExtractsSection(extracts: item.decodedExtracts)
                     }
                 }
@@ -76,7 +79,7 @@ struct DetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(AppPalette.background)
         .navigationTitle("Phathom")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -109,31 +112,33 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("AI Summary")
                 .font(.headline.bold())
+                .foregroundStyle(AppPalette.textPrimary)
 
             if item.status == .completed {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(item.decodedSummaryBullets.enumerated()), id: \.offset) { _, line in
                         Text("• \(line)")
                             .font(.subheadline)
+                            .foregroundStyle(AppPalette.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemGroupedBackground))
+                .background(AppPalette.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(0 ..< 4, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(.tertiarySystemFill))
+                            .fill(AppPalette.surfaceNested)
                             .frame(height: 14)
                             .frame(maxWidth: .infinity)
                             .redacted(reason: .placeholder)
                     }
                 }
                 .padding(16)
-                .background(Color(.secondarySystemGroupedBackground))
+                .background(AppPalette.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
@@ -156,10 +161,11 @@ struct DetailView: View {
         } label: {
             Text(title)
                 .font(.subheadline.weight(.medium))
+                .foregroundStyle(AppPalette.textPrimary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(Color(.tertiarySystemFill))
+                .background(AppPalette.surfaceNested)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -169,22 +175,24 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Source Content")
                 .font(.headline.bold())
+                .foregroundStyle(AppPalette.textPrimary)
 
             if let raw = item.rawText, !raw.isEmpty {
                 DisclosureGroup(isExpanded: $sourceExpanded) {
                     Text(raw)
                         .font(.subheadline)
+                        .foregroundStyle(AppPalette.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } label: {
                     Text(raw.prefixLinePreview(lineCount: 4))
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppPalette.textSecondary)
                         .lineLimit(4)
                 }
             } else {
                 Text("No source text")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppPalette.textSecondary)
             }
         }
     }
@@ -208,6 +216,7 @@ private struct DetailPreviewHost: View {
                 DetailView(item: item)
             } else {
                 Text("No preview item")
+                    .foregroundStyle(AppPalette.textSecondary)
             }
         }
     }

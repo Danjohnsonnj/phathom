@@ -17,9 +17,13 @@ struct SettingsTab: View {
                     LabeledContent("Build", value: build)
                     Text("Phathom keeps your library on this device only.")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppPalette.textSecondary)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AppPalette.background)
+            .tint(AppPalette.accent)
+            .foregroundStyle(AppPalette.textPrimary)
             .navigationTitle("Settings")
         }
     }

@@ -2,6 +2,10 @@ import SwiftData
 import SwiftUI
 
 struct MainTabView: View {
+    init() {
+        AppAppearance.configureIfNeeded()
+    }
+
     var body: some View {
         TabView {
             LibraryTab()
@@ -24,6 +28,8 @@ struct MainTabView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
         }
+        .tint(AppPalette.accent)
+        .preferredColorScheme(.dark)
     }
 }
 

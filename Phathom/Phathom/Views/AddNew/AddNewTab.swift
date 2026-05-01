@@ -20,8 +20,13 @@ struct AddNewTab: View {
                     Button("Save") {
                         showSaveNotice = true
                     }
+                    .foregroundStyle(AppPalette.accent)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(AppPalette.background)
+            .tint(AppPalette.accent)
+            .foregroundStyle(AppPalette.textPrimary)
             .navigationTitle("Add new")
             .alert("Not saved", isPresented: $showSaveNotice) {
                 Button("OK", role: .cancel) {}

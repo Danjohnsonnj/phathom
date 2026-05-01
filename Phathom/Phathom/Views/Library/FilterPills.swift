@@ -22,13 +22,13 @@ struct FilterPills: View {
                         .padding(.vertical, 8)
                         .background(
                             selected == option.kind
-                                ? Color.accentColor
-                                : Color(.tertiarySystemFill)
+                                ? AppPalette.accent
+                                : AppPalette.surface
                         )
                         .foregroundStyle(
                             selected == option.kind
-                                ? Color.white
-                                : Color.primary
+                                ? AppPalette.floralWhite
+                                : AppPalette.dustGrey
                         )
                         .clipShape(Capsule())
                 }
@@ -47,4 +47,5 @@ struct FilterPills: View {
         }
     }
     return Binder()
+        .background(AppPalette.background)
 }

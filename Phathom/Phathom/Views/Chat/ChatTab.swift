@@ -7,11 +7,11 @@ struct ChatTab: View {
                 Text("Deep Dive coming in a future update")
                     .font(.title3)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppPalette.textSecondary)
                     .padding()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemGroupedBackground))
+            .background(AppPalette.background)
             .navigationTitle("Chat")
         }
     }

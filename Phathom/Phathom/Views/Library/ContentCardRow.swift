@@ -24,26 +24,28 @@ struct ContentCardRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(item.title ?? "Untitled")
                     .font(.headline)
+                    .foregroundStyle(AppPalette.textPrimary)
                     .lineLimit(1)
 
                 Text(secondaryText)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppPalette.textSecondary)
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
+                    Text(item.createdAt.formatted(Self.timestampFormat))
+                        .font(.caption)
+                        .foregroundStyle(AppPalette.textTertiary)
+
                     if item.status != .completed {
                         ProcessingStatusBadge(status: item.status)
                     }
-                    Text(item.createdAt.formatted(Self.timestampFormat))
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(12)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(AppPalette.surface)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
@@ -77,15 +79,15 @@ struct ProcessingStatusBadge: View {
             } else {
                 ProgressView()
                     .scaleEffect(0.65)
-                    .tint(.white)
+                    .tint(AppPalette.floralWhite)
             }
             Text(badgeLabel)
                 .font(.caption.weight(.semibold))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .background(Color.accentColor)
-        .foregroundStyle(.white)
+        .background(AppPalette.metaChipBackground)
+        .foregroundStyle(AppPalette.floralWhite)
         .clipShape(Capsule())
     }
 

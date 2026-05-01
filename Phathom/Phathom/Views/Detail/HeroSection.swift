@@ -14,10 +14,10 @@ struct HeroSection: View {
                         .aspectRatio(contentMode: .fill)
                 } else {
                     ZStack {
-                        Color(hex: item.thumbnailColorHex ?? "#5E5CE6")
+                        Color(hex: item.thumbnailColorHex ?? AppPalette.thumbnailFallbackHex)
                         Image(systemName: iconName)
                             .font(.system(size: 64 * 0.35))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(AppPalette.floralWhite.opacity(0.85))
                     }
                 }
             }
@@ -33,9 +33,10 @@ struct HeroSection: View {
                 } label: {
                     Text("Visit Site")
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppPalette.floralWhite)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 10)
-                        .background(.ultraThinMaterial)
+                        .background(AppPalette.accent)
                         .clipShape(Capsule())
                 }
                 .padding(.bottom, 16)

@@ -10,8 +10,37 @@ struct SeedData {
             originalURL: URL(string: "https://developer.apple.com/wwdc24")!
         )
         wwdc.title = "WWDC24 Keynote"
-        wwdc.processingStatus = ProcessingStatus.summarizing.rawValue
-        wwdc.processingDetail = "Processing"
+        wwdc.processingStatus = ProcessingStatus.completed.rawValue
+        wwdc.encodeSummaryBullets([
+            "Apple Intelligence and developer APIs across platforms.",
+            "Xcode and Swift updates.",
+        ])
+
+        let pendingItem = ContentItem(
+            createdAt: date("2026-08-20T09:30:00"),
+            contentKind: .note
+        )
+        pendingItem.title = "Voice memo — book quote"
+        pendingItem.processingStatus = ProcessingStatus.pending.rawValue
+        pendingItem.mediaDescription = "Waiting in the capture queue"
+
+        let failedItem = ContentItem(
+            createdAt: date("2026-08-18T16:00:00"),
+            contentKind: .web,
+            originalURL: URL(string: "https://example.com/this-page-404s")!
+        )
+        failedItem.title = "Old conference session page"
+        failedItem.processingStatus = ProcessingStatus.failed.rawValue
+        failedItem.failureReason = "Server returned 404"
+
+        let processingItem = ContentItem(
+            createdAt: date("2026-08-12T11:20:00"),
+            contentKind: .web,
+            originalURL: URL(string: "https://example.com/indie-pricing-guide")!
+        )
+        processingItem.title = "Indie app pricing guide"
+        processingItem.processingStatus = ProcessingStatus.scraping.rawValue
+        processingItem.processingDetail = "Fetching article"
 
         let cityArticle = ContentItem(
             createdAt: date("2026-01-10T09:45:00"),
@@ -66,7 +95,7 @@ struct SeedData {
 
         cityArticle.tags = [tagUrban, tagSustain, tagFuture, tagArch, tagDesignboom, tagAI]
 
-        [wwdc, cityArticle, restaurant, projects].forEach { context.insert($0) }
+        [wwdc, cityArticle, restaurant, projects, pendingItem, failedItem, processingItem].forEach { context.insert($0) }
         [tagUrban, tagSustain, tagFuture, tagArch, tagDesignboom, tagAI].forEach { context.insert($0) }
     }
 
