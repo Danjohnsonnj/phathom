@@ -19,6 +19,71 @@ Read before starting:
 
 ---
 
+## Agent Guardrails
+
+**Read this section first. These rules are non-negotiable.**
+
+### Source of truth hierarchy
+
+1. **`docs/decisions.md`** — highest authority. If a decision is logged there, it is final.
+2. **This hand-off document** — defines scope, deliverables, and acceptance criteria.
+3. **Phase 1 hand-off** — describes what was built before you. Do not alter Phase 1's UI, schema, or navigation unless this document explicitly says to.
+4. **Mockup PNGs** — visual reference for Phase 1 screens only. Phase 2 has no mockups.
+
+### Behavioral rules
+
+- **Build, don't plan.** Produce working code that passes the acceptance criteria. Do not produce planning documents, evaluation write-ups, or comparison matrices. The AI engine decision is already made — Llama.cpp. Do not revisit it.
+- **Do not re-litigate decisions.** The Llama.cpp-only decision, the user-provided model pattern, and the Llama-3 template-only constraint are all final. Do not suggest FoundationModels, bundled models, or multi-template support. If a logged decision causes a concrete implementation problem, state the problem and escalate.
+- **Do not break Phase 1.** The library, detail screen, filter pills, seed data, and tab structure from Phase 1 must continue to work exactly as they did. Run the app after your changes and verify Phase 1 functionality is intact. If a Phase 1 pattern needs modification (e.g., adding BG task scheduling to `PhathomApp.swift`), make the minimum change and do not refactor surrounding code.
+- **Schema is frozen.** Do not add, remove, or rename properties on `ContentItem`, `Tag`, `ChatThread`, or `ChatMessage`. The only new models you may propose are for embedding/vector storage — and that requires escalation.
+- **One llama.cpp wrapper only.** Pick either `mattt/llama.swift` or `pgorzelany/swift-llama-cpp`. Do not integrate both. Do not add any other third-party packages without escalation.
+- **Stay in your phase.** Do not build RAG chat, conversation starters, or any Phase 3 features. The Chat tab remains a placeholder. Do not "prepare for Phase 3" by adding services or abstractions that aren't needed to pass Phase 2's acceptance criteria.
+- **Model lifecycle is critical.** Every code path that loads a llama.cpp model must unload it — including error paths, cancellation paths, and expiration handler paths. Memory leaks in background tasks cause iOS to kill the app.
+- **After completing work, update the next phase.** Fill in the `[TBD after Phase 1]` sections in this document with actual file paths and patterns. Then fill in the `What Exists After Phase 2` section in [docs/handoff/phase-3-rag-chat.md](phase-3-rag-chat.md). Append any new decisions to [docs/decisions.md](../decisions.md).
+
+### Decision framework — handling unknowns
+
+You will encounter situations this spec does not explicitly cover. Use this ordered framework to decide what to do:
+
+**Step 1: Is it a technical blocker?**
+The spec says to do X but X doesn't compile, the llama.cpp API has changed, or an iOS API behaves unexpectedly.
+- **Action**: Find the closest equivalent that achieves the same result. For llama.cpp API changes, check the wrapper's README/examples first. For iOS API changes, use Apple's recommended replacement. Note what you changed and why in a code comment.
+- Example: if `llama_model_load_from_file` has a different signature in the current XCFramework version, adapt the call to match. If `BGTaskScheduler` registration requires a different pattern on the target SDK, adjust accordingly.
+
+**Step 2: Is it an ambiguity gap?**
+The spec doesn't cover a specific scenario in the pipeline or model management flow.
+- **Action**: Apply the **safest default** principle — in a background processing context, "safe" means: don't crash, don't leak memory, don't lose data, don't leave items in a stuck state.
+- Defaults to apply when the spec is silent:
+  - If inference produces garbage output: set the field to nil, mark item `.completed` with partial data. Log the raw output for debugging.
+  - If a web scrape fails (404, timeout, SSL error): set `processingStatus` to `.failed` with a human-readable `failureReason`. Do not retry automatically — let the next scheduled task pick it up.
+  - If no model is selected when a BG task fires: complete the task as a no-op and re-schedule. Do not show an error to the user.
+  - If a GGUF file is deleted or moved after selection: detect on load, clear the selection in `UserDefaults`, and surface "No model selected" in Settings.
+
+**Step 3: Is it a product decision?**
+Something could go multiple ways and the choice visibly changes behavior.
+- **Action**: **Stop and ask the user.** Frame it as two concrete options with a recommendation. Do not block all other work while waiting.
+- Examples that require asking: whether failed items should show a retry button in the UI, whether the model picker should support importing from Files (document picker) vs. only scanning the Documents directory, whether scraping should follow redirects.
+
+**Step 4: Is it a structural constraint?**
+You need to change something in the guardrails' "must escalate" list.
+- **Action**: **Full stop on that task.** Describe the problem, what you tried, and why the constraint is blocking you.
+
+**General principle**: In Phase 2, **data integrity and app stability** trump feature completeness. A pipeline that processes 3 out of 4 items correctly and marks the 4th as failed is better than a pipeline that processes all 4 but sometimes crashes.
+
+### Completion protocol
+
+When you believe the work is done:
+1. Verify every acceptance criteria checkbox can be checked.
+2. Confirm the app builds without warnings or errors.
+3. Confirm Phase 1 functionality (library, detail, filter, seed data) still works.
+4. Confirm model load/unload happens correctly in the BG task lifecycle.
+5. Update `[TBD]` sections in this doc and Phase 3's doc.
+6. Append any new decisions to [docs/decisions.md](../decisions.md).
+7. State which acceptance criteria are met and which (if any) are not, with reasons.
+8. List any decisions you made under Steps 1-2 of the decision framework so the user can review them.
+
+---
+
 ## AI Engine Decision: Llama.cpp Only
 
 **Decision**: Llama.cpp is the sole AI engine for all phases. Apple FoundationModels is not used.

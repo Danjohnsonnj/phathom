@@ -20,6 +20,68 @@ Reference docs (read these if you need more context, but this hand-off is self-c
 
 ---
 
+## Agent Guardrails
+
+**Read this section first. These rules are non-negotiable.**
+
+### Source of truth hierarchy
+
+1. **`docs/decisions.md`** — highest authority. If a decision is logged there, it is final.
+2. **This hand-off document** — defines scope, schema, file tree, and acceptance criteria.
+3. **Mockup PNGs** — visual reference only. Where a mockup conflicts with this document or the decisions log, the **document wins**.
+
+Concrete example: the mockup shows "LinkSavr" and a FAB button. The decision log says the name is "Phathom" and the FAB is removed. **Implement what the documents say, not what the PNG shows.**
+
+### Behavioral rules
+
+- **Build, don't plan.** Your job is to produce working code that passes the acceptance criteria. Do not produce planning documents, QA scripts, architectural write-ups, or ask to "draft an approach" before starting. Read the spec, then implement.
+- **Do not invent features.** If something appears in the mockup but is not mentioned in this hand-off document (e.g., a profile avatar, a search history, onboarding screens), it does not exist. Do not build it, stub it, or ask about it.
+- **Do not re-litigate decisions.** The decisions log records choices that have already been debated and resolved. Do not propose alternatives to logged decisions (e.g., suggesting CloudKit, FoundationModels, or a different tab structure). If you believe a decision is causing a technical problem during implementation, state the problem factually and ask the user.
+- **Schema is frozen.** The `ContentItem`, `Tag`, `ChatThread`, and `ChatMessage` models in this document are the final schema for the entire project. Do not add properties, remove properties, rename properties, or change types. If you cannot build a feature without a schema change, stop and escalate.
+- **No third-party dependencies.** Phase 1 uses only Apple frameworks (SwiftUI, SwiftData, Foundation). Do not add any Swift packages, CocoaPods, or other external dependencies.
+- **Stay in your phase.** Do not build, prototype, or "prepare for" Phase 2 or Phase 3 features. No AI integration stubs, no BGTaskScheduler registration, no Llama.cpp references. The Chat, Add New, and Settings tabs are **placeholders** — minimal views with a label, not functional screens.
+- **Preserve what works.** Do not modify test stubs in `PhathomTests/` or `PhathomUITests/` unless the acceptance criteria require it. Do not change the Xcode project structure (groups, targets, build settings) beyond what is needed to add the specified files.
+
+### Decision framework — handling unknowns
+
+You will encounter situations this spec does not explicitly cover. Use this ordered framework to decide what to do:
+
+**Step 1: Is it a technical blocker?**
+The spec says to do X but X doesn't compile, is deprecated, or behaves unexpectedly on the target OS/SDK.
+- **Action**: Find the closest equivalent that achieves the same user-visible result. Use the standard Apple-recommended replacement. Do not invent a novel approach. Briefly note what you changed and why in a code comment at the call site.
+- Example: if a SwiftUI modifier is deprecated in iOS 26, use its replacement. If `NavigationStack` behaves differently than expected with `@Query`, adjust the view structure to get the same navigation behavior.
+
+**Step 2: Is it an ambiguity gap?**
+The spec doesn't say what should happen in a specific scenario (e.g., empty state, edge case layout, what happens when a button is tapped but the action is a stub).
+- **Action**: Apply the **minimum viable behavior** principle — implement the simplest reasonable thing a user would expect, then move on. Do not over-design for unspecified scenarios.
+- Defaults to apply when the spec is silent:
+  - Empty states: show a centered label describing what will appear (e.g., "No items yet").
+  - Stub actions: show a brief toast, alert, or print statement — not a crash, not nothing.
+  - Layout edge cases: let SwiftUI's default behavior handle it (truncation, scrolling, safe areas).
+  - Sort order: `createdAt` descending (newest first) unless the spec says otherwise.
+
+**Step 3: Is it a product decision?**
+You've identified something that could reasonably go multiple ways and the choice would change what the user sees or how the app behaves in a non-trivial way.
+- **Action**: **Stop and ask the user.** Frame it as: "The spec doesn't cover [situation]. I see two options: [A] or [B]. [A] is simpler / matches the mockup better / is more conventional. Which do you prefer?" Do not block all other work while waiting — continue with unrelated tasks if possible.
+- Examples that require asking: whether filter pill selection persists across app launches, whether "Archive" removes the item from the list or shows a visual indicator, whether the "Add New" placeholder should actually create real `ContentItem` records.
+
+**Step 4: Is it a structural constraint?**
+You need to change something in the guardrails' "must escalate" list (schema, dependencies, tab structure, navigation hierarchy).
+- **Action**: **Full stop on that task.** Describe the problem, what you tried, and why the constraint is blocking you. Do not work around it silently. The guardrail exists for cross-phase reasons you may not have context for.
+
+**General principle**: Bias toward **shipping something reasonable and noting it** over **stopping to ask about every detail**. The user can refine a working app faster than they can answer twenty questions about hypothetical edge cases.
+
+### Completion protocol
+
+When you believe the work is done:
+1. Verify every acceptance criteria checkbox can be checked.
+2. Confirm the app builds without warnings or errors targeting iPhone 16 Pro Simulator.
+3. Confirm SwiftUI Previews render for the library and detail screens.
+4. State which acceptance criteria are met and which (if any) are not, with reasons.
+5. List any decisions you made under Steps 1-2 of the decision framework (technical workarounds or ambiguity defaults) so the user can review them.
+
+---
+
 ## What Exists Right Now
 
 The Xcode project is a **fresh template** with no real implementation:

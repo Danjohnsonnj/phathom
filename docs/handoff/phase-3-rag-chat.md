@@ -18,6 +18,74 @@ Read before starting:
 
 ---
 
+## Agent Guardrails
+
+**Read this section first. These rules are non-negotiable.**
+
+### Source of truth hierarchy
+
+1. **`docs/decisions.md`** — highest authority. Includes decisions from all prior phases.
+2. **This hand-off document** — defines scope, deliverables, and acceptance criteria.
+3. **Phase 2 hand-off** — describes the LlamaService, BG pipeline, and model lifecycle patterns you must reuse. Do not reinvent these.
+4. **Phase 1 hand-off** — describes the original UI. Library and detail screens are not your concern unless this document explicitly says to modify them.
+
+### Behavioral rules
+
+- **Build, don't plan.** Produce working code. No mockup exists for the chat screen — the spec in this document is the design. Do not produce wireframes, design alternatives, or ask for approval on visual direction. Follow the spec, use standard iOS messaging patterns, and let the user refine after seeing it work.
+- **Reuse Phase 2 patterns.** Use the same `LlamaService` from Phase 2 for inference. Use the same JSON parsing and fallback patterns. Use the same prompt template format (Llama-3 chat). Do not create parallel inference infrastructure or alternative LLM wrappers.
+- **Do not break Phases 1 or 2.** Library, detail, filter pills, BG processing, Spotlight indexing, and model management must all continue to work. Do not refactor Phase 1-2 code unless this document explicitly requires a change.
+- **Schema is frozen.** `ChatThread` and `ChatMessage` already exist from Phase 1. Use them as defined. Do not add properties without escalation. If RAG requires intermediate data structures (chunk caches, embedding buffers), use in-memory types — not new SwiftData models — unless you escalate first.
+- **Model lifecycle differs from Phase 2.** In Phase 2, the model is loaded and unloaded within a single BG task. In Phase 3, the model should stay warm for the duration of a chat session (foreground use). Unload when the user leaves the chat thread or the app backgrounds. Document this clearly in your code.
+- **Stay in your phase.** Do not build share sheet extensions, voice memo capture, export features, or any post-v1 items listed in the "Future Considerations" section. Those are context for decision-making, not scope.
+- **Grounding over creativity.** The RAG system must answer from source content only. If the retrieved chunks don't contain enough information, the response should say so. Do not configure the LLM to improvise, speculate, or use general knowledge. Test this with a question that has no answer in the source data.
+- **After completing work, update docs.** Append any new decisions to [docs/decisions.md](../decisions.md). Update the `What Exists After Phase 2` section in this document with what actually exists now.
+
+### Decision framework — handling unknowns
+
+You will encounter situations this spec does not explicitly cover. Use this ordered framework to decide what to do:
+
+**Step 1: Is it a technical blocker?**
+The spec says to do X but the Phase 2 `LlamaService` API doesn't support it, or an embedding/retrieval approach doesn't work as expected.
+- **Action**: Adapt within the existing patterns. If the `LlamaService` needs a new method (e.g., a streaming variant), add it to the existing service rather than creating a new one. If the embedding approach from Phase 2 doesn't give good retrieval results, adjust parameters (chunk size, top-K) before considering an architectural change.
+- Note what you changed and why in a code comment.
+
+**Step 2: Is it an ambiguity gap?**
+The chat UI or RAG behavior has a scenario the spec doesn't address.
+- **Action**: Apply the **standard messaging app convention** for UI questions and the **conservative retrieval** convention for RAG questions.
+- Defaults to apply when the spec is silent:
+  - Chat UI: follow Apple Messages / iMessage conventions for bubble layout, keyboard handling, scroll behavior, and empty states.
+  - If retrieval returns zero relevant chunks: the assistant should say "I don't have enough information in your saved items to answer that. Try saving more content related to this topic." Do not fall back to the model's general knowledge.
+  - If the model's response doesn't contain source citations: display it anyway — citations are ideal but not a reason to reject an otherwise grounded response.
+  - If conversation starters fail to generate: use the hardcoded fallback array. Do not show an error.
+  - Thread ordering: `createdAt` descending (newest first) in the thread list.
+  - Message ordering: chronological (oldest first) within a thread.
+
+**Step 3: Is it a product decision?**
+Something could go multiple ways and changes the chat experience meaningfully.
+- **Action**: **Stop and ask the user.** Frame it as two concrete options.
+- Examples that require asking: whether to support multi-turn context (sending prior messages back to the LLM — the spec flags this explicitly), whether to add a "clear thread" or "delete thread" action, whether the tag picker should allow creating new tags or only select existing ones.
+
+**Step 4: Is it a structural constraint?**
+You need to change something in the guardrails' "must escalate" list.
+- **Action**: **Full stop on that task.** Describe the problem, what you tried, and why the constraint is blocking you.
+
+**General principle**: In Phase 3, **retrieval quality and grounding** trump polish. A chat that gives accurate, sourced answers with plain formatting is better than a chat with beautiful markdown rendering that sometimes hallucinates.
+
+### Completion protocol
+
+When you believe the work is done:
+1. Verify every acceptance criteria checkbox can be checked.
+2. Confirm the app builds without warnings or errors.
+3. Confirm Phase 1 functionality (library, detail, filter, seed data) still works.
+4. Confirm Phase 2 functionality (BG processing, Spotlight, model picker) still works.
+5. Test a RAG query where the answer IS in the source data — verify grounded response.
+6. Test a RAG query where the answer is NOT in the source data — verify the model declines rather than hallucinating.
+7. Append any new decisions to [docs/decisions.md](../decisions.md).
+8. State which acceptance criteria are met and which (if any) are not, with reasons.
+9. List any decisions you made under Steps 1-2 of the decision framework so the user can review them.
+
+---
+
 ## What Exists After Phase 2
 
 `[TBD after Phase 2 — update with actual file tree, embedding storage approach, AI engine integration patterns, and any schema changes]`
