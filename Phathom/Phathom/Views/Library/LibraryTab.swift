@@ -2,14 +2,22 @@ import SwiftData
 import SwiftUI
 
 struct LibraryTab: View {
+    @Environment(\.modelContext) private var modelContext
     @Binding var deepLinkItemID: UUID?
 
-    @Query(sort: \ContentItem.createdAt, order: .reverse)
+    @Query(
+        filter: #Predicate<ContentItem> { !$0.isArchived },
+        sort: \.createdAt,
+        order: .reverse
+    )
     private var items: [ContentItem]
 
     @State private var filterKind: ContentKind?
     @State private var searchText = ""
     @State private var navPath = NavigationPath()
+
+    @State private var undoArchiveItemID: UUID?
+    @State private var undoArchiveTask: Task<Void, Never>?
 
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
         _deepLinkItemID = deepLinkItemID
@@ -60,6 +68,14 @@ struct LibraryTab: View {
                                     ContentCardRow(item: item)
                                 }
                                 .buttonStyle(.plain)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button {
+                                        archiveFromLibrary(item: item)
+                                    } label: {
+                                        Label("Archive", systemImage: "archivebox")
+                                    }
+                                    .tint(.orange)
+                                }
                             }
                         }
                     }
@@ -73,6 +89,11 @@ struct LibraryTab: View {
             .navigationDestination(for: UUID.self) { id in
                 if let item = items.first(where: { $0.id == id }) {
                     DetailView(item: item)
+                } else {
+                    Text("This item is not in your library.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .searchable(text: $searchText, prompt: "Search title, tags, source text")
@@ -92,12 +113,69 @@ struct LibraryTab: View {
                     .accessibilityLabel("Settings")
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if undoArchiveItemID != nil {
+                    HStack(alignment: .center, spacing: 12) {
+                        Text("Archived. You can restore it from Recently Deleted within 2 days.")
+                            .font(.footnote)
+                            .foregroundStyle(AppPalette.textPrimary)
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 8)
+                        Button("Undo") {
+                            performUndoArchive()
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppPalette.accent)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(AppPalette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+                }
+            }
         }
         .onChange(of: deepLinkItemID) { _, newValue in
             guard let id = newValue else { return }
             navPath.append(id)
             deepLinkItemID = nil
         }
+        .onReceive(NotificationCenter.default.publisher(for: .phathomDidArchiveItem)) { note in
+            guard let id = note.userInfo?["itemID"] as? UUID else { return }
+            startArchiveUndo(for: id)
+        }
+    }
+
+    private func archiveFromLibrary(item: ContentItem) {
+        ArchiveRetention.archive(item)
+        try? modelContext.save()
+        NotificationCenter.default.post(
+            name: .phathomDidArchiveItem,
+            object: nil,
+            userInfo: ["itemID": item.id]
+        )
+    }
+
+    private func startArchiveUndo(for id: UUID) {
+        undoArchiveItemID = id
+        undoArchiveTask?.cancel()
+        undoArchiveTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            undoArchiveItemID = nil
+        }
+    }
+
+    private func performUndoArchive() {
+        undoArchiveTask?.cancel()
+        guard let id = undoArchiveItemID else { return }
+        let fd = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == id })
+        if let item = try? modelContext.fetch(fd).first {
+            ArchiveRetention.restore(item)
+            try? modelContext.save()
+        }
+        undoArchiveItemID = nil
     }
 }
 

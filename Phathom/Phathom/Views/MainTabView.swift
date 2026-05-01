@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
 
     @State private var selectedTab = 0
     @State private var libraryDeepLinkID: UUID?
@@ -35,10 +36,12 @@ struct MainTabView: View {
         .tint(AppPalette.accent)
         .preferredColorScheme(.dark)
         .onAppear {
+            ArchiveRetention.purgeExpired(in: modelContext)
             ModelManager.validateSelection()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                ArchiveRetention.purgeExpired(in: modelContext)
                 ModelManager.validateSelection()
                 BackgroundPipeline.scheduleForegroundDrain()
             } else if phase == .background || phase == .inactive {

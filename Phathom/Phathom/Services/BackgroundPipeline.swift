@@ -92,7 +92,8 @@ enum BackgroundPipeline: Sendable {
         let ctx = ModelContext(modelContainer)
         let llmStuck = FetchDescriptor<ContentItem>(
             predicate: #Predicate<ContentItem> { item in
-                item.processingStatus == "summarizing" || item.processingStatus == "tagging"
+                !item.isArchived
+                    && (item.processingStatus == "summarizing" || item.processingStatus == "tagging")
             }
         )
         if let items = try? ctx.fetch(llmStuck) {
@@ -103,7 +104,7 @@ enum BackgroundPipeline: Sendable {
         }
         let scraping = FetchDescriptor<ContentItem>(
             predicate: #Predicate<ContentItem> { item in
-                item.processingStatus == "scraping"
+                !item.isArchived && item.processingStatus == "scraping"
             }
         )
         if let items = try? ctx.fetch(scraping) {
@@ -124,6 +125,9 @@ enum BackgroundPipeline: Sendable {
     /// Foreground drain body (call only inside `PipelineSerialGate.shared.perform`).
     nonisolated static func runForegroundDrain() async {
         guard let container = containerRef else { return }
+
+        let purgeCtx = ModelContext(container)
+        ArchiveRetention.purgeExpired(in: purgeCtx)
 
         reviveAbortedPipelineItems(modelContainer: container)
 
@@ -184,6 +188,8 @@ enum BackgroundPipeline: Sendable {
 
         Task.detached {
             await PipelineSerialGate.shared.perform {
+                let purgeCtx = ModelContext(container)
+                ArchiveRetention.purgeExpired(in: purgeCtx)
                 reviveAbortedPipelineItems(modelContainer: container)
                 var processed = 0
                 while !cancelFlag.value, processed < 3 {
@@ -257,7 +263,7 @@ enum BackgroundPipeline: Sendable {
         let ctx = ModelContext(modelContainer)
         var desc = FetchDescriptor<ContentItem>(
             predicate: #Predicate<ContentItem> { item in
-                item.processingStatus == "pending" && item.contentKind == "web"
+                !item.isArchived && item.processingStatus == "pending" && item.contentKind == "web"
             },
             sortBy: [SortDescriptor(\.createdAt, order: .forward)]
         )
@@ -302,7 +308,7 @@ enum BackgroundPipeline: Sendable {
         let ctx = ModelContext(modelContainer)
         var desc = FetchDescriptor<ContentItem>(
             predicate: #Predicate<ContentItem> { item in
-                item.processingStatus == "embedding"
+                !item.isArchived && item.processingStatus == "embedding"
             },
             sortBy: [SortDescriptor(\.createdAt, order: .forward)]
         )
@@ -311,6 +317,8 @@ enum BackgroundPipeline: Sendable {
         guard let item = try? ctx.fetch(desc).first else {
             return .noItemToProcess
         }
+
+        let itemID = item.id
 
         if cancel() {
             return .cancelled
@@ -391,7 +399,14 @@ enum BackgroundPipeline: Sendable {
             item.failureReason = nil
             try? ctx.save()
 
-            item.indexInSpotlight()
+            let verifyDesc = FetchDescriptor<ContentItem>(
+                predicate: #Predicate<ContentItem> { $0.id == itemID }
+            )
+            if let fresh = try? ctx.fetch(verifyDesc).first,
+               !fresh.isArchived,
+               fresh.status == .completed {
+                fresh.indexInSpotlight()
+            }
 
             await session.unload()
             return .finished(taskSuccess: true)

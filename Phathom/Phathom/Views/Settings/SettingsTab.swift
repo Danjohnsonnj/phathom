@@ -1,7 +1,11 @@
+import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsContent: View {
+    @Query(filter: #Predicate<ContentItem> { $0.isArchived == true })
+    private var archivedForBadge: [ContentItem]
+
     @State private var modelFiles: [URL] = []
     @State private var testPhase: TestPhase = .idle
     @State private var showFileImporter = false
@@ -113,6 +117,26 @@ struct SettingsContent: View {
                 .padding(.vertical, 4)
             } header: {
                 Text("On-device model")
+            }
+
+            Section("Library") {
+                NavigationLink {
+                    RecentlyDeletedView()
+                } label: {
+                    HStack {
+                        Text("Recently Deleted")
+                        Spacer()
+                        if !archivedForBadge.isEmpty {
+                            Text("\(archivedForBadge.count)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppPalette.textPrimary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(AppPalette.surfaceNested)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
             }
 
             Section {

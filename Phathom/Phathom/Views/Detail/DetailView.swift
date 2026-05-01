@@ -5,6 +5,9 @@ import MarkdownUI
 struct DetailView: View {
     @Bindable var item: ContentItem
 
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
     @State private var sourceExpanded = false
     @State private var showStubAlert = false
     @State private var stubMessage = ""
@@ -172,8 +175,31 @@ struct DetailView: View {
                 stubButton("Read Full Text (AI Parsed)")
                 stubButton("Translate")
             }
-            stubButton("Archive")
+            archiveButton
         }
+    }
+
+    private var archiveButton: some View {
+        Button {
+            ArchiveRetention.archive(item)
+            try? modelContext.save()
+            NotificationCenter.default.post(
+                name: .phathomDidArchiveItem,
+                object: nil,
+                userInfo: ["itemID": item.id]
+            )
+            dismiss()
+        } label: {
+            Text("Archive")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(AppPalette.textPrimary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(AppPalette.surfaceNested)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private func stubButton(_ title: String) -> some View {

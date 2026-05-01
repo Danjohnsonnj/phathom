@@ -20,6 +20,8 @@ final class ContentItem {
     var lastProcessedChunk: Int = 0
     var failureReason: String?
     var isArchived: Bool = false
+    /// Set when the user archives; cleared on restore. Used for the 48-hour retention window.
+    var archivedAt: Date? = nil
     @Relationship(deleteRule: .nullify) var tags: [Tag] = []
 
     init(
