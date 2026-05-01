@@ -5,19 +5,21 @@
 //  Created by Daniel Johnson on 4/29/26.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct PhathomApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            ContentItem.self,
+            Tag.self,
+            ChatThread.self,
+            ChatMessage.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(for: schema, configurations: [config])
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
@@ -25,8 +27,21 @@ struct PhathomApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
+                .onAppear {
+                    seedIfEmpty()
+                }
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    @MainActor
+    private func seedIfEmpty() {
+        let context = sharedModelContainer.mainContext
+        let descriptor = FetchDescriptor<ContentItem>()
+        let count = (try? context.fetchCount(descriptor)) ?? 0
+        if count == 0 {
+            SeedData.populate(context)
+        }
     }
 }
