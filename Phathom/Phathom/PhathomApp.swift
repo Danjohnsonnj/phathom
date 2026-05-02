@@ -22,6 +22,7 @@ struct PhathomApp: App {
     init() {
         BackgroundPipeline.register(modelContainer: sharedModelContainer)
         SharedLlamaInference.scheduleWarmFromPersistedSelection()
+        NetworkReachability.start()
         StoreChangedDarwinNotifier.start()
     }
 

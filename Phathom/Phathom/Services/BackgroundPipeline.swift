@@ -148,8 +148,10 @@ enum BackgroundPipeline: Sendable {
     nonisolated static func runForegroundDrain() async {
         guard let container = containerRef else { return }
 
-        let purgeCtx = ModelContext(container)
-        ArchiveRetention.purgeExpired(in: purgeCtx)
+        await MainActor.run {
+            let purgeCtx = ModelContext(container)
+            ArchiveRetention.purgeExpired(in: purgeCtx)
+        }
 
         reviveAbortedPipelineItems(modelContainer: container)
 
@@ -210,8 +212,10 @@ enum BackgroundPipeline: Sendable {
 
         Task.detached {
             await PipelineSerialGate.shared.perform {
-                let purgeCtx = ModelContext(container)
-                ArchiveRetention.purgeExpired(in: purgeCtx)
+                await MainActor.run {
+                    let purgeCtx = ModelContext(container)
+                    ArchiveRetention.purgeExpired(in: purgeCtx)
+                }
                 reviveAbortedPipelineItems(modelContainer: container)
                 var processed = 0
                 while !cancelFlag.value, processed < 3 {
@@ -298,12 +302,20 @@ enum BackgroundPipeline: Sendable {
 
         if cancel() { return false }
 
+        if !NetworkReachability.hasUsableConnection {
+            item.processingStatus = ProcessingStatus.pending.rawValue
+            item.processingDetail = "Waiting for network…"
+            item.failureReason = nil
+            try? ctx.save()
+            return false
+        }
+
         item.processingStatus = ProcessingStatus.scraping.rawValue
         item.processingDetail = "Fetching article…"
         try? ctx.save()
 
         do {
-            guard let url = item.originalURL else { return true }
+            guard let url = item.originalURL else { return false }
             let scrapeItemID = item.id
             let result = try await PipelineMetrics.time("scrape", itemID: scrapeItemID) {
                 try await WebIngestService.scrape(url: url)
@@ -311,7 +323,13 @@ enum BackgroundPipeline: Sendable {
             item.rawText = result.text
             if let t = result.thumbnailData { item.thumbnailData = t }
             item.displayHost = result.displayHost
-            let hadUserTitle = !(item.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let trimmedExisting = (item.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let originalHost = item.originalURL?.host?.lowercased() ?? ""
+            let priorHost = item.displayHost?.lowercased() ?? ""
+            let titleLower = trimmedExisting.lowercased()
+            let isAutoHostTitle = !trimmedExisting.isEmpty
+                && (titleLower == originalHost || titleLower == priorHost)
+            let hadUserTitle = !trimmedExisting.isEmpty && !isAutoHostTitle
             if !hadUserTitle {
                 if let st = result.suggestedListTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !st.isEmpty {
                     item.title = String(st.prefix(200))
@@ -324,14 +342,22 @@ enum BackgroundPipeline: Sendable {
             item.processingStatus = ProcessingStatus.embedding.rawValue
             item.processingDetail = "Preparing analysis…"
             try? ctx.save()
+            return true
+        } catch WebIngestError.offline {
+            item.processingStatus = ProcessingStatus.pending.rawValue
+            item.processingDetail = "Waiting for network…"
+            item.failureReason = nil
+            try? ctx.save()
+            // Returning false stops `runForegroundDrain`'s ingest loop from immediately re-fetching the same
+            // still-`pending` row (would thrash scraping ↔ pending). `NetworkReachability` + next drain retry.
+            return false
         } catch {
             item.processingStatus = ProcessingStatus.failed.rawValue
             item.failureReason = error.localizedDescription
             item.processingDetail = nil
             try? ctx.save()
+            return true
         }
-
-        return true
     }
 
     nonisolated private static func processNextEmbeddingItem(

@@ -1,21 +1,23 @@
 import PhathomCore
 import Foundation
 
-enum WebIngestError: Error, LocalizedError {
+enum WebIngestError: Error, LocalizedError, Equatable {
     case badResponse
     case emptyContent
+    /// Transient network failure — keep web items `pending` and retry when online.
+    case offline
 
     var errorDescription: String? {
         switch self {
         case .badResponse: "The server returned an unexpected response."
         case .emptyContent: "No readable text could be extracted."
+        case .offline: "Waiting for a network connection."
         }
     }
 }
 
 enum WebIngestService {
     static func scrape(url: URL) async throws -> WebScrapeResult {
-        let displayHost = url.host ?? url.absoluteString
         var request = URLRequest(url: url)
         request.timeoutInterval = 25
         request.setValue(
@@ -23,22 +25,51 @@ enum WebIngestService {
             forHTTPHeaderField: "User-Agent"
         )
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else { throw WebIngestError.badResponse }
-        guard (200 ... 399).contains(http.statusCode) else { throw WebIngestError.badResponse }
+        let data: Data
+        let http: HTTPURLResponse
+        do {
+            let (d, response) = try await URLSession.shared.data(for: request)
+            guard let h = response as? HTTPURLResponse else { throw WebIngestError.badResponse }
+            guard (200 ... 399).contains(h.statusCode) else { throw WebIngestError.badResponse }
+            data = d
+            http = h
+        } catch {
+            throw mapTransientURLSessionError(error)
+        }
+
         guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
             throw WebIngestError.emptyContent
         }
 
-        let loweredHost = url.host?.lowercased() ?? ""
+        let finalURL = http.url ?? url
+        let displayHost = finalURL.host ?? finalURL.absoluteString
+        let loweredHost = finalURL.host?.lowercased() ?? ""
 
         if loweredHost.contains("instagram") {
-            return try await scrapeInstagram(html: html, pageURL: url, displayHost: displayHost)
+            return try await scrapeInstagram(html: html, pageURL: finalURL, displayHost: displayHost)
         }
         if loweredHost.contains("tiktok") {
-            return try await scrapeTikTok(html: html, pageURL: url, displayHost: displayHost)
+            return try await scrapeTikTok(html: html, pageURL: finalURL, displayHost: displayHost)
         }
-        return try await scrapeGeneric(html: html, pageURL: url, displayHost: displayHost)
+        return try await scrapeGeneric(html: html, pageURL: finalURL, displayHost: displayHost)
+    }
+
+    /// Maps transient `URLError` codes to `WebIngestError.offline`; otherwise rethrows.
+    private static func mapTransientURLSessionError(_ error: Error) -> Error {
+        guard let urlError = error as? URLError else { return error }
+        switch urlError.code {
+        case .notConnectedToInternet,
+             .networkConnectionLost,
+             .timedOut,
+             .cannotFindHost,
+             .dnsLookupFailed,
+             .cannotConnectToHost,
+             .dataNotAllowed,
+             .internationalRoamingOff:
+            return WebIngestError.offline
+        default:
+            return error
+        }
     }
 
     private static func scrapeInstagram(

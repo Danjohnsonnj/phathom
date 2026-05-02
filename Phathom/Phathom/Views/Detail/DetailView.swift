@@ -117,19 +117,14 @@ struct DetailView: View {
 
     @ViewBuilder
     private var detailStatusChip: some View {
-        if let label = ProcessingStatusPresentation.label(for: item.status) {
-            HStack(spacing: 4) {
-                Image(systemName: ProcessingStatusPresentation.symbolName(for: item.status))
-                    .font(.caption.weight(.semibold))
-                Text(label)
-                    .font(.caption.weight(.semibold))
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(AppPalette.metaChipBackground)
-            .foregroundStyle(AppPalette.floralWhite)
-            .clipShape(Capsule())
-            .accessibilityLabel("Status: \(label)")
+        ProcessingStatusBadge(status: item.status, onTap: detailChipTapAction)
+    }
+
+    private var detailChipTapAction: (() -> Void)? {
+        guard item.status == .pending, item.kind == .web else { return nil }
+        return {
+            BackgroundPipeline.scheduleForegroundDrain()
+            BackgroundPipeline.scheduleIngest()
         }
     }
 

@@ -6,6 +6,7 @@ enum ArchiveRetention {
     private static let retentionSeconds: TimeInterval = 48 * 60 * 60
 
     /// Permanently removes archived items past the retention window (48h after `archivedAt`).
+    @MainActor
     static func purgeExpired(in context: ModelContext) {
         let cutoff = Date().addingTimeInterval(-retentionSeconds)
         let predicate = #Predicate<ContentItem> { item in

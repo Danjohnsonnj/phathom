@@ -13,6 +13,8 @@ struct ContentCardRow: View {
     let item: ContentItem
     var chrome: ContentCardRowChrome = .card
 
+    @Environment(\.modelContext) private var modelContext
+
     private static let timestampFormat = Date.FormatStyle()
         .month(.abbreviated)
         .day()
@@ -60,11 +62,27 @@ struct ContentCardRow: View {
                         .foregroundStyle(AppPalette.textTertiary)
 
                     if item.status != .completed {
-                        ProcessingStatusBadge(status: item.status)
+                        ProcessingStatusBadge(status: item.status, onTap: chipAction(for: item))
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func chipAction(for item: ContentItem) -> (() -> Void)? {
+        switch item.status {
+        case .pending where item.kind == .web:
+            return {
+                BackgroundPipeline.scheduleForegroundDrain()
+                BackgroundPipeline.scheduleIngest()
+            }
+        case .failed where ProcessingRecovery.canRetryFailed(item):
+            return {
+                _ = ProcessingRecovery.retryFailedItemIfNeeded(item, modelContext: modelContext)
+            }
+        default:
+            return nil
         }
     }
 
@@ -87,21 +105,51 @@ struct ContentCardRow: View {
 
 struct ProcessingStatusBadge: View {
     let status: ProcessingStatus
+    var onTap: (() -> Void)? = nil
 
     var body: some View {
         if let label = ProcessingStatusPresentation.label(for: status) {
-            HStack(spacing: 4) {
-                Image(systemName: ProcessingStatusPresentation.symbolName(for: status))
-                    .font(.caption.weight(.semibold))
-                Text(label)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
+            let chip = chipContent(label: label)
+            if let onTap {
+                Button(action: onTap) {
+                    chip
+                }
+                .buttonStyle(.plain)
+                .contentShape(Capsule())
+                .accessibilityLabel("Status: \(label)")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(accessibilityHint)
+            } else {
+                chip
+                    .accessibilityLabel("Status: \(label)")
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(AppPalette.metaChipBackground)
-            .foregroundStyle(AppPalette.floralWhite)
-            .clipShape(Capsule())
+        }
+    }
+
+    @ViewBuilder
+    private func chipContent(label: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: ProcessingStatusPresentation.symbolName(for: status))
+                .font(.caption.weight(.semibold))
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(AppPalette.metaChipBackground)
+        .foregroundStyle(AppPalette.floralWhite)
+        .clipShape(Capsule())
+    }
+
+    private var accessibilityHint: String {
+        switch status {
+        case .pending:
+            "Try fetching now"
+        case .failed:
+            "Retry processing"
+        default:
+            ""
         }
     }
 }

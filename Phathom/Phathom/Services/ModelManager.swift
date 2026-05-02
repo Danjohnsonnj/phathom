@@ -13,17 +13,17 @@ enum ModelManager {
         let url: URL
         private let stopAccess: @Sendable () -> Void
 
-        init(url: URL, stopAccess: @escaping @Sendable () -> Void) {
+        nonisolated init(url: URL, stopAccess: @escaping @Sendable () -> Void) {
             self.url = url
             self.stopAccess = stopAccess
         }
 
-        func end() {
+        nonisolated func end() {
             stopAccess()
         }
 
         /// Normalized path for llama.cpp / file checks.
-        var path: String {
+        nonisolated var path: String {
             url.standardizedFileURL.path
         }
     }

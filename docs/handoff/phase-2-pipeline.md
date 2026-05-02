@@ -55,7 +55,8 @@ The spec doesn't cover a specific scenario in the pipeline or model management f
 - **Action**: Apply the **safest default** principle — in a background processing context, "safe" means: don't crash, don't leak memory, don't lose data, don't leave items in a stuck state.
 - Defaults to apply when the spec is silent:
   - If inference produces garbage output: set the field to nil, mark item `.completed` with partial data. Log the raw output for debugging.
-  - If a web scrape fails (404, timeout, SSL error): set `processingStatus` to `.failed` with a human-readable `failureReason`. Do not retry automatically — let the next scheduled task pick it up.
+  - If a web scrape fails due to **no network / transient connectivity** (`WebIngestError.offline`): keep the item **`pending`** with `processingDetail` **Waiting for network…**; **`NetworkReachability`** resumes ingest when connectivity returns. Do not mark `.failed` for this case.
+  - If a web scrape fails for other reasons (404, SSL error, empty parse, etc.): set `processingStatus` to `.failed` with a human-readable `failureReason`. User can retry from Detail when applicable.
   - If no model is selected when a BG task fires: complete the task as a no-op and re-schedule. Do not show an error to the user.
   - If a GGUF file is deleted or moved after selection: detect on load, clear the bookmark/legacy selection keys (see `ModelManager`), and surface **No model selected** / **Model file not found** in Settings.
 
@@ -374,6 +375,8 @@ The `com.phathom.ingest` BGAppRefreshTask (~30s budget) handles:
    - Create `NLEmbedding` vectors for the text chunks (store location TBD — see open question below)
 3. Save and schedule the analyze task
 
+**Offline-tolerant scrape:** Transient `URLError` codes on the main page fetch map to `WebIngestError.offline`; **`BackgroundPipeline`** leaves the item **`pending`** with **Waiting for network…** instead of **Needs attention**. **`NetworkReachability`** (`NWPathMonitor` in [`Phathom/Phathom/Services/NetworkReachability.swift`](../../Phathom/Phathom/Services/NetworkReachability.swift)) triggers **`scheduleForegroundDrain`** and **`scheduleIngest`** when the path becomes satisfied. **`WebIngestService`** uses **`HTTPURLResponse.url`** after redirects for `displayHost` and for Instagram vs TikTok vs generic routing (newsletter tracking links that land on social use the correct parser).
+
 **Open question for this phase**: Where to store embedding vectors. Options:
 - A new `TextChunk` SwiftData model with a `[Float]` embedding field
 - An external binary file per item (more performant for vector math)
@@ -504,7 +507,7 @@ Optional shared implementation: e.g. `ArchiveRetention.purgeExpired(in: ModelCon
 - **Model UX**: `ModelManager` (bookmark persistence + scoped `openSelection`) + **Settings** (Files picker, in-app GGUF guidance — e.g. vendor-agnostic “obtain a `.gguf`” copy — test inference, Recently Deleted).
 - **Share extension**: **`PhathomShare`** target (`ShareViewController.swift`) — saves URL / plain text / image into the shared app-group SwiftData store via `ShareCapture.insertFromShare`, then dismisses (see [docs/decisions.md](../decisions.md)).
 - **Recently Deleted**: `RecentlyDeletedView` uses **`ScrollView` + `LazyVStack`**, **`fetchLimit`**, and **`ContentCardRow` chrome `.plain`** for stable scrolling (see debugging note in [docs/debugging/recently-deleted-freeze.md](../debugging/recently-deleted-freeze.md)).
-- **Background**: `BackgroundPipeline` registers `com.phathom.ingest` (refresh) and `com.phathom.analyze` (processing). **`Phase2-Info.plist`** merges permitted identifiers + `fetch` / `processing` background modes with the generated app Info.plist. Ingest scrapes pending **web** items; analyze runs Llama stages on **embedding** items. **`scheduleAll()`** runs when the app moves to **inactive/background** and after saving a new item.
+- **Background**: `BackgroundPipeline` registers `com.phathom.ingest` (refresh) and `com.phathom.analyze` (processing). **`Phase2-Info.plist`** merges permitted identifiers + `fetch` / `processing` background modes with the generated app Info.plist. Ingest scrapes pending **web** items; analyze runs Llama stages on **embedding** items. **`scheduleAll()`** runs when the app moves to **inactive/background** and after saving a new item. **`NetworkReachability`** kicks the foreground drain when connectivity is restored after offline captures.
 - **Spotlight**: `ContentItem.indexInSpotlight()` after **completed**; deep link + **`OpenPhathomItemIntent`** as above; **de-index** when an item is **archived**, **re-index** on **restore** if **completed**.
 - **Archive retention**: BG refresh runs **purge** of items archived **≥ 48 hours**; pipeline **skips** `isArchived` items.
 - **Embeddings**: not persisted in SwiftData; `.embedding` is a queue state before Llama analysis.
