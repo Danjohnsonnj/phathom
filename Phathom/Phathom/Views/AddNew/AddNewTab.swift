@@ -1,5 +1,8 @@
+import PhathomCore
+import PhotosUI
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct AddNewTab: View {
     @Environment(\.modelContext) private var modelContext
@@ -9,18 +12,23 @@ struct AddNewTab: View {
     @State private var title = ""
     @State private var urlString = ""
     @State private var noteMarkdown = ""
+    @State private var photoPickerItem: PhotosPickerItem?
+    @State private var pickedImageJPEG: Data?
+    @State private var pickedImagePreview: UIImage?
     @State private var saveError: String?
     @State private var saveSuccessMessage: String?
 
     enum CaptureMode: String, CaseIterable, Identifiable {
         case web
         case note
+        case media
 
         var id: String { rawValue }
         var title: String {
             switch self {
             case .web: "Web"
             case .note: "Note"
+            case .media: "Media"
             }
         }
     }
@@ -35,6 +43,11 @@ struct AddNewTab: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .onChange(of: captureMode) { _, _ in
+                        photoPickerItem = nil
+                        pickedImageJPEG = nil
+                        pickedImagePreview = nil
+                    }
 
                     TextField("Title", text: $title)
 
@@ -43,7 +56,7 @@ struct AddNewTab: View {
                             .textContentType(.URL)
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
-                    } else {
+                    } else if captureMode == .note {
                         ZStack(alignment: .topLeading) {
                             TextEditor(text: $noteMarkdown)
                                 .frame(minHeight: 180)
@@ -57,10 +70,30 @@ struct AddNewTab: View {
                                     .allowsHitTesting(false)
                             }
                         }
+                    } else {
+                        PhotosPicker(selection: $photoPickerItem, matching: .images, photoLibrary: .shared()) {
+                            Label(pickedImagePreview == nil ? "Choose photo" : "Replace photo", systemImage: "photo")
+                        }
+                        .onChange(of: photoPickerItem) { _, newItem in
+                            Task { await loadPickedPhoto(newItem) }
+                        }
+
+                        if let preview = pickedImagePreview {
+                            Image(uiImage: preview)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxHeight: 220)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
                     }
                 }
 
                 Section {
+                    Button("Cancel", role: .cancel) {
+                        cancelAndDismiss()
+                    }
+                    .foregroundStyle(AppPalette.textSecondary)
+
                     Button("Save") {
                         saveItem()
                     }
@@ -92,6 +125,35 @@ struct AddNewTab: View {
                 Text(saveSuccessMessage ?? "")
             }
         }
+    }
+
+    @MainActor
+    private func loadPickedPhoto(_ item: PhotosPickerItem?) async {
+        guard let item else {
+            pickedImageJPEG = nil
+            pickedImagePreview = nil
+            return
+        }
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            pickedImageJPEG = nil
+            pickedImagePreview = nil
+            return
+        }
+        let jpeg = MediaImageEncoding.normalizedJPEG(from: data) ?? data
+        pickedImageJPEG = jpeg
+        pickedImagePreview = UIImage(data: jpeg)
+    }
+
+    private func cancelAndDismiss() {
+        captureMode = .web
+        title = ""
+        urlString = ""
+        noteMarkdown = ""
+        photoPickerItem = nil
+        pickedImageJPEG = nil
+        pickedImagePreview = nil
+        saveError = nil
+        selectedTab = 0
     }
 
     private func saveItem() {
@@ -133,6 +195,32 @@ struct AddNewTab: View {
             item.processingStatus = ProcessingStatus.embedding.rawValue
             item.processingDetail = "Preparing analysis…"
             modelContext.insert(item)
+
+        case .media:
+            guard let jpeg = pickedImageJPEG, !jpeg.isEmpty else {
+                saveError = "Please choose a photo."
+                return
+            }
+            do {
+                try ShareCapture.insertMediaItem(
+                    context: modelContext,
+                    imageJPEGData: jpeg,
+                    title: trimmedTitle.isEmpty ? nil : trimmedTitle
+                )
+                title = ""
+                urlString = ""
+                noteMarkdown = ""
+                photoPickerItem = nil
+                pickedImageJPEG = nil
+                pickedImagePreview = nil
+                saveSuccessMessage = "Item added to your library."
+                BackgroundPipeline.scheduleAll()
+                BackgroundPipeline.scheduleForegroundDrain()
+                return
+            } catch {
+                saveError = error.localizedDescription
+                return
+            }
         }
 
         do {
@@ -140,6 +228,9 @@ struct AddNewTab: View {
             title = ""
             urlString = ""
             noteMarkdown = ""
+            photoPickerItem = nil
+            pickedImageJPEG = nil
+            pickedImagePreview = nil
             saveSuccessMessage = "Item added to your library."
             BackgroundPipeline.scheduleAll()
             BackgroundPipeline.scheduleForegroundDrain()

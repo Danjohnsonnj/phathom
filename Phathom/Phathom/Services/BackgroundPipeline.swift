@@ -1,3 +1,4 @@
+import PhathomCore
 import BackgroundTasks
 import Foundation
 import SwiftData
@@ -93,6 +94,7 @@ enum BackgroundPipeline: Sendable {
         let llmStuck = FetchDescriptor<ContentItem>(
             predicate: #Predicate<ContentItem> { item in
                 !item.isArchived
+                    && item.contentKind != "media"
                     && (item.processingStatus == "summarizing" || item.processingStatus == "tagging")
             }
         )
@@ -117,6 +119,26 @@ enum BackgroundPipeline: Sendable {
                     item.processingStatus = ProcessingStatus.pending.rawValue
                     item.processingDetail = "Queued for capture"
                 }
+            }
+        }
+        let mediaStuck = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived
+                    && item.contentKind == "media"
+                    && (item.processingStatus == "embedding"
+                        || item.processingStatus == "summarizing"
+                        || item.processingStatus == "tagging")
+            }
+        )
+        if let items = try? ctx.fetch(mediaStuck) {
+            for item in items {
+                item.processingStatus = ProcessingStatus.completed.rawValue
+                item.processingDetail = nil
+                item.failureReason = nil
+                if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    item.mediaDescription = ShareCapture.mediaPlaceholderDescription
+                }
+                item.indexInSpotlight()
             }
         }
         try? ctx.save()
@@ -330,6 +352,18 @@ enum BackgroundPipeline: Sendable {
 
         if cancel() {
             return .cancelled
+        }
+
+        if item.kind == .media {
+            item.processingStatus = ProcessingStatus.completed.rawValue
+            item.processingDetail = nil
+            item.failureReason = nil
+            if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                item.mediaDescription = ShareCapture.mediaPlaceholderDescription
+            }
+            try? ctx.save()
+            item.indexInSpotlight()
+            return .finished(taskSuccess: true)
         }
 
         guard let raw = item.rawText, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

@@ -1,3 +1,4 @@
+import PhathomCore
 import Foundation
 
 /// One shared `LlamaContentAnalyzer` for the process so startup warmup, the analyze pipeline, and Settings “test model” reuse the same loaded weights.

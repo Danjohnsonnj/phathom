@@ -1,12 +1,17 @@
 import Foundation
 
-struct Extract: Codable, Identifiable, Hashable {
-    var id: String { label }
-    let label: String
-    let value: String
+public struct Extract: Codable, Identifiable, Hashable, Sendable {
+    public var id: String { label }
+    public let label: String
+    public let value: String
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
 }
 
-extension ContentItem {
+public extension ContentItem {
     var decodedSummaryBullets: [String] {
         guard let data = summaryBullets?.data(using: .utf8) else { return [] }
         return (try? JSONDecoder().decode([String].self, from: data)) ?? []

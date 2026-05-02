@@ -1,3 +1,4 @@
+import PhathomCore
 import Foundation
 
 nonisolated protocol LlamaCppBridge: Sendable {

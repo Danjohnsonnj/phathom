@@ -1,3 +1,4 @@
+import PhathomCore
 import SwiftData
 import SwiftUI
 import UIKit

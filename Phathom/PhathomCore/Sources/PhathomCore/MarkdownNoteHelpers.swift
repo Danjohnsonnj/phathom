@@ -1,8 +1,7 @@
 import Foundation
 
-enum MarkdownNoteHelpers {
-    /// Strips common leading markdown from one line for display titles (e.g. `# Title` → `Title`).
-    static func plainTitleLine(from line: String) -> String {
+public enum MarkdownNoteHelpers {
+    public static func plainTitleLine(from line: String) -> String {
         var s = line.trimmingCharacters(in: .whitespacesAndNewlines)
         while s.hasPrefix("#") {
             s.removeFirst()

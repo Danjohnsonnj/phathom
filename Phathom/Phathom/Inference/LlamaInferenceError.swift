@@ -1,3 +1,4 @@
+import PhathomCore
 import Foundation
 
 enum LlamaInferenceError: Error, LocalizedError {

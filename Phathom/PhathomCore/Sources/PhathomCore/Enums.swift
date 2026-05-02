@@ -1,12 +1,12 @@
 import Foundation
 
-enum ContentKind: String, Codable, CaseIterable {
+public enum ContentKind: String, Codable, CaseIterable, Sendable {
     case web
     case media
     case note
 }
 
-enum ProcessingStatus: String, Codable, CaseIterable {
+public enum ProcessingStatus: String, Codable, CaseIterable, Sendable {
     case pending
     case scraping
     case embedding

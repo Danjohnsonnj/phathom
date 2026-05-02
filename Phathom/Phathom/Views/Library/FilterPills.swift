@@ -1,3 +1,4 @@
+import PhathomCore
 import SwiftUI
 
 struct FilterPills: View {

@@ -5,21 +5,15 @@
 //  Created by Daniel Johnson on 4/29/26.
 //
 
+import PhathomCore
 import SwiftData
 import SwiftUI
 
 @main
 struct PhathomApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            ContentItem.self,
-            Tag.self,
-            ChatThread.self,
-            ChatMessage.self,
-        ])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
-            return try ModelContainer(for: schema, configurations: [config])
+            return try PhathomModelContainer.makeShared()
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
@@ -28,6 +22,7 @@ struct PhathomApp: App {
     init() {
         BackgroundPipeline.register(modelContainer: sharedModelContainer)
         SharedLlamaInference.scheduleWarmFromPersistedSelection()
+        StoreChangedDarwinNotifier.start()
     }
 
     var body: some Scene {

@@ -1,3 +1,4 @@
+import PhathomCore
 import Foundation
 
 extension Notification.Name {

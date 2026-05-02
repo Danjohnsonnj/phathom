@@ -1,11 +1,16 @@
 import CoreSpotlight
 import Foundation
 
-extension ContentItem {
+public extension ContentItem {
     func indexInSpotlight() {
+        let teaser = decodedSummaryBullets.first
+            ?? mediaDescription.flatMap { s in
+                let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+                return t.isEmpty ? nil : t
+            }
         let attrs = CSSearchableItemAttributeSet(contentType: .text)
         attrs.title = displayTitle
-        attrs.contentDescription = decodedSummaryBullets.first
+        attrs.contentDescription = teaser
         attrs.keywords = tags.map(\.name)
         if let data = thumbnailData {
             attrs.thumbnailData = data

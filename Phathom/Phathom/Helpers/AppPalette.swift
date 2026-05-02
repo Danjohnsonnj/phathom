@@ -1,3 +1,4 @@
+import PhathomCore
 import SwiftUI
 
 /// Phathom dark theme palette (CSS variables as Swift).
