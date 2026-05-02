@@ -23,6 +23,10 @@ struct LibraryTab: View {
         _deepLinkItemID = deepLinkItemID
     }
 
+    private var emptyLibraryMessage: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No items yet" : "No matches"
+    }
+
     private var filteredItems: [ContentItem] {
         let kindFiltered: [ContentItem]
         if let filterKind {
@@ -47,43 +51,51 @@ struct LibraryTab: View {
 
     var body: some View {
         NavigationStack(path: $navPath) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Library")
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(AppPalette.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    FilterPills(selected: $filterKind)
-
+            List {
+                Section {
                     if filteredItems.isEmpty {
-                        Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No items yet" : "No matches")
+                        Text(emptyLibraryMessage)
                             .font(.subheadline)
                             .foregroundStyle(AppPalette.textSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 48)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     } else {
-                        LazyVStack(spacing: 12) {
-                            ForEach(filteredItems, id: \.id) { item in
-                                NavigationLink(value: item.id) {
-                                    ContentCardRow(item: item)
+                        ForEach(filteredItems, id: \.id) { item in
+                            NavigationLink(value: item.id) {
+                                ContentCardRow(item: item)
+                            }
+                            .buttonStyle(.plain)
+                            .navigationLinkIndicatorVisibility(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button {
+                                    archiveFromLibrary(item: item)
+                                } label: {
+                                    Label("Archive", systemImage: "archivebox")
                                 }
-                                .buttonStyle(.plain)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button {
-                                        archiveFromLibrary(item: item)
-                                    } label: {
-                                        Label("Archive", systemImage: "archivebox")
-                                    }
-                                    .tint(.orange)
-                                }
+                                .tint(.orange)
                             }
                         }
                     }
+                } header: {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Library")
+                            .font(.largeTitle.bold())
+                            .foregroundStyle(AppPalette.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        FilterPills(selected: $filterKind)
+                    }
+                    .textCase(nil)
+                    .padding(.bottom, 4)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .background(AppPalette.background)
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.inline)
