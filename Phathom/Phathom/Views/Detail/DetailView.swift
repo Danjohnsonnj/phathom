@@ -55,6 +55,8 @@ struct DetailView: View {
 
                 noteRenderedSection
 
+                failedSection
+
                 summarySection
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -119,6 +121,57 @@ struct DetailView: View {
     }
 
     @ViewBuilder
+    private var failedSection: some View {
+        if item.status == .failed {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Processing failed")
+                    .font(.headline.bold())
+                    .foregroundStyle(AppPalette.textPrimary)
+
+                Text(failedReasonDisplay)
+                    .font(.subheadline)
+                    .foregroundStyle(AppPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    _ = ProcessingRecovery.retryFailedItemIfNeeded(item, modelContext: modelContext)
+                } label: {
+                    Text("Retry")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppPalette.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(AppPalette.surfaceNested)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(!ProcessingRecovery.canRetryFailed(item))
+
+                if item.kind == .note, !noteHasRetryableText {
+                    Text("This note has no text to analyze, so it cannot be retried.")
+                        .font(.caption)
+                        .foregroundStyle(AppPalette.textTertiary)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppPalette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+    }
+
+    private var failedReasonDisplay: String {
+        let t = (item.failureReason ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? "Something went wrong." : t
+    }
+
+    private var noteHasRetryableText: Bool {
+        guard let raw = item.rawText else { return false }
+        return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    @ViewBuilder
     private var noteRenderedSection: some View {
         if item.kind == .note, let raw = item.rawText, !raw.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
@@ -157,6 +210,14 @@ struct DetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(AppPalette.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else if item.status == .failed {
+                Text("Not available until processing succeeds.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppPalette.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(AppPalette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(0 ..< 4, id: \.self) { _ in
