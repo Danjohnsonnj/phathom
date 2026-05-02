@@ -95,7 +95,7 @@ For `xcodebuild` and simulator-based tests, use an **iPhone 16 or newer** simula
 Phase 2 (as implemented) adds:
 
 - **Llama.cpp**: vendored **`Phathom/vendor/llama/llama.xcframework`**, first-party types in **`Phathom/Phathom/Inference/`** (`LlamaCppRuntime`, `LlamaContentAnalyzer`, `LlamaCppBridge`, `GenerationOptions`, `LlamaInferenceError`). Prompts use the GGUF’s **chat template** via **`startTemplatedUserPrompt`** (Llama-3 Instruct–compatible GGUFs expected).
-- **Model management**: **`Services/ModelManager.swift`**, **`Views/Settings/SettingsTab.swift`** (pick / import / test / links).
+- **Model management**: **`Services/ModelManager.swift`**, **`Views/Settings/SettingsTab.swift`** (Files picker → bookmark, test, GGUF guidance copy).
 - **Background work**: **`Services/BackgroundPipeline.swift`**, **`Services/WebIngestService.swift`**, **`Services/ThermalMonitor.swift`**. No **embedding vectors** stored yet — **`embedding`** is only a pipeline stage before Llama work.
 - **Spotlight + deep links**: **`Models/ContentItem+Spotlight.swift`**, **`AppIntents/OpenPhathomItemIntent.swift`**, **`Helpers/Notifications+Phathom.swift`**, wired in **`MainTabView`** + **`LibraryTab`** (`NavigationStack` + `NavigationPath`). **Archive**: de-index when soft-deleted; re-index completed items on restore; **BG refresh** purges archives older than 48h (see [phase-2-pipeline.md](phase-2-pipeline.md) §2D).
 - **Capture**: **`AddNewTab`** persists **`ContentItem`** (web → `pending`; note → `embedding` with `rawText`) and schedules background work.

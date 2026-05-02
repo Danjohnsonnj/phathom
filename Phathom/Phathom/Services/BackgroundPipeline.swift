@@ -153,6 +153,8 @@ enum BackgroundPipeline: Sendable {
 
         reviveAbortedPipelineItems(modelContainer: container)
 
+        ModelManager.validateSelection()
+
         while true {
             if ThermalMonitor.shouldThrottle {
                 scheduleAll()
@@ -165,8 +167,7 @@ enum BackgroundPipeline: Sendable {
                 continue
             }
 
-            guard let modelPath = ModelManager.selectedModelURL?.path,
-                  FileManager.default.isReadableFile(atPath: modelPath) else {
+            guard ModelManager.hasReadableSelection else {
                 scheduleAll()
                 return
             }
@@ -175,7 +176,6 @@ enum BackgroundPipeline: Sendable {
             let outcome = await processNextEmbeddingItem(
                 modelContainer: container,
                 session: session,
-                modelPath: modelPath,
                 cancel: { false }
             )
 
@@ -239,8 +239,9 @@ enum BackgroundPipeline: Sendable {
             return
         }
 
-        guard let modelPath = ModelManager.selectedModelURL?.path,
-              FileManager.default.isReadableFile(atPath: modelPath) else {
+        ModelManager.validateSelection()
+
+        guard ModelManager.hasReadableSelection else {
             task.setTaskCompleted(success: false)
             scheduleAnalyze()
             return
@@ -260,7 +261,6 @@ enum BackgroundPipeline: Sendable {
                 return await processNextEmbeddingItem(
                     modelContainer: container,
                     session: session,
-                    modelPath: modelPath,
                     cancel: { cancelFlag.value }
                 )
             }
@@ -332,7 +332,6 @@ enum BackgroundPipeline: Sendable {
     nonisolated private static func processNextEmbeddingItem(
         modelContainer: ModelContainer,
         session: AnalyzeLlamaSession,
-        modelPath: String,
         cancel: @Sendable @escaping () -> Bool
     ) async -> SingleAnalyzeOutcome {
         let ctx = ModelContext(modelContainer)
@@ -376,7 +375,7 @@ enum BackgroundPipeline: Sendable {
         let article = String(raw.prefix(12_000))
 
         do {
-            try await session.load(path: modelPath)
+            try await session.load()
             if cancel() {
                 await session.unload()
                 checkpointAfterCancel(item: item)
@@ -474,8 +473,8 @@ enum BackgroundPipeline: Sendable {
 private actor AnalyzeLlamaSession {
     private var cancelled = false
 
-    func load(path: String) async throws {
-        try await SharedLlamaInference.shared.ensureLoaded(path: path)
+    func load() async throws {
+        try await SharedLlamaInference.shared.ensureLoaded()
     }
 
     func unload() async {

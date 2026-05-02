@@ -9,14 +9,13 @@ struct SettingsContent: View {
     @Query(filter: #Predicate<ContentItem> { $0.isArchived == true })
     private var archivedForBadge: [ContentItem]
 
-    @State private var modelFiles: [URL] = []
-    /// Mirrors UserDefaults selection so the Form redraws when the user picks a model.
-    @State private var displayedSelectedPath: String?
-    @State private var applyingModelPath: String?
+    @State private var selectionState: ModelManager.SelectionDisplayState = .noSelection
     @State private var testPhase: TestPhase = .idle
     @State private var showFileImporter = false
     @State private var importerError: String?
     @State private var showTestResponse = false
+    @State private var changeModelExpanded: Bool = true
+    @State private var showModelSelectionGuidance = false
 
     enum TestPhase {
         case idle
@@ -33,108 +32,59 @@ struct SettingsContent: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 
-    private var selectedURLForDisplay: URL? {
-        if let p = displayedSelectedPath {
-            return URL(fileURLWithPath: p)
-        }
-        return ModelManager.selectedModelURL
+    private var modelSelectionGuidance: String {
+        "Model files are used for summarization and tagging in the background. "
+            + "Download a `.gguf` file from Hugging Face or another model vendor and save it to a folder on your device in the Files app. "
+            + "Phathom will automatically detect and use this model for future tasks."
+            + "\n\n`Select model from files...` creates a security bookmark and reads it in place without duplicating the file into the app."
     }
 
-    private let recommendedModels: [(name: String, url: URL)] = [
-        ("Llama-3.1-8B-Instruct Q4_K_M (~4.5 GB)", URL(string: "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF")!),
-        ("Llama-3.2-3B-Instruct Q4_K_M (~1.8 GB)", URL(string: "https://huggingface.co/bartowski/Meta-Llama-3.2-3B-Instruct-GGUF")!),
-        ("Gemma-2-9B-Instruct Q4_K_M (~5.5 GB)", URL(string: "https://huggingface.co/bartowski/gemma-2-9b-it-GGUF")!),
-    ]
+    private var canRunTest: Bool {
+        if case .ready = selectionState { return true }
+        return false
+    }
 
     var body: some View {
         Form {
             Section {
-                if let url = selectedURLForDisplay, FileManager.default.isReadableFile(atPath: url.path) {
-                    LabeledContent("Selected model", value: url.lastPathComponent)
-                    LabeledContent("Size", value: ModelManager.byteString(for: url))
-                } else {
-                    Text("No model selected")
-                        .foregroundStyle(AppPalette.textSecondary)
-                }
+                modelStatusRows
 
-                Button("Choose from Documents folder") {
-                    refreshModels()
-                }
-
-                Button("Import .gguf file…") {
-                    showFileImporter = true
-                }
-
-                if !modelFiles.isEmpty {
-                    ForEach(modelFiles, id: \.self) { url in
-                        let stdPath = url.standardizedFileURL.path
-                        Button {
-                            applyModelSelection(url)
-                        } label: {
-                            HStack(spacing: 10) {
-                                if applyingModelPath == stdPath {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                        .accessibilityLabel("Applying selection")
-                                }
-                                Text(url.lastPathComponent)
-                                Spacer()
-                                if displayedSelectedPath == stdPath {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(AppPalette.accent)
-                                }
-                            }
-                        }
-                        .disabled(applyingModelPath != nil && applyingModelPath != stdPath)
-                    }
-                }
-
-                Button("Test selected model") {
+                Button("Test model") {
                     runModelTest()
                 }
-                .disabled(isTestRunning || ModelManager.selectedModelURL == nil)
+                .disabled(isTestRunning || !canRunTest)
 
-                switch testPhase {
-                case .idle:
-                    EmptyView()
-                case .running:
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Running test inference…")
-                            .font(.footnote)
-                            .foregroundStyle(AppPalette.textSecondary)
+                testPhaseRows
+
+                DisclosureGroup("Change model", isExpanded: $changeModelExpanded) {
+                    Button("Select model from Files…") {
+                        showFileImporter = true
                     }
-                case .succeeded(let summary, let raw):
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(summary, systemImage: "checkmark.circle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.green)
-                        DisclosureGroup("Show response", isExpanded: $showTestResponse) {
-                            Text(raw)
-                                .font(.footnote)
-                                .foregroundStyle(AppPalette.textSecondary)
-                                .textSelection(.enabled)
-                                .padding(.top, 6)
+
+                    if ModelManager.hasBookmark {
+                        Button("Forget selection", role: .destructive) {
+                            ModelManager.clearSelection()
+                            testPhase = .idle
+                            showTestResponse = false
+                            refreshSelectionState()
+                        }
+                    }
+
+                    Button {
+                        showModelSelectionGuidance = true
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Image(systemName: "info.circle")
+                            Text("About model files")
                         }
                         .font(.footnote)
-                    }
-                case .failed(let message):
-                    Label(message, systemImage: "xmark.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Add models")
-                        .font(.subheadline.weight(.semibold))
-                    Text("Download a GGUF, then use Files → On My iPhone → Phathom to place it in this app’s Documents folder, or import with the button above.")
-                        .font(.footnote)
                         .foregroundStyle(AppPalette.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(.vertical, 4)
             } header: {
-                Text("On-device model")
+                Text("AI model")
             }
 
             Section("Library") {
@@ -157,16 +107,6 @@ struct SettingsContent: View {
                 }
             }
 
-            Section {
-                ForEach(recommendedModels, id: \.name) { item in
-                    Link(destination: item.url) {
-                        Text(item.name)
-                    }
-                }
-            } header: {
-                Text("Recommended GGUFs")
-            }
-
             Section("About") {
                 LabeledContent("Version", value: appVersion)
                 LabeledContent("Build", value: build)
@@ -180,12 +120,12 @@ struct SettingsContent: View {
         .tint(AppPalette.accent)
         .foregroundStyle(AppPalette.textPrimary)
         .onAppear {
-            syncDisplayedSelectionFromManager()
-            refreshModels()
+            refreshSelectionState()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                syncDisplayedSelectionFromManager()
+                ModelManager.validateSelection()
+                refreshSelectionState()
             }
         }
         .fileImporter(
@@ -196,7 +136,15 @@ struct SettingsContent: View {
             switch result {
             case .success(let urls):
                 guard let src = urls.first else { return }
-                copyImportedGGUF(from: src)
+                do {
+                    try ModelManager.setSelection(from: src)
+                    testPhase = .idle
+                    showTestResponse = false
+                    refreshSelectionState()
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } catch {
+                    importerError = error.localizedDescription
+                }
             case .failure(let error):
                 importerError = error.localizedDescription
             }
@@ -209,63 +157,105 @@ struct SettingsContent: View {
         } message: {
             Text(importerError ?? "")
         }
-    }
-
-    private func refreshModels() {
-        modelFiles = ModelManager.ggufFilesInDocuments()
-    }
-
-    private func syncDisplayedSelectionFromManager() {
-        ModelManager.validateSelection()
-        displayedSelectedPath = ModelManager.selectedModelURL?.standardizedFileURL.path
-    }
-
-    private func applyModelSelection(_ url: URL) {
-        let stdPath = url.standardizedFileURL.path
-        applyingModelPath = stdPath
-        Task { @MainActor in
-            ModelManager.selectedModelURL = url
-            displayedSelectedPath = stdPath
-            testPhase = .idle
-            showTestResponse = false
-            await Task.yield()
-            applyingModelPath = nil
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        }
-    }
-
-    private func copyImportedGGUF(from sourceURL: URL) {
-        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            importerError = "Could not reach Documents directory."
-            return
-        }
-        let didAccess = sourceURL.startAccessingSecurityScopedResource()
-        defer {
-            if didAccess { sourceURL.stopAccessingSecurityScopedResource() }
-        }
-        let dest = docs.appendingPathComponent(sourceURL.lastPathComponent)
-        do {
-            if FileManager.default.fileExists(atPath: dest.path) {
-                try FileManager.default.removeItem(at: dest)
+        .sheet(isPresented: $showModelSelectionGuidance) {
+            NavigationStack {
+                ScrollView {
+                    Text(modelSelectionGuidance)
+                        .font(.body)
+                        .foregroundStyle(AppPalette.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                }
+                .scrollContentBackground(.hidden)
+                .background(AppPalette.background)
+                .navigationTitle("Model files")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            showModelSelectionGuidance = false
+                        }
+                    }
+                }
             }
-            try FileManager.default.copyItem(at: sourceURL, to: dest)
-            ModelManager.selectedModelURL = dest
-            displayedSelectedPath = dest.standardizedFileURL.path
-            testPhase = .idle
-            showTestResponse = false
-            refreshModels()
-        } catch {
-            importerError = error.localizedDescription
+            .tint(AppPalette.accent)
+        }
+    }
+
+    @ViewBuilder
+    private var modelStatusRows: some View {
+        switch selectionState {
+        case .noSelection:
+            Text("No model selected.")
+                .foregroundStyle(AppPalette.textSecondary)
+        case .ready(let name, let byteString):
+            LabeledContent("Selected model", value: name)
+            LabeledContent("Size", value: byteString)
+            Text("Summaries and tagging run with this file when the app is in the background.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+                .padding(.top, 4)
+        case .missingFile:
+            Text("Model file not found")
+                .foregroundStyle(.orange)
+            Text("The file may have moved or been deleted. Choose a new model or forget this selection.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private var testPhaseRows: some View {
+        switch testPhase {
+        case .idle:
+            EmptyView()
+        case .running:
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Running test inference…")
+                    .font(.footnote)
+                    .foregroundStyle(AppPalette.textSecondary)
+            }
+        case .succeeded(let summary, let raw):
+            VStack(alignment: .leading, spacing: 8) {
+                Label(summary, systemImage: "checkmark.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.green)
+                DisclosureGroup("Show response", isExpanded: $showTestResponse) {
+                    Text(raw)
+                        .font(.footnote)
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .textSelection(.enabled)
+                        .padding(.top, 6)
+                }
+                .font(.footnote)
+            }
+        case .failed(let message):
+            Label(message, systemImage: "xmark.circle.fill")
+                .font(.footnote)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func refreshSelectionState() {
+        ModelManager.validateSelection()
+        let next = ModelManager.selectionDisplayState()
+        selectionState = next
+        switch next {
+        case .ready:
+            changeModelExpanded = false
+        case .noSelection, .missingFile:
+            changeModelExpanded = true
         }
     }
 
     private func runModelTest() {
-        guard let path = ModelManager.selectedModelURL?.path else { return }
         testPhase = .running
         showTestResponse = false
         Task {
             do {
-                try await SharedLlamaInference.shared.ensureLoaded(path: path)
+                try await SharedLlamaInference.shared.ensureLoaded()
                 let text = try await SharedLlamaInference.shared.runQuickTest()
                 await SharedLlamaInference.shared.unload()
                 await MainActor.run {

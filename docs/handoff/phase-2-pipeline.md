@@ -62,7 +62,7 @@ The spec doesn't cover a specific scenario in the pipeline or model management f
 **Step 3: Is it a product decision?**
 Something could go multiple ways and the choice visibly changes behavior.
 - **Action**: **Stop and ask the user.** Frame it as two concrete options with a recommendation. Do not block all other work while waiting.
-- Examples that require asking: whether failed items should show a retry button in the UI, whether the model picker should support importing from Files (document picker) vs. only scanning the Documents directory, whether scraping should follow redirects.
+- Examples that require asking: whether failed items should show a retry button in the UI, whether scraping should follow redirects.
 
 **Step 4: Is it a structural constraint?**
 You need to change something in the guardrails' "must escalate" list.
@@ -181,7 +181,7 @@ Phathom/Phathom/
 │   ├── LlamaInferenceError.swift
 │   └── LlamaContentAnalyzer.swift # Summarize / tag / extract prompts (Llama-3 instruct via model chat template)
 ├── Services/
-│   ├── ModelManager.swift         # Documents/*.gguf discovery + UserDefaults selection
+│   ├── ModelManager.swift         # Security-scoped bookmark + legacy path migration; opens/stops file access per use
 │   ├── WebIngestService.swift
 │   ├── ThermalMonitor.swift
 │   └── BackgroundPipeline.swift   # BGAppRefresh + BGProcessing handlers
@@ -190,14 +190,14 @@ Phathom/Phathom/
 ├── AppIntents/
 │   └── OpenPhathomItemIntent.swift
 ├── Views/Settings/
-│   └── SettingsTab.swift          # Model list, import, test inference, HF links
+│   └── SettingsTab.swift          # AI model status, Files picker, GGUF guidance copy, test, Recently Deleted
 ```
 
-**Model discovery**: `ModelManager` scans the app **Documents** directory for `*.gguf`, persists the chosen file path in **UserDefaults** (`phathom.selectedGGUFPath`). **Settings** adds a **file importer** to copy a `.gguf` into Documents.
+**Model selection**: The user picks a `.gguf` with **`UIDocumentPicker` / `fileImporter`**. `ModelManager` persists a **bookmark** (`Data`, key `phathom.selectedGGUFBookmark`) so the file stays at its original location (e.g. **On My iPhone** in another app’s folder) — **no copy** into Phathom’s Documents — enabling one ~4.5 GB model to be shared across apps. **`openSelection()`** resolves the bookmark and calls **`startAccessingSecurityScopedResource()`**; callers must **`end()`** scoped access when finished. **Legacy**: `phathom.selectedGGUFPath` is **migrated once** into a bookmark when the file still exists. **Constraint**: keep the GGUF **locally available**; iCloud‑only (evicted) files may stall **`BGProcessingTask`**. Settings copy guides the user.
 
-**Model discovery**: scan the app's Documents directory (and optionally a shared App Group container) for `*.gguf` files. Display them in Settings with file name and size. Persist the selected model path in `UserDefaults`.
+**Scope lifecycle**: `SharedLlamaInference` and **`BackgroundPipeline`** / **`AnalyzeLlamaSession`** open scoped access around load/unload so background analysis can read the bookmarked path.
 
-**Recommended models to suggest in the UI** (not bundled — user downloads these):
+**Example GGUF artifacts** (documentation only; Settings does not list vendor URLs — users bring their own file):
 - General use: `Llama-3.1-8B-Instruct-Q4_K_M.gguf` (~4.5 GB) — strong instruction-following, good summarization
 - Lightweight: `Llama-3.2-3B-Instruct-Q4_K_M.gguf` (~1.8 GB) — faster, lower quality, good for testing
 - Quality: `Gemma-2-9B-Instruct-Q4_K_M.gguf` (~5.5 GB) — strong reasoning and extraction
@@ -293,13 +293,11 @@ Expected output: `[{"label": "Carbon Reduction Target", "value": "~45%"}]`
 
 ### Settings UI — Model Setup Flow
 
-The Settings screen (presented from the Library navigation toolbar in Phase 1 — may still be placeholder) needs:
+The Settings tab needs:
 
-1. **Model section**: shows currently selected model name + file size, or "No model selected"
-2. **"Select Model" button**: opens a file picker or lists `*.gguf` files found in the Documents directory
-3. **Setup instructions**: brief text explaining where to get models and how to transfer them to the device (Files app → Phathom folder, or AirDrop)
-4. **Recommended models list**: show the 3 suggestions above with Hugging Face links (as tappable URLs)
-5. **Test button**: runs a short inference ("Summarize: The quick brown fox...") to verify the model loads and generates, shows result or error
+1. **AI model** section: status row (**No model** / **Ready** with name + size / **Model file not found** if the bookmark no longer resolves); **Test model**; **Change model** `DisclosureGroup` with **Select model from Files…** (`fileImporter`, bookmark in place — no copy), one footnote of generic obtain-and-select guidance (no curated download links), **Forget selection** when a bookmark exists, and on-device vs iCloud guidance
+2. **Library** section: **Recently Deleted** navigation link (badge when non-empty)
+3. **About**: version, build, privacy line
 
 ---
 
@@ -604,7 +602,7 @@ Optional shared implementation: e.g. `ArchiveRetention.purgeExpired(in: ModelCon
 
 - **`Phathom/vendor/llama/llama.xcframework`** linked on the app target; **`OTHER_LDFLAGS = -lc++`**; inference code uses **`import llama`** under **`#if canImport(llama)`**.
 - **Inference**: `LlamaCppRuntime` + **`LlamaContentAnalyzer`** (templated user prompts for summarize / tags / extracts; JSON array parsing with graceful nil fields).
-- **Model UX**: `ModelManager` + **Settings** (list Documents `.gguf`, import, Hugging Face links, test inference).
+- **Model UX**: `ModelManager` (bookmark persistence + scoped `openSelection`) + **Settings** (Files picker, in-app GGUF guidance, test inference, Recently Deleted).
 - **Background**: `BackgroundPipeline` registers `com.phathom.ingest` (refresh) and `com.phathom.analyze` (processing). **`Phase2-Info.plist`** merges permitted identifiers + `fetch` / `processing` background modes with the generated app Info.plist. Ingest scrapes pending **web** items; analyze runs Llama stages on **embedding** items. **`scheduleAll()`** runs when the app moves to **inactive/background** and after saving a new item.
 - **Spotlight**: `ContentItem.indexInSpotlight()` after **completed**; deep link + **`OpenPhathomItemIntent`** as above; **de-index** when an item is **archived**, **re-index** on **restore** if **completed**.
 - **Archive retention**: BG refresh runs **purge** of items archived **≥ 48 hours**; pipeline **skips** `isArchived` items.
@@ -617,8 +615,8 @@ Optional shared implementation: e.g. `ArchiveRetention.purgeExpired(in: ModelCon
 Phase 2 is complete when:
 
 - [ ] **`llama.xcframework`** is built (or copied) for **device + simulator**, vendored under the repo, linked in the Phathom app target, with **`import llama`** and **`-lc++`** verified on a clean build
-- [ ] **Settings** (screen reachable from Library) has a model picker that discovers `*.gguf` files and persists the selection
-- [ ] Settings shows recommended model suggestions with download guidance
+- [ ] **Settings** has **Select model from Files…** that persists the choice as a **security-scoped bookmark** (no copy into Documents); legacy `phathom.selectedGGUFPath` migrates to a bookmark on first launch
+- [ ] Settings includes brief, accurate guidance for obtaining a `.gguf` and selecting it via Files (no requirement for specific named models or curated URLs)
 - [ ] A test inference button in Settings verifies the selected model works
 - [ ] `BGAppRefreshTask` and `BGProcessingTask` are registered and schedulable
 - [ ] A newly created `ContentItem` (via Add New tab) transitions through processing states automatically when the app enters background
