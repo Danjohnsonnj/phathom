@@ -151,12 +151,21 @@ enum WebIngestService {
         if let ogImageURL {
             thumb = try? await fetchImageData(from: ogImageURL)
         }
-        let text = extractReadableText(from: html)
+        let text: String
+        let sourceMarkdown: String?
+        if let extracted = MainContentExtractor.extract(html: html) {
+            text = extracted.plainText
+            sourceMarkdown = HTMLMarkdownConverter.convert(root: extracted.root, baseURL: pageURL)
+        } else {
+            text = extractReadableText(from: html)
+            sourceMarkdown = HTMLMarkdownConverter.convert(html: html, baseURL: pageURL)
+        }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw WebIngestError.emptyContent
         }
         return WebScrapeResult(
             text: text,
+            sourceMarkdown: sourceMarkdown,
             thumbnailData: thumb,
             displayHost: displayHost,
             pageTitle: pageTitle,

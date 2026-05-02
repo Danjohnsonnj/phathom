@@ -12,6 +12,8 @@
 		B2A01023 /* PhathomShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2A01001 /* PhathomShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E8A1B0012FA2C428005527D2 /* llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = E8A1B0002FA2C428005527D1 /* llama.xcframework */; };
 		E8A1B0032FA2C428005527D2 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = E8A1B0022FA2C428005527D2 /* MarkdownUI */; };
+		F1C0A0022FA2C428005527D2 /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = F1C0A0032FA2C428005527D2 /* SwiftSoup */; };
+		F1C0A1002FA2C428005527D2 /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = F1C0A1012FA2C428005527D2 /* SwiftSoup */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +106,7 @@
 				216DC9982FA583E900C58AA8 /* PhathomCore in Frameworks */,
 				E8A1B0012FA2C428005527D2 /* llama.xcframework in Frameworks */,
 				E8A1B0032FA2C428005527D2 /* MarkdownUI in Frameworks */,
+				F1C0A0022FA2C428005527D2 /* SwiftSoup in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -111,6 +114,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F1C0A1002FA2C428005527D2 /* SwiftSoup in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -179,6 +183,7 @@
 			packageProductDependencies = (
 				E8B00002 /* PhathomCore */,
 				E8A1B0022FA2C428005527D2 /* MarkdownUI */,
+				F1C0A0032FA2C428005527D2 /* SwiftSoup */,
 			);
 			productName = Phathom;
 			productReference = 2167F7EC2FA2C427005527D2 /* Phathom.app */;
@@ -202,6 +207,7 @@
 			);
 			name = PhathomTests;
 			packageProductDependencies = (
+				F1C0A1012FA2C428005527D2 /* SwiftSoup */,
 			);
 			productName = PhathomTests;
 			productReference = 2167F7FB2FA2C428005527D2 /* PhathomTests.xctest */;
@@ -291,6 +297,7 @@
 			packageReferences = (
 				E8B00001 /* XCLocalSwiftPackageReference "PhathomCore" */,
 				E8A1B0042FA2C428005527D2 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				F1C0A0012FA2C428005527D2 /* XCRemoteSwiftPackageReference "SwiftSoup" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2167F7ED2FA2C427005527D2 /* Products */;
@@ -799,6 +806,14 @@
 				minimumVersion = 2.4.1;
 			};
 		};
+		F1C0A0012FA2C428005527D2 /* XCRemoteSwiftPackageReference "SwiftSoup" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/scinfu/SwiftSoup";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -811,6 +826,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E8B00001 /* XCLocalSwiftPackageReference "PhathomCore" */;
 			productName = PhathomCore;
+		};
+		F1C0A0032FA2C428005527D2 /* SwiftSoup */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F1C0A0012FA2C428005527D2 /* XCRemoteSwiftPackageReference "SwiftSoup" */;
+			productName = SwiftSoup;
+		};
+		F1C0A1012FA2C428005527D2 /* SwiftSoup */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F1C0A0012FA2C428005527D2 /* XCRemoteSwiftPackageReference "SwiftSoup" */;
+			productName = SwiftSoup;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

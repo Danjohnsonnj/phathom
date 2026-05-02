@@ -10,6 +10,8 @@ public final class ContentItem {
     public var displayHost: String?
     public var contentKind: String
     public var rawText: String?
+    /// Markdown derived from generic web HTML at scrape time; Detail Source only; LLM/search use `rawText`.
+    public var sourceMarkdown: String?
     public var thumbnailData: Data?
     public var thumbnailColorHex: String?
     public var mediaDescription: String?

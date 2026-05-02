@@ -1,6 +1,7 @@
 import PhathomCore
 import SwiftData
 import SwiftUI
+import UIKit
 import MarkdownUI
 
 struct DetailView: View {
@@ -300,13 +301,58 @@ struct DetailView: View {
         .buttonStyle(.plain)
     }
 
+    private var sourceMarkdownForDisplay: String? {
+        guard item.kind == .web, let md = item.sourceMarkdown else { return nil }
+        let t = md.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : md
+    }
+
+    /// MarkdownUI paragraph styles use `fixedSize(vertical: true)`, so `lineLimit` on `Markdown` does not
+    /// truncate. Match ~8 lines of body text using Dynamic Type–aware line height, then clip.
+    private var collapsedSourceMarkdownMaxHeight: CGFloat {
+        let font = UIFont.preferredFont(forTextStyle: .body)
+        return ceil(font.lineHeight * 8)
+    }
+
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Source Content")
                 .font(.headline.bold())
                 .foregroundStyle(AppPalette.textPrimary)
 
-            if let raw = item.rawText, !raw.isEmpty {
+            if let md = sourceMarkdownForDisplay {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        sourceExpanded.toggle()
+                    }
+                } label: {
+                    HStack(alignment: .top, spacing: 8) {
+                        Group {
+                            if sourceExpanded {
+                                Markdown(md)
+                                    .markdownTheme(.phathomNote)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .textSelection(.enabled)
+                            } else {
+                                Markdown(md)
+                                    .markdownTheme(.phathomNote)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .frame(maxHeight: collapsedSourceMarkdownMaxHeight, alignment: .top)
+                                    .clipped()
+                            }
+                        }
+                        .accessibilityHidden(true)
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppPalette.textTertiary)
+                            .rotationEffect(.degrees(sourceExpanded ? 180 : 0))
+                            .accessibilityHidden(true)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(sourceExpanded ? "Source content, expanded" : "Source content, collapsed preview")
+                .accessibilityHint("Double tap to expand or collapse the full source text.")
+            } else if let raw = item.rawText, !raw.isEmpty {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         sourceExpanded.toggle()

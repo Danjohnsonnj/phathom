@@ -308,6 +308,7 @@ enum BackgroundPipeline: Sendable {
                 try await WebIngestService.scrape(url: url)
             }
             item.rawText = result.text
+            item.sourceMarkdown = result.sourceMarkdown
             if let t = result.thumbnailData { item.thumbnailData = t }
             item.displayHost = result.displayHost
             let trimmedExisting = (item.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)

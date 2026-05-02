@@ -184,6 +184,8 @@ Phathom/Phathom/
 ├── Services/
 │   ├── ModelManager.swift         # Security-scoped bookmark + legacy path migration; opens/stops file access per use
 │   ├── WebIngestService.swift
+│   ├── HTMLMarkdownConverter.swift  # HTML → markdown (generic web) for Detail Source Content
+│   ├── MainContentExtractor.swift   # Readability-style scorer that picks the main-content subtree for both rawText and sourceMarkdown
 │   ├── ThermalMonitor.swift
 │   └── BackgroundPipeline.swift   # BGAppRefresh + BGProcessing handlers
 ├── Models/
@@ -197,6 +199,8 @@ Phathom/Phathom/
 **Model selection**: The user picks a `.gguf` with **`UIDocumentPicker` / `fileImporter`**. `ModelManager` persists a **bookmark** (`Data`, key `phathom.selectedGGUFBookmark`) so the file stays at its original location (e.g. **On My iPhone** in another app’s folder) — **no copy** into Phathom’s Documents — enabling one ~4.5 GB model to be shared across apps. **`openSelection()`** resolves the bookmark and calls **`startAccessingSecurityScopedResource()`**; callers must **`end()`** scoped access when finished. **Legacy**: `phathom.selectedGGUFPath` is **migrated once** into a bookmark when the file still exists. **Constraint**: keep the GGUF **locally available**; iCloud‑only (evicted) files may stall **`BGProcessingTask`**. Settings copy guides the user.
 
 **Scope lifecycle**: `SharedLlamaInference.withSession` (async FIFO lock) and **`BackgroundPipeline`** open scoped access for the full summarize→tags→extracts pass, then unload, so concurrent callers cannot unload mid-generation.
+
+**Source Content rendering**: For **generic** web pages, ingest now runs **`MainContentExtractor`** (Mozilla Readability-style scorer over the SwiftSoup-parsed `Document`: paragraph length + comma count + class/id token cues + link-density penalty + sibling sweep) and uses the **same chosen subtree** to derive both **`rawText`** (paragraph-preserving plain text — what Llama summarizes/autotags and **`LibraryTab`** search/Spotlight scans) and **`sourceMarkdown`** (structured markdown for Detail, capped ~50 KB). When no subtree clears the minimum-length floor, ingest falls back to the legacy `extractReadableText(from:)` whole-body flatten plus `HTMLMarkdownConverter.convert(html:)`, so previously-scrapeable pages do not regress. **DetailView → Source Content** prefers **`sourceMarkdown`** + **MarkdownUI** when present; otherwise it shows **`rawText`**. **Instagram/TikTok** structured payloads bypass the extractor (captions/transcripts only in **`rawText`**, **`sourceMarkdown`** stays nil). Existing rows are **not backfilled** — stored **`rawText`** / **`sourceMarkdown`** stay as they were until the item is re-ingested on a fresh capture.
 
 **Example GGUF artifacts** (documentation only; Settings does not list vendor URLs — users bring their own file):
 - General use: `Llama-3.1-8B-Instruct-Q4_K_M.gguf` (~4.5 GB) — strong instruction-following, good summarization

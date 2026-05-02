@@ -3,6 +3,8 @@ import Foundation
 /// Unified output from web ingest after fetching a URL.
 public struct WebScrapeResult: Sendable {
     public var text: String
+    /// Structured markdown from HTML for Detail Source (generic web only; optional).
+    public var sourceMarkdown: String?
     public var thumbnailData: Data?
     public var displayHost: String
     public var pageTitle: String?
@@ -11,12 +13,14 @@ public struct WebScrapeResult: Sendable {
 
     public init(
         text: String,
+        sourceMarkdown: String? = nil,
         thumbnailData: Data?,
         displayHost: String,
         pageTitle: String?,
         suggestedListTitle: String? = nil
     ) {
         self.text = text
+        self.sourceMarkdown = sourceMarkdown
         self.thumbnailData = thumbnailData
         self.displayHost = displayHost
         self.pageTitle = pageTitle

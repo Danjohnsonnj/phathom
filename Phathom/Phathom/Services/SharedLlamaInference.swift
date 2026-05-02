@@ -59,7 +59,7 @@ actor SharedLlamaInference {
     func withSession<R: Sendable>(
         unloadOnExit: Bool = true,
         pipelineItemID: UUID?,
-        _ work: @Sendable (ModelSession) async throws -> R
+        _ work: @escaping (ModelSession) async throws -> R
     ) async throws -> R {
         await lifecycleLock.acquire()
         do {
@@ -84,7 +84,7 @@ actor SharedLlamaInference {
     /// Convenience for callers that do not need `load_model` pipeline metrics (Settings, warmup).
     func withSession<R: Sendable>(
         unloadOnExit: Bool = true,
-        _ work: @Sendable (ModelSession) async throws -> R
+        _ work: @escaping (ModelSession) async throws -> R
     ) async throws -> R {
         try await withSession(unloadOnExit: unloadOnExit, pipelineItemID: nil, work)
     }
