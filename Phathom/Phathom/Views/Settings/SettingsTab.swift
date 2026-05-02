@@ -6,9 +6,9 @@ import UniformTypeIdentifiers
 
 struct SettingsContent: View {
     @Environment(\.scenePhase) private var scenePhase
-    @Query(filter: #Predicate<ContentItem> { $0.isArchived == true })
-    private var archivedForBadge: [ContentItem]
+    @Environment(\.modelContext) private var modelContext
 
+    @State private var archivedCount: Int = 0
     @State private var selectionState: ModelManager.SelectionDisplayState = .noSelection
     @State private var testPhase: TestPhase = .idle
     @State private var showFileImporter = false
@@ -94,8 +94,8 @@ struct SettingsContent: View {
                     HStack {
                         Text("Recently Deleted")
                         Spacer()
-                        if !archivedForBadge.isEmpty {
-                            Text("\(archivedForBadge.count)")
+                        if archivedCount > 0 {
+                            Text("\(archivedCount)")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(AppPalette.textPrimary)
                                 .padding(.horizontal, 8)
@@ -121,12 +121,20 @@ struct SettingsContent: View {
         .foregroundStyle(AppPalette.textPrimary)
         .onAppear {
             refreshSelectionState()
+            refreshArchivedCount()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 ModelManager.validateSelection()
                 refreshSelectionState()
+                refreshArchivedCount()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .phathomDidArchiveItem)) { _ in
+            refreshArchivedCount()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .phathomArchivedItemsDidChange)) { _ in
+            refreshArchivedCount()
         }
         .fileImporter(
             isPresented: $showFileImporter,
@@ -236,6 +244,13 @@ struct SettingsContent: View {
                 .font(.footnote)
                 .foregroundStyle(.red)
         }
+    }
+
+    private func refreshArchivedCount() {
+        let fd = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { $0.isArchived == true }
+        )
+        archivedCount = (try? modelContext.fetchCount(fd)) ?? 0
     }
 
     private func refreshSelectionState() {

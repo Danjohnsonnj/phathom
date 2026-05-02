@@ -5,14 +5,26 @@ import SwiftUI
 struct RecentlyDeletedView: View {
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        filter: #Predicate<ContentItem> { $0.isArchived == true },
-        sort: [SortDescriptor(\.archivedAt, order: .reverse)]
-    )
-    private var archivedItems: [ContentItem]
+    /// Caps in-memory list size; 48h retention rarely exceeds this on device.
+    private static let archivedFetchLimit = 300
+
+    @Query private var archivedItems: [ContentItem]
 
     @State private var itemIDPendingDelete: UUID?
     @State private var confirmDeleteAll = false
+
+    init() {
+        var descriptor = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { $0.isArchived == true },
+            sortBy: [SortDescriptor(\.archivedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = Self.archivedFetchLimit
+        _archivedItems = Query(descriptor)
+    }
+
+    private var isCapped: Bool {
+        archivedItems.count == Self.archivedFetchLimit
+    }
 
     var body: some View {
         Group {
@@ -24,32 +36,50 @@ struct RecentlyDeletedView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List {
-                    ForEach(archivedItems, id: \.id) { item in
-                        VStack(alignment: .leading, spacing: 6) {
-                            ContentCardRow(item: item)
-                            if let at = item.archivedAt {
-                                Text(ArchiveRetention.timeUntilPermanentDeletion(from: at))
-                                    .font(.caption)
-                                    .foregroundStyle(AppPalette.textSecondary)
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(archivedItems, id: \.id) { item in
+                            NavigationLink {
+                                DetailView(item: item)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ContentCardRow(item: item, chrome: .plain)
+                                    if let at = item.archivedAt {
+                                        Text(ArchiveRetention.timeUntilPermanentDeletion(from: at))
+                                            .font(.caption)
+                                            .foregroundStyle(AppPalette.textSecondary)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Opens full item. You can restore to the Library from the detail screen.")
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                Button("Restore") {
+                                    ArchiveRetention.restore(item)
+                                    try? modelContext.save()
+                                    NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
+                                }
+                                .tint(.green)
+                            }
+                            .swipeActions(edge: .trailing) {
+                                Button("Delete", role: .destructive) {
+                                    itemIDPendingDelete = item.id
+                                }
                             }
                         }
-                        .listRowBackground(AppPalette.surface)
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            Button("Restore") {
-                                ArchiveRetention.restore(item)
-                                try? modelContext.save()
-                            }
-                            .tint(.green)
-                        }
-                        .swipeActions(edge: .trailing) {
-                            Button("Delete", role: .destructive) {
-                                itemIDPendingDelete = item.id
-                            }
+
+                        if isCapped {
+                            Text("Showing the \(Self.archivedFetchLimit) most recently deleted items.")
+                                .font(.caption)
+                                .foregroundStyle(AppPalette.textSecondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, 8)
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
                 }
-                .scrollContentBackground(.hidden)
                 .background(AppPalette.background)
             }
         }
@@ -78,6 +108,7 @@ struct RecentlyDeletedView: View {
                     if let found = try? modelContext.fetch(fd).first {
                         modelContext.delete(found)
                         try? modelContext.save()
+                        NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
                     }
                 }
                 itemIDPendingDelete = nil
@@ -93,16 +124,24 @@ struct RecentlyDeletedView: View {
             isPresented: $confirmDeleteAll
         ) {
             Button("Delete All", role: .destructive) {
-                let snapshot = archivedItems
-                for item in snapshot {
-                    modelContext.delete(item)
-                }
-                try? modelContext.save()
+                deleteAllArchivedItems()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Every archived item will be removed immediately.")
         }
+    }
+
+    private func deleteAllArchivedItems() {
+        let fd = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { $0.isArchived == true }
+        )
+        guard let all = try? modelContext.fetch(fd) else { return }
+        for item in all {
+            modelContext.delete(item)
+        }
+        try? modelContext.save()
+        NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
     }
 }
 

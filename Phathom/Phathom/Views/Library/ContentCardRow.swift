@@ -2,8 +2,16 @@ import PhathomCore
 import SwiftData
 import SwiftUI
 
+enum ContentCardRowChrome {
+    /// Full card surface (Library and navigation links).
+    case card
+    /// Text + thumbnail only — avoids stacking card chrome inside scroll rows.
+    case plain
+}
+
 struct ContentCardRow: View {
     let item: ContentItem
+    var chrome: ContentCardRowChrome = .card
 
     private static let timestampFormat = Date.FormatStyle()
         .month(.abbreviated)
@@ -14,6 +22,19 @@ struct ContentCardRow: View {
         .locale(.init(identifier: "en_US_POSIX"))
 
     var body: some View {
+        Group {
+            if chrome == .card {
+                rowContent
+                    .padding(12)
+                    .background(AppPalette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+                rowContent
+            }
+        }
+    }
+
+    private var rowContent: some View {
         HStack(alignment: .top, spacing: 12) {
             ThumbnailView(
                 thumbnailData: item.thumbnailData,
@@ -45,9 +66,6 @@ struct ContentCardRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(12)
-        .background(AppPalette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var secondaryText: String {

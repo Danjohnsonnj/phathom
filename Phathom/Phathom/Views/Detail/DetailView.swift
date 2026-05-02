@@ -241,8 +241,32 @@ struct DetailView: View {
                 stubButton("Read Full Text (AI Parsed)")
                 stubButton("Translate")
             }
-            archiveButton
+            if item.isArchived {
+                restoreToLibraryButton
+            } else {
+                archiveButton
+            }
         }
+    }
+
+    /// Clears `isArchived` / `archivedAt` and returns the item to the main Library query (`!isArchived`).
+    private var restoreToLibraryButton: some View {
+        Button {
+            ArchiveRetention.restore(item)
+            try? modelContext.save()
+            NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
+            dismiss()
+        } label: {
+            Text("Restore to Library")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(AppPalette.floralWhite)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.green.opacity(0.85))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var archiveButton: some View {
