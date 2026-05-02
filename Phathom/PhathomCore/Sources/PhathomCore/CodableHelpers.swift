@@ -17,6 +17,11 @@ public extension ContentItem {
         return (try? JSONDecoder().decode([String].self, from: data)) ?? []
     }
 
+    /// Summary bullets safe for on-screen one-line rows (strips bidi controls, normalizes whitespace).
+    var displaySummaryBullets: [String] {
+        SummaryLineSanitization.sanitizedBullets(decodedSummaryBullets)
+    }
+
     func encodeSummaryBullets(_ bullets: [String]) {
         summaryBullets = String(data: (try? JSONEncoder().encode(bullets)) ?? Data(), encoding: .utf8)
     }

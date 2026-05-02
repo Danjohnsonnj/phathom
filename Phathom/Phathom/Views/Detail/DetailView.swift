@@ -111,8 +111,11 @@ struct DetailView: View {
 
     private var summarySnippet: String? {
         if item.kind == .note { return nil }
-        if let md = item.mediaDescription, !md.isEmpty { return md }
-        return item.decodedSummaryBullets.first.map { "Summary, \($0)" }
+        if let md = item.mediaDescription, !md.isEmpty {
+            let clean = SummaryLineSanitization.sanitizedBullet(md)
+            if !clean.isEmpty { return clean }
+        }
+        return item.displaySummaryBullets.first.map { "Summary, \($0)" }
     }
 
     @ViewBuilder
@@ -142,13 +145,14 @@ struct DetailView: View {
 
             if item.status == .completed {
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(item.decodedSummaryBullets.enumerated()), id: \.offset) { _, line in
+                    ForEach(Array(item.displaySummaryBullets.enumerated()), id: \.offset) { _, line in
                         Text("• \(line)")
                             .font(.subheadline)
                             .foregroundStyle(AppPalette.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                .environment(\.layoutDirection, .leftToRight)
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(AppPalette.surface)

@@ -3,9 +3,9 @@ import Foundation
 
 public extension ContentItem {
     func indexInSpotlight() {
-        let teaser = decodedSummaryBullets.first
+        let teaser = displaySummaryBullets.first
             ?? mediaDescription.flatMap { s in
-                let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+                let t = SummaryLineSanitization.sanitizedBullet(s)
                 return t.isEmpty ? nil : t
             }
         let attrs = CSSearchableItemAttributeSet(contentType: .text)

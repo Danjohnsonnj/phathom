@@ -56,9 +56,10 @@ struct ContentCardRow: View {
             return item.displayHost ?? ""
         case .media, .note:
             if let d = item.mediaDescription, !d.isEmpty {
-                return d
+                let clean = SummaryLineSanitization.sanitizedBullet(d)
+                if !clean.isEmpty { return clean }
             }
-            if let first = item.decodedSummaryBullets.first {
+            if let first = item.displaySummaryBullets.first {
                 return "Summary, \(first)"
             }
             return ""
