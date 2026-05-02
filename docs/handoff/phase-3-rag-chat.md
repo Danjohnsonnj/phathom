@@ -36,7 +36,7 @@ Read before starting:
 - **Do not break Phases 1 or 2.** Library, detail, filter pills, BG processing, Spotlight indexing, and model management must all continue to work. Do not refactor Phase 1-2 code unless this document explicitly requires a change.
 - **Schema is frozen.** `ChatThread` and `ChatMessage` already exist from Phase 1. Use them as defined. Do not add properties without escalation. If RAG requires intermediate data structures (chunk caches, embedding buffers), use in-memory types — not new SwiftData models — unless you escalate first.
 - **Model lifecycle differs from Phase 2.** In Phase 2, the model is loaded and unloaded within a single BG task. In Phase 3, the model should stay warm for the duration of a chat session (foreground use). Unload when the user leaves the chat thread or the app backgrounds. Document this clearly in your code.
-- **Stay in your phase.** Do not build share sheet extensions, voice memo capture, export features, or any post-v1 items listed in the "Future Considerations" section. Those are context for decision-making, not scope.
+- **Stay in your phase.** The **`PhathomShare`** extension already exists — do not expand its surface area (new UTTypes, UI flows) unless explicitly requested. Do not build **voice memo capture**, **export** features, or other post-v1 items listed in the "Future Considerations" section except as bugfixes for existing capture. Those bullets are context for decision-making, not open scope.
 - **Grounding over creativity.** The RAG system must answer from source content only. If the retrieved chunks don't contain enough information, the response should say so. Do not configure the LLM to improvise, speculate, or use general knowledge. Test this with a question that has no answer in the source data.
 - **After completing work, update docs.** Append any new decisions to [docs/decisions.md](../decisions.md). Update the `What Exists After Phase 2` section in this document with what actually exists now.
 
@@ -98,7 +98,8 @@ Phase 2 (as implemented) adds:
 - **Model management**: **`Services/ModelManager.swift`**, **`Views/Settings/SettingsTab.swift`** (Files picker → bookmark, test, GGUF guidance copy).
 - **Background work**: **`Services/BackgroundPipeline.swift`**, **`Services/WebIngestService.swift`**, **`Services/ThermalMonitor.swift`**. No **embedding vectors** stored yet — **`embedding`** is only a pipeline stage before Llama work.
 - **Spotlight + deep links**: **`Models/ContentItem+Spotlight.swift`**, **`AppIntents/OpenPhathomItemIntent.swift`**, **`Helpers/Notifications+Phathom.swift`**, wired in **`MainTabView`** + **`LibraryTab`** (`NavigationStack` + `NavigationPath`). **Archive**: de-index when soft-deleted; re-index completed items on restore; **BG refresh** purges archives older than 48h (see [phase-2-pipeline.md](phase-2-pipeline.md) §2D).
-- **Capture**: **`AddNewTab`** persists **`ContentItem`** (web → `pending`; note → `embedding` with `rawText`) and schedules background work.
+- **Capture**: **`AddNewTab`** persists **`ContentItem`** (web → `pending`; note → `embedding` with `rawText`) and schedules background work. **`PhathomShare`** (share extension) can create **`ContentItem`** records from shared URL / text / image via the app-group SwiftData container.
+- **Recently Deleted**: list UX hardened (`ScrollView` + `LazyVStack`, `fetchLimit`, plain card chrome) — see [docs/debugging/recently-deleted-freeze.md](../debugging/recently-deleted-freeze.md).
 
 Chat tab remains a **placeholder**. **`ChatThread`** / **`ChatMessage`** are still unused until Phase 3.
 

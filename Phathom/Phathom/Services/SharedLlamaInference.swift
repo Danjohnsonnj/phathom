@@ -23,10 +23,12 @@ actor SharedLlamaInference {
     /// Opens the bookmarked model (scoped access) and loads weights if needed.
     func ensureLoaded() async throws {
         guard let access = ModelManager.openSelection() else {
+            ModelManager.setLastLoadFailed(true)
             throw SharedLlamaInferenceError.noModelSelected
         }
         let path = access.path
         if loadedPath == path {
+            ModelManager.setLastLoadFailed(false)
             access.end()
             return
         }
@@ -40,10 +42,12 @@ actor SharedLlamaInference {
         do {
             try await analyzer.loadModel(path: path)
             loadedPath = path
+            ModelManager.setLastLoadFailed(false)
         } catch {
             scopedAccess?.end()
             scopedAccess = nil
             loadedPath = nil
+            ModelManager.setLastLoadFailed(true)
             throw error
         }
     }

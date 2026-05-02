@@ -1,5 +1,7 @@
 # Social web ingest: Instagram and TikTok
 
+> **Status:** **Implemented** for the behaviors below (caption, thumbnail, TikTok transcript when CDN subtitles are available, hashtag merge). **Maintenance:** Meta / TikTok HTML or JSON drift may require parser updates. **Not a TODO list** for the core Phase 2 pipeline — treat changes as bugfixes when real URLs regress.
+
 Phathom captures **web** items with [`WebIngestService.scrape`](../../Phathom/Phathom/Services/WebIngestService.swift) (`iPhone Safari` user agent), then [`BackgroundPipeline`](../../Phathom/Phathom/Services/BackgroundPipeline.swift) runs Llama on `rawText` and merges platform hashtags for social hosts.
 
 ## Host behavior (validated with live HTML)

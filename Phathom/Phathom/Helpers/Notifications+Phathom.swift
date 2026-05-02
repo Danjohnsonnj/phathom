@@ -7,4 +7,6 @@ extension Notification.Name {
     static let phathomDidArchiveItem = Notification.Name("phathom.didArchiveItem")
     /// Posted after Recently Deleted (or similar) changes archived-item count so Settings can refresh its badge without relying on scene phase.
     static let phathomArchivedItemsDidChange = Notification.Name("phathom.archivedItemsDidChange")
+    /// Model file selection or load outcome changed; Library (and similar) should refresh lightweight indicators.
+    static let phathomModelAvailabilityDidChange = Notification.Name("phathom.modelAvailabilityDidChange")
 }

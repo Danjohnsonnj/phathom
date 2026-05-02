@@ -1,18 +1,34 @@
 # Debugging: Recently Deleted Freeze / Crash
 
-## 1. Problem statement
+## Status (resolved)
 
-**Symptom:** Tapping **Settings > Recently Deleted** can freeze the UI (app becomes unresponsive) or crash outright, on both Simulator and device.
+**Outcome:** The hang/freeze when opening **Settings → Recently Deleted** is **addressed in the current app**.
+
+**What changed in code** (`RecentlyDeletedView.swift`):
+
+- **`ScrollView` + `LazyVStack`** instead of **`List`** for archived rows — avoids `List` cell reuse + nested card layout churn.
+- **`FetchDescriptor.fetchLimit`** (300) — caps in-memory rows for the archived query (48h retention rarely exceeds this on device).
+- **`ContentCardRow(..., chrome: .plain)`** — thumbnail + text without the extra card surface padding/background that previously stacked inside a list row.
+
+**Historical note:** The investigation below (hypotheses, Instruments workflows) remains useful if similar symptoms appear elsewhere (e.g. other screens that decode large `thumbnailData` on the main thread).
+
+---
+
+## 1. Problem statement (historical)
+
+**Symptom:** Tapping **Settings > Recently Deleted** could freeze the UI (app becomes unresponsive) or crash outright, on both Simulator and device.
 
 **UI path:** Library toolbar gear icon > `SettingsContent` > `NavigationLink` to `RecentlyDeletedView`.
 
-**Code hotspots:**
+**Prior code hotspots (pre-fix):**
 
-| File | What to look at |
+| File | Issue |
 |---|---|
-| `Phathom/Phathom/Views/Settings/RecentlyDeletedView.swift` | `@Query` with `#Predicate<ContentItem> { $0.isArchived == true }` sorted by `\.archivedAt` descending (lines 8-12). `List` + `ForEach` renders a `ContentCardRow` per archived item (lines 27-50). |
-| `Phathom/Phathom/Views/Library/ContentCardRow.swift` | Full card layout with padding, background, clip shape, and `ThumbnailView` at 76pt (lines 16-51). Nested inside the `List` row, this creates a card-inside-a-row pattern that differs from how the Library presents cards. |
-| `Phathom/Phathom/Helpers/ThumbnailFallback.swift` | `UIImage(data:)` called synchronously on the main thread for every row's `thumbnailData` (line 13). No caching, no downsampling, no background decoding. |
+| `RecentlyDeletedView.swift` | `List` + `ForEach` with full `ContentCardRow` card chrome inside each row |
+| `ContentCardRow.swift` | Card padding/background/clip nested inside `List` cells |
+| `ThumbnailFallback.swift` | `UIImage(data:)` on the main thread for every row’s `thumbnailData` |
+
+---
 
 ## 2. Observed profiler run (Time Profiler)
 
@@ -24,6 +40,8 @@ An initial Time Profiler capture showed approximately **1 second of CPU over a 1
 - A freeze with low CPU is consistent with the main thread being **stalled** rather than busy — for example, a large synchronous `UIImage(data:)` decode, or a layout pass that triggers repeated measure cycles.
 - To capture the freeze itself, recording must begin **before** the tap and continue through the hang. Section 5 below explains exactly how to do this.
 
+---
+
 ## 3. Hypotheses to test
 
 | Priority | Hypothesis | What would confirm it |
@@ -32,6 +50,8 @@ An initial Time Profiler capture showed approximately **1 second of CPU over a 1
 | H2 | **SwiftUI List + nested card layout churn.** `ContentCardRow` applies its own padding, background, and clip shape inside a `List` row (which already has its own cell chrome). This card-inside-a-cell pattern can cause redundant layout passes, especially when combined with `.frame(maxWidth: .infinity)`. | Pause / Instruments shows deep SwiftUI layout stacks (`AG::Graph::UpdateValue`, `ViewGraph.updateOutputs`) during interaction. Replacing the card with a minimal `Text` row, or switching from `List` to `ScrollView` + `LazyVStack`, eliminates the freeze. |
 | H3 | **Memory pressure / jetsam from many archived items.** Each `ContentItem` carries `thumbnailData`, `rawText`, and other blobs. Fetching all archived items at once may spike memory beyond the app's jetsam limit. | Xcode's **Memory** debug gauge shows a sharp spike when entering the screen. Reducing the number of archived items (or limiting the fetch) prevents the crash. |
 | H4 | **Edge data — nil `archivedAt` in sort.** The `@Query` sorts by `\.archivedAt` descending. If an item was archived through a code path that did not set `archivedAt`, the nil value could produce unexpected sort behavior or a predicate evaluation issue. | Inspect the SwiftData store for any `ContentItem` where `isArchived == true` but `archivedAt` is nil. This is unlikely if all archives flow through `ArchiveRetention.archive(_:)` (which always sets `archivedAt = Date()`), but worth confirming by querying the database. |
+
+---
 
 ## 4. Agent workflow (MCP-first, repo second)
 
@@ -53,15 +73,11 @@ This section is for the Cursor agent (you) working inside the IDE. It describes 
 - Grep for other callers of `UIImage(data:)` to assess whether the problem extends beyond thumbnails.
 - Check `ContentItem` model definition for blob sizes, optional fields, and fetch descriptors.
 
-**Optional code experiments** (document the branch, implement in a follow-up — not in this playbook):
-
-- **Lightweight row:** Replace `ContentCardRow` with a minimal `HStack(Text, Text)` in `RecentlyDeletedView` to isolate whether the freeze is layout-driven or data-driven.
-- **Async / downsampled thumbnails:** Move `UIImage(data:)` off the main thread using `.task {}` or `ImageRenderer`, and downsample to display size.
-- **Replace List with ScrollView + LazyVStack:** Match the Library screen's scroll pattern to eliminate List-cell overhead.
-
 ### What the agent cannot do
 
 The Xcode MCP cannot launch or control **Instruments**, the **debugger Pause** button, or the **Debug navigator**. Profiling and thread inspection require the user to operate the Xcode GUI directly. The user workflows below cover this.
+
+---
 
 ## 5. User workflow
 
@@ -139,11 +155,11 @@ After completing any of the procedures above, provide the following to the Curso
 4. **Approximate number of rows** in Recently Deleted at the time of the freeze.
 5. **Device or Simulator** — which one you tested on, and if device, which model and iOS version.
 
-## 6. Mitigations (implement after confirming root cause)
+---
 
-These are likely code changes to pursue once profiling confirms one or more hypotheses:
+## 6. Mitigations (historical — largely applied)
+
+These were the likely code changes once profiling confirmed one or more hypotheses. **The current Recently Deleted implementation applies the scroll pattern, fetch limit, and plain row chrome** (see **Status** above). Further mitigations if thumbnails remain hot:
 
 - **Async thumbnail decoding:** Move `UIImage(data:)` into a `.task {}` modifier with a `@State` image, downsample to display size using `CGImageSourceCreateThumbnailAtIndex`, and show a placeholder color during decode.
-- **Lightweight row for Recently Deleted:** Replace the full `ContentCardRow` with a simpler row layout that omits the card background/clip (the `List` cell already provides visual separation), reducing nested layout passes.
-- **Align scroll pattern with Library:** If the Library uses `ScrollView` + `LazyVStack` while Recently Deleted uses `List`, unify on the same pattern to eliminate `List`-specific cell reuse overhead for card-style content.
-- **Limit fetch or paginate:** If archived item counts grow large, add a `fetchLimit` to the `@Query` or implement incremental loading to cap the number of items decoded and laid out in a single pass.
+- **Lightweight row for Recently Deleted:** Using **`ContentCardRow` chrome `.plain`** avoids stacking full card chrome inside scroll rows.

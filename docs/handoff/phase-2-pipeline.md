@@ -57,7 +57,7 @@ The spec doesn't cover a specific scenario in the pipeline or model management f
   - If inference produces garbage output: set the field to nil, mark item `.completed` with partial data. Log the raw output for debugging.
   - If a web scrape fails (404, timeout, SSL error): set `processingStatus` to `.failed` with a human-readable `failureReason`. Do not retry automatically — let the next scheduled task pick it up.
   - If no model is selected when a BG task fires: complete the task as a no-op and re-schedule. Do not show an error to the user.
-  - If a GGUF file is deleted or moved after selection: detect on load, clear the selection in `UserDefaults`, and surface "No model selected" in Settings.
+  - If a GGUF file is deleted or moved after selection: detect on load, clear the bookmark/legacy selection keys (see `ModelManager`), and surface **No model selected** / **Model file not found** in Settings.
 
 **Step 3: Is it a product decision?**
 Something could go multiple ways and the choice visibly changes behavior.
@@ -100,7 +100,7 @@ For `xcodebuild` and simulator-based tests, use an **iPhone 16 or newer** simula
 4. **Device restriction**: FoundationModels requires Apple Intelligence (A17 Pro+, iPhone 15 Pro or later). Would require a full Llama.cpp fallback path anyway for older devices — doubling the integration surface for no benefit.
 5. **~3B model**: Apple's on-device model is estimated at ~3B parameters, significantly less capable than available 7-8B GGUF models for summarization and reasoning quality.
 
-**Model delivery**: The user provides GGUF model files based on recommendations shown in the app's Settings/setup flow. Models are stored locally and can be changed at any time for experimentation with new options. No models are bundled with the app.
+**Model delivery**: The user obtains **GGUF** files and selects them in **Settings** (security-scoped **bookmark** — file stays where the user stored it; see [docs/decisions.md](../decisions.md)). No models are bundled with the app.
 
 ---
 
@@ -321,147 +321,28 @@ Register two task identifiers in `Info.plist` under `BGTaskSchedulerPermittedIde
 
 ### Task Registration and Scheduling
 
+**Implementation source of truth:** `BackgroundPipeline.swift` (registers `com.phathom.ingest` and `com.phathom.analyze`, submits requests when the app backgrounds).
+
+**Scheduling (matches [docs/decisions.md](../decisions.md)):** the analyze task uses **`BGProcessingTaskRequest.requiresExternalPower = false`** so work can progress on battery; revisit only if jetsam or thermal issues show up in production.
+
+Illustration — registration wiring lives in the app target; scheduling pattern:
+
 ```swift
 import BackgroundTasks
 
-@main
-struct PhathomApp: App {
-    init() {
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: "com.phathom.ingest",
-            using: nil
-        ) { task in
-            handleIngest(task: task as! BGAppRefreshTask)
-        }
-
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: "com.phathom.analyze",
-            using: nil
-        ) { task in
-            handleAnalyze(task: task as! BGProcessingTask)
-        }
-    }
-
-    func scheduleIngest() {
-        let request = BGAppRefreshTaskRequest(identifier: "com.phathom.ingest")
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
-        try? BGTaskScheduler.shared.submit(request)
-    }
-
-    func scheduleAnalyze() {
-        let request = BGProcessingTaskRequest(identifier: "com.phathom.analyze")
-        request.requiresExternalPower = true
-        request.requiresNetworkConnectivity = false
-        try? BGTaskScheduler.shared.submit(request)
-    }
-}
+let request = BGProcessingTaskRequest(identifier: "com.phathom.analyze")
+request.requiresExternalPower = false  // per decisions.md — not true
+request.requiresNetworkConnectivity = false
+try? BGTaskScheduler.shared.submit(request)
 ```
 
 ### Tricky Part: Analyze Task with Llama.cpp Model Lifecycle
 
-```swift
-func handleAnalyze(task: BGProcessingTask) {
-    let context = ModelContext(sharedModelContainer)
+**Implementation source of truth:** `BackgroundPipeline.swift`, `SharedLlamaInference` / `AnalyzeLlamaSession`, **`ModelManager`** (security-scoped bookmark — **not** a raw path string in `UserDefaults` like `selectedModelPath`), and **`LlamaContentAnalyzer`** for summarize / tag / extract.
 
-    // Check that a model is configured
-    guard let modelPath = UserDefaults.standard.string(forKey: "selectedModelPath"),
-          FileManager.default.fileExists(atPath: modelPath) else {
-        task.setTaskCompleted(success: false)
-        return
-    }
+**Lifecycle rule:** load the model at task start, run the staged prompts, **`unload()`** on success, error, cancellation, and **BG task expiration**. Never keep the GGUF resident between background wakes.
 
-    var descriptor = FetchDescriptor<ContentItem>(
-        predicate: #Predicate { $0.processingStatus != "completed" && $0.processingStatus != "failed" }
-    )
-    descriptor.fetchLimit = 1
-
-    guard let item = try? context.fetch(descriptor).first else {
-        task.setTaskCompleted(success: true)
-        scheduleAnalyze()
-        return
-    }
-
-    var isCancelled = false
-    task.expirationHandler = {
-        isCancelled = true
-        item.processingStatus = ProcessingStatus.pending.rawValue
-        item.processingDetail = "Paused — will resume when resources available"
-        try? context.save()
-    }
-
-    Task {
-        let llama = LlamaService(modelURL: URL(fileURLWithPath: modelPath))
-
-        do {
-            // Load model once for all three inference calls
-            try llama.loadModel()
-            try llama.createContext()
-
-            // Stage 1: Summarize
-            if !isCancelled {
-                item.processingStatus = ProcessingStatus.summarizing.rawValue
-                item.processingDetail = "Generating summary..."
-                try context.save()
-
-                let bullets = try await llama.generateSummary(text: item.rawText ?? "")
-                item.encodeSummaryBullets(bullets)
-                try context.save()
-            }
-
-            // Stage 2: Tag
-            if !isCancelled {
-                item.processingStatus = ProcessingStatus.tagging.rawValue
-                item.processingDetail = "Auto-tagging..."
-                try context.save()
-
-                let tagNames = try await llama.generateTags(text: item.rawText ?? "")
-                for name in tagNames {
-                    let tagDescriptor = FetchDescriptor<Tag>(
-                        predicate: #Predicate { $0.name == name }
-                    )
-                    let existing = try? context.fetch(tagDescriptor).first
-                    let tag = existing ?? Tag(name: name)
-                    if existing == nil { context.insert(tag) }
-                    if !item.tags.contains(where: { $0.name == tag.name }) {
-                        item.tags.append(tag)
-                    }
-                }
-                try context.save()
-            }
-
-            // Stage 3: Extract
-            if !isCancelled {
-                item.processingDetail = "Extracting key information..."
-                try context.save()
-
-                let extractItems = try await llama.generateExtracts(text: item.rawText ?? "")
-                item.encodeExtracts(extractItems)
-            }
-
-            // Done
-            if !isCancelled {
-                item.processingStatus = ProcessingStatus.completed.rawValue
-                item.processingDetail = nil
-                try context.save()
-            }
-
-            llama.unload()
-            task.setTaskCompleted(success: !isCancelled)
-
-        } catch {
-            llama.unload()
-            item.processingStatus = ProcessingStatus.failed.rawValue
-            item.failureReason = error.localizedDescription
-            try? context.save()
-            task.setTaskCompleted(success: false)
-        }
-
-        scheduleAnalyze()
-    }
-}
-```
-
-**Critical**: call `llama.unload()` in both success and error paths. Leaking the model in a background task will cause iOS to terminate the app aggressively.
+**Critical:** every load path must pair with `unload()` on the inference holder. Leaking the model in a background task will cause iOS to terminate the app aggressively.
 
 ### Ingest Task — Web Scraping
 
@@ -602,7 +483,9 @@ Optional shared implementation: e.g. `ArchiveRetention.purgeExpired(in: ModelCon
 
 - **`Phathom/vendor/llama/llama.xcframework`** linked on the app target; **`OTHER_LDFLAGS = -lc++`**; inference code uses **`import llama`** under **`#if canImport(llama)`**.
 - **Inference**: `LlamaCppRuntime` + **`LlamaContentAnalyzer`** (templated user prompts for summarize / tags / extracts; JSON array parsing with graceful nil fields).
-- **Model UX**: `ModelManager` (bookmark persistence + scoped `openSelection`) + **Settings** (Files picker, in-app GGUF guidance, test inference, Recently Deleted).
+- **Model UX**: `ModelManager` (bookmark persistence + scoped `openSelection`) + **Settings** (Files picker, in-app GGUF guidance — e.g. vendor-agnostic “obtain a `.gguf`” copy — test inference, Recently Deleted).
+- **Share extension**: **`PhathomShare`** target (`ShareViewController.swift`) — saves URL / plain text / image into the shared app-group SwiftData store via `ShareCapture.insertFromShare`, then dismisses (see [docs/decisions.md](../decisions.md)).
+- **Recently Deleted**: `RecentlyDeletedView` uses **`ScrollView` + `LazyVStack`**, **`fetchLimit`**, and **`ContentCardRow` chrome `.plain`** for stable scrolling (see debugging note in [docs/debugging/recently-deleted-freeze.md](../debugging/recently-deleted-freeze.md)).
 - **Background**: `BackgroundPipeline` registers `com.phathom.ingest` (refresh) and `com.phathom.analyze` (processing). **`Phase2-Info.plist`** merges permitted identifiers + `fetch` / `processing` background modes with the generated app Info.plist. Ingest scrapes pending **web** items; analyze runs Llama stages on **embedding** items. **`scheduleAll()`** runs when the app moves to **inactive/background** and after saving a new item.
 - **Spotlight**: `ContentItem.indexInSpotlight()` after **completed**; deep link + **`OpenPhathomItemIntent`** as above; **de-index** when an item is **archived**, **re-index** on **restore** if **completed**.
 - **Archive retention**: BG refresh runs **purge** of items archived **≥ 48 hours**; pipeline **skips** `isArchived` items.
@@ -612,38 +495,54 @@ Optional shared implementation: e.g. `ArchiveRetention.purgeExpired(in: ModelCon
 
 ## Acceptance Criteria
 
-Phase 2 is complete when:
+Phase 2 deliverables — **checked as implemented** in the current app (verify in Xcode / on device when changing this area):
 
-- [ ] **`llama.xcframework`** is built (or copied) for **device + simulator**, vendored under the repo, linked in the Phathom app target, with **`import llama`** and **`-lc++`** verified on a clean build
-- [ ] **Settings** has **Select model from Files…** that persists the choice as a **security-scoped bookmark** (no copy into Documents); legacy `phathom.selectedGGUFPath` migrates to a bookmark on first launch
-- [ ] Settings includes brief, accurate guidance for obtaining a `.gguf` and selecting it via Files (no requirement for specific named models or curated URLs)
-- [ ] A test inference button in Settings verifies the selected model works
-- [ ] `BGAppRefreshTask` and `BGProcessingTask` are registered and schedulable
-- [ ] A newly created `ContentItem` (via Add New tab) transitions through processing states automatically when the app enters background
-- [ ] `summaryBullets`, `tags`, and `extracts` are populated by real Llama.cpp inference — not hardcoded
-- [ ] The library UI reflects real-time status changes (processing badge appears/disappears as items are processed)
-- [ ] `processingDetail` shows meaningful micro-state labels during processing
-- [ ] The model is loaded at task start and unloaded at task end (no persistent memory hold)
-- [ ] Thermal throttling pauses processing when the device is hot
-- [ ] Completed items appear in Spotlight search with title, summary, and tags
-- [ ] **Archive + Spotlight**: archiving removes the item from Spotlight; restoring a completed item re-adds it; deep links do not surface stale archived IDs as searchable entries
-- [ ] **Archive + pipeline**: background ingest/analyze **ignores** `isArchived == true` items (no status advancement while archived)
-- [ ] **`BGAppRefreshTask`** runs **expired-archive purge** (48h after `archivedAt`) so data is removed without opening the app
-- [ ] State checkpointing works: killing the app mid-processing and relaunching resumes where it left off
-- [ ] JSON parsing failures for LLM output degrade gracefully (partial data, not `.failed` status)
-- [ ] The existing seed data and UI from Phase 1 still work correctly
+- [x] **`llama.xcframework`** is built (or copied) for **device + simulator**, vendored under the repo, linked in the Phathom app target, with **`import llama`** and **`-lc++`** verified on a clean build
+- [x] **Settings** has **Select model from Files…** that persists the choice as a **security-scoped bookmark** (no copy into Documents); legacy `phathom.selectedGGUFPath` migrates to a bookmark on first launch
+- [x] Settings includes brief, accurate guidance for obtaining a `.gguf` and selecting it via Files (no requirement for specific named models or curated URLs)
+- [x] A test inference button in Settings verifies the selected model works
+- [x] `BGAppRefreshTask` and `BGProcessingTask` are registered and schedulable
+- [x] A newly created `ContentItem` (via Add New tab) transitions through processing states automatically when the app enters background
+- [x] `summaryBullets`, `tags`, and `extracts` are populated by real Llama.cpp inference — not hardcoded
+- [x] The library UI reflects real-time status changes (processing badge appears/disappears as items are processed)
+- [x] `processingDetail` shows meaningful micro-state labels during processing
+- [x] The model is loaded at task start and unloaded at task end (no persistent memory hold)
+- [x] Thermal throttling pauses processing when the device is hot
+- [x] Completed items appear in Spotlight search with title, summary, and tags
+- [x] **Archive + Spotlight**: archiving removes the item from Spotlight; restoring a completed item re-adds it; deep links do not surface stale archived IDs as searchable entries
+- [x] **Archive + pipeline**: background ingest/analyze **ignores** `isArchived == true` items (no status advancement while archived)
+- [x] **`BGAppRefreshTask`** runs **expired-archive purge** (48h after `archivedAt`) so data is removed without opening the app
+- [x] State checkpointing works: killing the app mid-processing and relaunching resumes where it left off
+- [x] JSON parsing failures for LLM output degrade gracefully (partial data, not `.failed` status)
+- [x] The existing seed data and UI from Phase 1 still work correctly
 
 ---
 
-## Out of Scope — Do NOT Build These
+## Out of Scope — Do NOT Build These (Phase 2 contract)
 
-- Share sheet extension (could be added as a Phase 2.5 follow-up, but not core)
+Phase 2 agents **still** must not expand into the items below. Some have since shipped as **separate follow-ups** (logged in [docs/decisions.md](../decisions.md)) — they are **not** required to re-open Phase 2.
+
+- ~~Share sheet extension~~ **Shipped** as **`PhathomShare`** (does not add RAG, embeddings, or new `ContentItem` fields beyond existing capture paths)
 - RAG chat (Phase 3)
 - Voice memo capture
 - Any cloud or sync features
 - Apple FoundationModels integration
 - Translation feature (button exists in UI but stays as a stub)
 - Support for non-Llama-3 prompt templates (document as a future enhancement)
+
+---
+
+## What’s Next (post–Phase 2 backlog)
+
+Work tracked **after** Phase 2 closure — see [docs/handoff/phase-3-rag-chat.md](phase-3-rag-chat.md) for the main feature spec:
+
+| Priority | Item | Notes |
+|----------|------|--------|
+| 1 | **Phase 3 — RAG Chat** | Replace Chat tab placeholder; grounded Q&A over saved content; reuse `LlamaContentAnalyzer` / runtime patterns. |
+| 2 | **Chunking + retrieval + embeddings** | Phase 2 left **no embedding persistence** ([decisions.md](../decisions.md)) — Phase 3 requires an **escalation-approved** approach (see technical-brief RAG section). |
+| 3 | **Detail screen stubs** | e.g. “Read Full Text (AI Parsed)”, “Translate” — still non-functional by design until scoped. |
+| 4 | **`requiresExternalPower` revisit** | Currently `false` per decisions — reconsider only if production shows jetsam / thermal pain. |
+| 5 | **Social ingest maintenance** | Instagram / TikTok markup drift — extend parsers as needed ([social-web-ingest-instagram-tiktok.md](social-web-ingest-instagram-tiktok.md)). Optional future: Instagram transcript via on-device ASR (privacy-gated). |
 
 ---
 

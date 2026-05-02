@@ -5,22 +5,24 @@ A private, local-first iOS "Personal Brain" that captures digital content (links
 
 ## 1. Core Workflow
 
-- The Silent Capture: A system share-sheet extension that accepts URLs, text, and images. It saves content immediately to a local database and dismisses, requiring zero user interaction at the moment of capture.
+- The Silent Capture: A system **share-sheet extension** (**`PhathomShare`**) accepts URLs, text, and images. It saves content immediately to the local store (shared SwiftData app group with the main app) and dismisses, minimizing interaction at the moment of capture.
 - The Background Processor: An asynchronous engine that manages the heavy lifting. It scrapes web content, performs OCR/Vision analysis on images, and generates summaries using a local Llama.cpp backend.
 - The Deep Dive: A conversational UI where users select specific tags or "topics" to define a context window, allowing for targeted AI interrogation and synthesis of saved materials.
 
-## 2. Key Features## A. Intelligent Capture & Media Understanding
+## 2. Key Features
+
+### A. Intelligent Capture & Media Understanding
 
 - Universal Share Support: Handles articles, social posts, photos, and voice memos.
 - Multimodal Vision: Beyond simple OCR, the app uses on-device vision models to understand image context (e.g., recognizing a "modernist floor plan" vs. a "grocery receipt").
 - Resilient Processing: A state-aware queue that checkpoints AI tasks. If iOS terminates the background process, Phathom resumes exactly where it left off (e.g., mid-summary) once resources are available.
 
-## B. "Topic-First" Organization
+### B. "Topic-First" Organization
 
 - Collapsed Taxonomy: Tags and Collections are merged into a single concept. A "Collection" is simply a dynamic filter of one or more tags.
 - AI Auto-Tagging: The LLM suggests and applies tags based on content analysis to maintain an organized library without manual effort.
 
-## C. Conversational Discovery (RAG)
+### C. Conversational Discovery (RAG)
 
 - Contextual Chat: Users "deep dive" into topics by selecting tags. The AI uses Retrieval-Augmented Generation (RAG) to pull facts from only those tagged items.
 - Synthesis & Reasoning: Users can ask complex questions like, "Compare the three investment articles I saved this morning," or "Draft a summary of my 'Home Renovation' tags."

@@ -4,6 +4,7 @@ import SwiftUI
 
 struct LibraryTab: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Binding var deepLinkItemID: UUID?
 
     @Query(
@@ -16,6 +17,7 @@ struct LibraryTab: View {
     @State private var filterKind: ContentKind?
     @State private var searchText = ""
     @State private var navPath = NavigationPath()
+    @State private var isModelHealthyForIndicator = false
 
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
         _deepLinkItemID = deepLinkItemID
@@ -107,11 +109,22 @@ struct LibraryTab: View {
                         SettingsContent()
                             .navigationTitle("Settings")
                     } label: {
-                        Image(systemName: "gearshape")
+                        Image(systemName: isModelHealthyForIndicator ? "gearshape.fill" : "gearshape")
                     }
                     .accessibilityLabel("Settings")
+                    .accessibilityValue(isModelHealthyForIndicator ? "AI model ready" : "AI model needs attention")
                 }
             }
+        }
+        .onAppear {
+            refreshModelIndicator()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .phathomModelAvailabilityDidChange)) { _ in
+            refreshModelIndicator()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            refreshModelIndicator()
         }
         .onChange(of: deepLinkItemID) { _, newValue in
             guard let id = newValue else { return }
@@ -128,6 +141,19 @@ struct LibraryTab: View {
             object: nil,
             userInfo: ["itemID": item.id, "switchToLibrary": true]
         )
+    }
+
+    private func refreshModelIndicator() {
+        ModelManager.validateSelection()
+        let selection = ModelManager.selectionDisplayState()
+        let hasReadySelection: Bool
+        switch selection {
+        case .ready:
+            hasReadySelection = true
+        case .noSelection, .missingFile:
+            hasReadySelection = false
+        }
+        isModelHealthyForIndicator = hasReadySelection && !ModelManager.didLastLoadFail
     }
 }
 

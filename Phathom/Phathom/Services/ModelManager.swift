@@ -5,6 +5,8 @@ enum ModelManager {
     private nonisolated static let bookmarkKey = "phathom.selectedGGUFBookmark"
     /// Legacy path-only storage from before bookmarks; migrated once into `bookmarkKey`.
     private nonisolated static let legacyPathKey = "phathom.selectedGGUFPath"
+    /// Persisted probe for Library icon state: set by `SharedLlamaInference.ensureLoaded()`.
+    private nonisolated static let lastLoadFailedKey = "phathom.lastModelLoadFailed"
 
     /// Holds an active `startAccessingSecurityScopedResource` match; call `end()` when done reading.
     struct ScopedAccess: Sendable {
@@ -54,6 +56,8 @@ enum ModelManager {
     nonisolated static func clearSelection() {
         UserDefaults.standard.removeObject(forKey: bookmarkKey)
         UserDefaults.standard.removeObject(forKey: legacyPathKey)
+        UserDefaults.standard.set(false, forKey: lastLoadFailedKey)
+        notifyModelAvailabilityChanged()
     }
 
     /// Call from the `fileImporter` completion handler. The URL must still be valid for security-scoped access (call `startAccessingSecurityScopedResource` if needed before this).
@@ -76,6 +80,8 @@ enum ModelManager {
         )
         UserDefaults.standard.set(data, forKey: bookmarkKey)
         UserDefaults.standard.removeObject(forKey: legacyPathKey)
+        UserDefaults.standard.set(false, forKey: lastLoadFailedKey)
+        notifyModelAvailabilityChanged()
     }
 
     /// Resolve bookmark and begin access. Returns `nil` if missing, stale, unreadable, or access denied. Caller **must** call `end()` on success.
@@ -148,6 +154,26 @@ enum ModelManager {
         }
         if stale {
             clearSelection()
+        }
+    }
+
+    /// For Library's unobtrusive settings gear indicator.
+    nonisolated static var didLastLoadFail: Bool {
+        UserDefaults.standard.bool(forKey: lastLoadFailedKey)
+    }
+
+    nonisolated static func setLastLoadFailed(_ failed: Bool) {
+        let prior = UserDefaults.standard.bool(forKey: lastLoadFailedKey)
+        UserDefaults.standard.set(failed, forKey: lastLoadFailedKey)
+        if prior != failed {
+            notifyModelAvailabilityChanged()
+        }
+    }
+
+    /// Coalesced fan-out for UI that cannot rely on `onAppear` (e.g. popping Settings back to Library).
+    nonisolated private static func notifyModelAvailabilityChanged() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .phathomModelAvailabilityDidChange, object: nil)
         }
     }
 

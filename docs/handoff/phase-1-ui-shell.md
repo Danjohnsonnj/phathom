@@ -99,7 +99,7 @@ The Xcode project is a **fresh template** with no real implementation:
 
 ### Goal
 
-A navigable, visually complete app populated with realistic seed data. **No real AI, no background processing, no share extension.** The UI must match the mockups and be backed by the final SwiftData schema so later phases wire in real data without schema migrations.
+A navigable, visually complete app populated with realistic seed data. **No real AI and no background processing in Phase 1.** (A **share extension** ships in a later target, `PhathomShare` — it was not part of the Phase 1 acceptance bar.) The UI must match the mockups and be backed by the final SwiftData schema so later phases wire in real data without schema migrations.
 
 ### Files to Create
 
