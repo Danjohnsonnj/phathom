@@ -47,7 +47,7 @@ struct LibraryTab: View {
         NavigationStack(path: $navPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Recent items")
+                    Text("Library")
                         .font(.largeTitle.bold())
                         .foregroundStyle(AppPalette.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -83,7 +83,7 @@ struct LibraryTab: View {
                 .padding(.bottom, 24)
             }
             .background(AppPalette.background)
-            .navigationTitle("Recent Items")
+            .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: UUID.self) { id in
                 if let item = items.first(where: { $0.id == id }) {
