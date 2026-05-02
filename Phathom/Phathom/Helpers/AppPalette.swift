@@ -18,6 +18,9 @@ enum AppPalette {
     static let textSecondary = dustGrey
     static let accent = spicyPaprika
 
+    /// Tag chips on detail (high contrast with accent label).
+    static let tagChipBackground = Color(hex: "#0B0A0A")
+
     /// Subtle lift between background and `surface` for nested blocks.
     static let surfaceNested = Color(hex: "#353330")
 

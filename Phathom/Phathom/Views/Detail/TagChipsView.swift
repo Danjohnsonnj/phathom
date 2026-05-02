@@ -1,22 +1,22 @@
 import PhathomCore
-import SwiftData
 import SwiftUI
 
 struct TagChipsView: View {
     let tags: [Tag]
 
-    private let columns = [GridItem(.adaptive(minimum: 72), spacing: 8, alignment: .leading)]
-
     var body: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+        FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
             ForEach(tags, id: \.name) { tag in
                 Text(tag.name.localizedCapitalized)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(AppPalette.textPrimary)
+                    .foregroundStyle(AppPalette.accent)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: true, vertical: false)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(AppPalette.surfaceNested)
-                    .clipShape(Capsule())
+                    .background(AppPalette.tagChipBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
             }
         }
     }
