@@ -38,7 +38,7 @@ Read before starting:
 - **Schema is frozen** except where **`docs/decisions.md`** explicitly extends **`ContentItem`** (currently: **`archivedAt`** for archive retention). Do not add, remove, or rename **other** properties on `ContentItem`, `Tag`, `ChatThread`, or `ChatMessage`. The only other new models you may propose are for embedding/vector storage — and that requires escalation.
 - **Embedded Llama.cpp only (Intrai-style).** Link a vendored **`llama.xcframework`** built from upstream **llama.cpp**; use **`import llama`** and a **first-party** Swift bridge in the app target — **no** third-party Swift packages that ship or wrap Llama.cpp (e.g. `mattt/llama.swift`, `pgorzelany/swift-llama-cpp`). Do not add any **other** third-party packages without escalation.
 - **Stay in your phase.** Do not build RAG chat, conversation starters, or any Phase 3 features. The Chat tab remains a placeholder. Do not "prepare for Phase 3" by adding services or abstractions that aren't needed to pass Phase 2's acceptance criteria.
-- **Model lifecycle is critical.** Every code path that loads a llama.cpp model must unload it — including error paths, cancellation paths, and expiration handler paths. Memory leaks in background tasks cause iOS to kill the app.
+- **Model lifecycle is critical.** Every code path that loads a llama.cpp model must unload it — including error paths and cooperative cancellation (work exits `SharedLlamaInference.withSession`, which unloads). **`BGProcessingTask` expiration** must not call `unload()` directly: set a cancel flag, call `SharedLlamaInference.signalCancelInFlight()` to stop the decode loop, and let the in-flight `withSession` finish and unload when the session ends. Memory leaks in background tasks cause iOS to kill the app.
 - **After completing work, update the next phase.** Fill in the `[TBD after Phase 1]` sections in this document with actual file paths and patterns. Then fill in the `What Exists After Phase 2` section in [docs/handoff/phase-3-rag-chat.md](phase-3-rag-chat.md). Append any new decisions to [docs/decisions.md](../decisions.md).
 
 ### Decision framework — handling unknowns
@@ -165,7 +165,7 @@ Index completed items into system Spotlight search with deep links back into the
 **First-party Swift seam:**
 
 - Prefer **`#if canImport(llama)`** with a **stub** implementation when the framework is not linked (optional but useful for incremental setup).
-- Implement **load / unload / infer** with explicit **`llama_model_free` / `llama_free`** (or current API) on **all** success, error, cancellation, and **BG task expiration** paths — see **Model lifecycle** below and Intrai **`LlamaCppRuntime`** for a working pattern (backend init, sampler chain, decode loop, abort callback).
+- Implement **load / unload / infer** with explicit **`llama_model_free` / `llama_free`** (or current API) on **all** success, error, and cooperative cancellation paths. On **BG task expiration**, signal abort and end the session so **`unload()`** runs inside **`withSession`** (do not unload from the expiration handler in parallel with generation). See **Model lifecycle** below and Intrai **`LlamaCppRuntime`** for a working pattern (backend init, sampler chain, decode loop, abort callback).
 
 **Reference project** (read-only): `intrai-llama` — `docs/llama-xcframework-integration.md`, `scripts/setup-llama-xcframework.sh`, `Intrai/Inference/LlamaCppRuntime.swift`.
 
@@ -196,7 +196,7 @@ Phathom/Phathom/
 
 **Model selection**: The user picks a `.gguf` with **`UIDocumentPicker` / `fileImporter`**. `ModelManager` persists a **bookmark** (`Data`, key `phathom.selectedGGUFBookmark`) so the file stays at its original location (e.g. **On My iPhone** in another app’s folder) — **no copy** into Phathom’s Documents — enabling one ~4.5 GB model to be shared across apps. **`openSelection()`** resolves the bookmark and calls **`startAccessingSecurityScopedResource()`**; callers must **`end()`** scoped access when finished. **Legacy**: `phathom.selectedGGUFPath` is **migrated once** into a bookmark when the file still exists. **Constraint**: keep the GGUF **locally available**; iCloud‑only (evicted) files may stall **`BGProcessingTask`**. Settings copy guides the user.
 
-**Scope lifecycle**: `SharedLlamaInference` and **`BackgroundPipeline`** / **`AnalyzeLlamaSession`** open scoped access around load/unload so background analysis can read the bookmarked path.
+**Scope lifecycle**: `SharedLlamaInference.withSession` (async FIFO lock) and **`BackgroundPipeline`** open scoped access for the full summarize→tags→extracts pass, then unload, so concurrent callers cannot unload mid-generation.
 
 **Example GGUF artifacts** (documentation only; Settings does not list vendor URLs — users bring their own file):
 - General use: `Llama-3.1-8B-Instruct-Q4_K_M.gguf` (~4.5 GB) — strong instruction-following, good summarization
@@ -356,11 +356,13 @@ try? BGTaskScheduler.shared.submit(request)
 
 ### Tricky Part: Analyze Task with Llama.cpp Model Lifecycle
 
-**Implementation source of truth:** `BackgroundPipeline.swift`, `SharedLlamaInference` / `AnalyzeLlamaSession`, **`ModelManager`** (security-scoped bookmark — **not** a raw path string in `UserDefaults` like `selectedModelPath`), and **`LlamaContentAnalyzer`** for summarize / tag / extract.
+**Implementation source of truth:** `BackgroundPipeline.swift`, `SharedLlamaInference` (`ModelSession` / `withSession`), `AsyncLock`, **`ModelManager`** (security-scoped bookmark — **not** a raw path string in `UserDefaults` like `selectedModelPath`), and **`LlamaContentAnalyzer`** for summarize / tag / extract.
 
-**Lifecycle rule:** load the model at task start, run the staged prompts, **`unload()`** on success, error, cancellation, and **BG task expiration**. Never keep the GGUF resident between background wakes.
+There is no global `PipelineSerialGate` around the pipeline: the old gate did not mutually exclude suspended async work. **All GGUF use** goes through **`withSession`**, which holds a FIFO async lock for load → prompts → optional unload so Settings tests, warmup, and the analyze pipeline cannot interleave `unload()` with `generate*`.
 
-**Critical:** every load path must pair with `unload()` on the inference holder. Leaking the model in a background task will cause iOS to terminate the app aggressively.
+**Lifecycle rule:** load inside **`SharedLlamaInference.withSession`** (at the start of that session), run the staged prompts, then **`unload()`** when the session exits — on success, thrown error, or cooperative cancel (`PipelineLlmCancelled`). **`BGProcessingTask.expirationHandler`** only sets **`cancelFlag`** and **`signalCancelInFlight()`**; it does **not** call `unload()`. The still-running session observes cancel, stops generation, and unloads when **`withSession`** returns. Never keep the GGUF resident between background wakes.
+
+**Critical:** every load path must pair with `unload()` on the inference holder (via **`withSession`**). Leaking the model in a background task will cause iOS to terminate the app aggressively.
 
 ### Ingest Task — Web Scraping
 

@@ -36,6 +36,11 @@ actor LlamaContentAnalyzer {
         bridge.unloadModel()
     }
 
+    /// Request stop of an in-flight `collectTemplated` loop (e.g. BG task expiration).
+    func cancelBridgeGeneration() {
+        bridge.cancelGeneration()
+    }
+
     func generateSummary(articleText: String) async throws -> [String] {
         let body = String(articleText.prefix(12_000))
         let user = """

@@ -29,14 +29,12 @@ private enum SingleAnalyzeOutcome: Sendable {
     case cancelled
 }
 
-/// Serializes ingest, analyze, and foreground drains so BG and UI-triggered work never double-process the same item.
-private actor PipelineSerialGate {
-    static let shared = PipelineSerialGate()
+/// Thrown from inside `SharedLlamaInference.withSession` when the pipeline is cancelled (BG expiration / cooperative cancel).
+private struct PipelineLlmCancelled: Error {}
 
-    func perform<R: Sendable>(_ work: @Sendable () async -> R) async -> R {
-        await work()
-    }
-}
+// LLM work is serialized by `SharedLlamaInference`'s `AsyncLock` (`withSession`). The old `PipelineSerialGate` did not
+// mutually exclude async work (Swift actor reentrancy). Ingest/analyze BG tasks remain one task each from the system;
+// multiple `scheduleForegroundDrain` calls can overlap, but any path that touches the model queues on `withSession`.
 
 enum BackgroundPipeline: Sendable {
     nonisolated(unsafe) private static var containerRef: ModelContainer?
@@ -59,9 +57,7 @@ enum BackgroundPipeline: Sendable {
 
     nonisolated static func scheduleForegroundDrain() {
         Task(priority: .utility) {
-            await PipelineSerialGate.shared.perform {
-                await runForegroundDrain()
-            }
+            await runForegroundDrain()
         }
     }
 
@@ -144,7 +140,6 @@ enum BackgroundPipeline: Sendable {
         try? ctx.save()
     }
 
-    /// Foreground drain body (call only inside `PipelineSerialGate.shared.perform`).
     nonisolated static func runForegroundDrain() async {
         guard let container = containerRef else { return }
 
@@ -174,10 +169,8 @@ enum BackgroundPipeline: Sendable {
                 return
             }
 
-            let session = AnalyzeLlamaSession()
             let outcome = await processNextEmbeddingItem(
                 modelContainer: container,
-                session: session,
                 cancel: { false }
             )
 
@@ -211,18 +204,16 @@ enum BackgroundPipeline: Sendable {
         }
 
         Task.detached {
-            await PipelineSerialGate.shared.perform {
-                await MainActor.run {
-                    let purgeCtx = ModelContext(container)
-                    ArchiveRetention.purgeExpired(in: purgeCtx)
-                }
-                reviveAbortedPipelineItems(modelContainer: container)
-                var processed = 0
-                while !cancelFlag.value, processed < 3 {
-                    let did = await processNextPendingWebItem(modelContainer: container) { cancelFlag.value }
-                    if !did { break }
-                    processed += 1
-                }
+            await MainActor.run {
+                let purgeCtx = ModelContext(container)
+                ArchiveRetention.purgeExpired(in: purgeCtx)
+            }
+            reviveAbortedPipelineItems(modelContainer: container)
+            var processed = 0
+            while !cancelFlag.value, processed < 3 {
+                let did = await processNextPendingWebItem(modelContainer: container) { cancelFlag.value }
+                if !did { break }
+                processed += 1
             }
 
             task.setTaskCompleted(success: true)
@@ -251,23 +242,19 @@ enum BackgroundPipeline: Sendable {
             return
         }
 
-        let session = AnalyzeLlamaSession()
         let cancelFlag = CancelFlagBox()
 
         task.expirationHandler = {
             cancelFlag.value = true
-            Task { await session.cancelAndUnload() }
+            SharedLlamaInference.signalCancelInFlight()
         }
 
         Task.detached {
-            let outcome = await PipelineSerialGate.shared.perform {
-                reviveAbortedPipelineItems(modelContainer: container)
-                return await processNextEmbeddingItem(
-                    modelContainer: container,
-                    session: session,
-                    cancel: { cancelFlag.value }
-                )
-            }
+            reviveAbortedPipelineItems(modelContainer: container)
+            let outcome = await processNextEmbeddingItem(
+                modelContainer: container,
+                cancel: { cancelFlag.value }
+            )
 
             switch outcome {
             case .noItemToProcess:
@@ -362,7 +349,6 @@ enum BackgroundPipeline: Sendable {
 
     nonisolated private static func processNextEmbeddingItem(
         modelContainer: ModelContainer,
-        session: AnalyzeLlamaSession,
         cancel: @Sendable @escaping () -> Bool
     ) async -> SingleAnalyzeOutcome {
         let ctx = ModelContext(modelContainer)
@@ -406,73 +392,72 @@ enum BackgroundPipeline: Sendable {
         let article = String(raw.prefix(12_000))
 
         do {
-            try await PipelineMetrics.time("load_model", itemID: itemID) {
-                try await session.load()
-            }
-            if cancel() {
-                await session.unload()
-                checkpointAfterCancel(item: item)
+            try await SharedLlamaInference.shared.withSession(unloadOnExit: true, pipelineItemID: itemID) { session in
+                if cancel() {
+                    await session.cancelInFlight()
+                    checkpointAfterCancel(item: item)
+                    try? ctx.save()
+                    throw PipelineLlmCancelled()
+                }
+
+                item.processingStatus = ProcessingStatus.summarizing.rawValue
+                item.processingDetail = "Generating summary…"
                 try? ctx.save()
-                return .cancelled
-            }
 
-            item.processingStatus = ProcessingStatus.summarizing.rawValue
-            item.processingDetail = "Generating summary…"
-            try? ctx.save()
-
-            let bullets = try await PipelineMetrics.time("summarize", itemID: itemID) {
-                try await session.summarize(article)
-            }
-            if bullets.isEmpty {
-                item.summaryBullets = nil
-            } else {
-                item.encodeSummaryBullets(bullets)
-            }
-            try? ctx.save()
-
-            if cancel() {
-                await session.unload()
-                checkpointAfterCancel(item: item)
+                let bullets = try await PipelineMetrics.time("summarize", itemID: itemID) {
+                    try await session.summarize(article)
+                }
+                if bullets.isEmpty {
+                    item.summaryBullets = nil
+                } else {
+                    item.encodeSummaryBullets(bullets)
+                }
                 try? ctx.save()
-                return .cancelled
-            }
 
-            item.processingStatus = ProcessingStatus.tagging.rawValue
-            item.processingDetail = "Auto-tagging…"
-            try? ctx.save()
+                if cancel() {
+                    await session.cancelInFlight()
+                    checkpointAfterCancel(item: item)
+                    try? ctx.save()
+                    throw PipelineLlmCancelled()
+                }
 
-            let tagNames = try await PipelineMetrics.time("tags_llm", itemID: itemID) {
-                try await session.tags(article)
-            }
-            let tagDbStart = Date()
-            upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
-            mergePlatformHashtagTags(item: item, context: ctx)
-            PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
-            try? ctx.save()
-
-            if cancel() {
-                await session.unload()
-                checkpointAfterCancel(item: item)
+                item.processingStatus = ProcessingStatus.tagging.rawValue
+                item.processingDetail = "Auto-tagging…"
                 try? ctx.save()
-                return .cancelled
-            }
 
-            item.processingDetail = "Extracting key information…"
-            try? ctx.save()
+                let tagNames = try await PipelineMetrics.time("tags_llm", itemID: itemID) {
+                    try await session.tags(article)
+                }
+                let tagDbStart = Date()
+                upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
+                mergePlatformHashtagTags(item: item, context: ctx)
+                PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
+                try? ctx.save()
 
-            let extracts = try await PipelineMetrics.time("extracts_llm", itemID: itemID) {
-                try await session.extracts(article)
-            }
-            if extracts.isEmpty {
-                item.extracts = nil
-            } else {
-                item.encodeExtracts(extracts)
-            }
+                if cancel() {
+                    await session.cancelInFlight()
+                    checkpointAfterCancel(item: item)
+                    try? ctx.save()
+                    throw PipelineLlmCancelled()
+                }
 
-            item.processingStatus = ProcessingStatus.completed.rawValue
-            item.processingDetail = nil
-            item.failureReason = nil
-            try? ctx.save()
+                item.processingDetail = "Extracting key information…"
+                try? ctx.save()
+
+                let extracts = try await PipelineMetrics.time("extracts_llm", itemID: itemID) {
+                    try await session.extracts(article)
+                }
+                if extracts.isEmpty {
+                    item.extracts = nil
+                } else {
+                    item.encodeExtracts(extracts)
+                }
+
+                item.processingStatus = ProcessingStatus.completed.rawValue
+                item.processingDetail = nil
+                item.failureReason = nil
+                try? ctx.save()
+            }
 
             let verifyDesc = FetchDescriptor<ContentItem>(
                 predicate: #Predicate<ContentItem> { $0.id == itemID }
@@ -483,10 +468,10 @@ enum BackgroundPipeline: Sendable {
                 fresh.indexInSpotlight()
             }
 
-            await session.unload()
             return .finished(taskSuccess: true)
+        } catch is PipelineLlmCancelled {
+            return .cancelled
         } catch {
-            await session.unload()
             item.processingStatus = ProcessingStatus.failed.rawValue
             item.failureReason = error.localizedDescription
             try? ctx.save()
@@ -542,37 +527,5 @@ enum BackgroundPipeline: Sendable {
         guard let raw = item.rawText else { return }
         let names = TagNameNormalizer.normalize(many: HashtagParser.tagNames(in: raw))
         upsertTagsOnItem(tagNames: names, item: item, context: context)
-    }
-}
-
-private actor AnalyzeLlamaSession {
-    private var cancelled = false
-
-    func load() async throws {
-        try await SharedLlamaInference.shared.ensureLoaded()
-    }
-
-    func unload() async {
-        await SharedLlamaInference.shared.unload()
-    }
-
-    func cancelAndUnload() async {
-        cancelled = true
-        await SharedLlamaInference.shared.unload()
-    }
-
-    func summarize(_ text: String) async throws -> [String] {
-        if cancelled { return [] }
-        return try await SharedLlamaInference.shared.generateSummary(articleText: text)
-    }
-
-    func tags(_ text: String) async throws -> [String] {
-        if cancelled { return [] }
-        return try await SharedLlamaInference.shared.generateTags(articleText: text)
-    }
-
-    func extracts(_ text: String) async throws -> [Extract] {
-        if cancelled { return [] }
-        return try await SharedLlamaInference.shared.generateExtracts(articleText: text)
     }
 }

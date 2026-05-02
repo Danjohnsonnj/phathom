@@ -5,7 +5,7 @@ enum ModelManager {
     private nonisolated static let bookmarkKey = "phathom.selectedGGUFBookmark"
     /// Legacy path-only storage from before bookmarks; migrated once into `bookmarkKey`.
     private nonisolated static let legacyPathKey = "phathom.selectedGGUFPath"
-    /// Persisted probe for Library icon state: set by `SharedLlamaInference.ensureLoaded()`.
+    /// Persisted probe for Library icon state: set by `SharedLlamaInference.withSession` / load path.
     private nonisolated static let lastLoadFailedKey = "phathom.lastModelLoadFailed"
 
     /// Holds an active `startAccessingSecurityScopedResource` match; call `end()` when done reading.
@@ -46,7 +46,7 @@ enum ModelManager {
 
     /// Cheap probe used by the BG pipeline before fetching the next analyze item, so items stay in
     /// `.embedding` instead of transitioning to `.failed` when no model is picked. The subsequent
-    /// `ensureLoaded()` re-opens scope for the actual load.
+    /// `SharedLlamaInference.withSession` load re-opens scope for the actual weights.
     nonisolated static var hasReadableSelection: Bool {
         guard let access = openSelection() else { return false }
         access.end()

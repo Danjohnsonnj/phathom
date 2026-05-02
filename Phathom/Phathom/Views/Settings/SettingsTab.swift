@@ -270,9 +270,9 @@ struct SettingsContent: View {
         showTestResponse = false
         Task {
             do {
-                try await SharedLlamaInference.shared.ensureLoaded()
-                let text = try await SharedLlamaInference.shared.runQuickTest()
-                await SharedLlamaInference.shared.unload()
+                let text = try await SharedLlamaInference.shared.withSession { session in
+                    try await session.runQuickTest()
+                }
                 await MainActor.run {
                     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                     let response = trimmed.isEmpty ? "(empty response)" : trimmed
@@ -282,7 +282,6 @@ struct SettingsContent: View {
                     )
                 }
             } catch {
-                await SharedLlamaInference.shared.unload()
                 await MainActor.run {
                     testPhase = .failed(message: error.localizedDescription)
                 }
