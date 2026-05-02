@@ -36,7 +36,7 @@ struct DetailView: View {
                             .foregroundStyle(AppPalette.accent)
                     }
 
-                    Text(item.title ?? "Untitled")
+                    Text(item.displayTitle)
                         .font(.title.bold())
                         .foregroundStyle(AppPalette.textPrimary)
 
@@ -95,7 +95,7 @@ struct DetailView: View {
                         Image(systemName: "square.and.arrow.up")
                     }
                 } else {
-                    ShareLink(item: item.title ?? "") {
+                    ShareLink(item: item.displayTitle) {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
@@ -122,7 +122,7 @@ struct DetailView: View {
                     .font(.headline.bold())
                     .foregroundStyle(AppPalette.textPrimary)
                 Markdown(raw)
-                    .markdownTheme(.gitHub)
+                    .markdownTheme(.phathomNote)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(16)
@@ -183,12 +183,16 @@ struct DetailView: View {
         Button {
             ArchiveRetention.archive(item)
             try? modelContext.save()
-            NotificationCenter.default.post(
-                name: .phathomDidArchiveItem,
-                object: nil,
-                userInfo: ["itemID": item.id]
-            )
             dismiss()
+            let archivedID = item.id
+            Task { @MainActor in
+                await Task.yield()
+                NotificationCenter.default.post(
+                    name: .phathomDidArchiveItem,
+                    object: nil,
+                    userInfo: ["itemID": archivedID, "switchToLibrary": true]
+                )
+            }
         } label: {
             Text("Archive")
                 .font(.subheadline.weight(.medium))
@@ -226,32 +230,46 @@ struct DetailView: View {
                 .foregroundStyle(AppPalette.textPrimary)
 
             if let raw = item.rawText, !raw.isEmpty {
-                DisclosureGroup(isExpanded: $sourceExpanded) {
-                    Text(raw)
-                        .font(.subheadline)
-                        .foregroundStyle(AppPalette.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        sourceExpanded.toggle()
+                    }
                 } label: {
-                    Text(raw.prefixLinePreview(lineCount: 4))
-                        .font(.subheadline)
-                        .foregroundStyle(AppPalette.textSecondary)
-                        .lineLimit(4)
+                    HStack(alignment: .top, spacing: 8) {
+                        Group {
+                            if sourceExpanded {
+                                Text(raw)
+                                    .font(.subheadline)
+                                    .foregroundStyle(AppPalette.textSecondary)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .textSelection(.enabled)
+                            } else {
+                                Text(raw)
+                                    .font(.subheadline)
+                                    .foregroundStyle(AppPalette.textSecondary)
+                                    .multilineTextAlignment(.leading)
+                                    .lineLimit(4)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .accessibilityHidden(true)
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppPalette.textTertiary)
+                            .rotationEffect(.degrees(sourceExpanded ? 180 : 0))
+                            .accessibilityHidden(true)
+                    }
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(sourceExpanded ? "Source content, expanded" : "Source content, collapsed preview")
+                .accessibilityHint("Double tap to expand or collapse the full source text.")
             } else {
                 Text("No source text")
                     .font(.subheadline)
                     .foregroundStyle(AppPalette.textSecondary)
             }
         }
-    }
-}
-
-private extension String {
-    func prefixLinePreview(lineCount: Int) -> String {
-        let lines = split(separator: "\n", omittingEmptySubsequences: false)
-        let head = lines.prefix(lineCount).joined(separator: "\n")
-        return String(head)
     }
 }
 

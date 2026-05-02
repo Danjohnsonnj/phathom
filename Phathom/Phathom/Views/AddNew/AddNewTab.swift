@@ -109,7 +109,7 @@ struct AddNewTab: View {
             }
 
             let item = ContentItem(contentKind: .web, originalURL: url)
-            item.title = trimmedTitle.isEmpty ? (url.host ?? trimmedURL) : trimmedTitle
+            item.title = trimmedTitle.isEmpty ? nil : trimmedTitle
             item.processingStatus = ProcessingStatus.pending.rawValue
             item.processingDetail = "Queued for capture"
             modelContext.insert(item)

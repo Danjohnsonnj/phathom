@@ -4,7 +4,7 @@ import Foundation
 extension ContentItem {
     func indexInSpotlight() {
         let attrs = CSSearchableItemAttributeSet(contentType: .text)
-        attrs.title = title
+        attrs.title = displayTitle
         attrs.contentDescription = decodedSummaryBullets.first
         attrs.keywords = tags.map(\.name)
         if let data = thumbnailData {

@@ -286,6 +286,14 @@ enum BackgroundPipeline: Sendable {
             item.rawText = result.text
             if let t = result.thumbnailData { item.thumbnailData = t }
             item.displayHost = result.displayHost
+            let hadUserTitle = !(item.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if !hadUserTitle {
+                if let pt = result.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !pt.isEmpty {
+                    item.title = String(pt.prefix(200))
+                } else {
+                    item.title = nil
+                }
+            }
             item.processingStatus = ProcessingStatus.embedding.rawValue
             item.processingDetail = "Preparing analysis…"
             try? ctx.save()
@@ -430,34 +438,33 @@ enum BackgroundPipeline: Sendable {
 }
 
 private actor AnalyzeLlamaSession {
-    private let analyzer = LlamaContentAnalyzer()
     private var cancelled = false
 
     func load(path: String) async throws {
-        try await analyzer.loadModel(path: path)
+        try await SharedLlamaInference.shared.ensureLoaded(path: path)
     }
 
     func unload() async {
-        await analyzer.unloadModel()
+        await SharedLlamaInference.shared.unload()
     }
 
     func cancelAndUnload() async {
         cancelled = true
-        await analyzer.unloadModel()
+        await SharedLlamaInference.shared.unload()
     }
 
     func summarize(_ text: String) async throws -> [String] {
         if cancelled { return [] }
-        return try await analyzer.generateSummary(articleText: text)
+        return try await SharedLlamaInference.shared.generateSummary(articleText: text)
     }
 
     func tags(_ text: String) async throws -> [String] {
         if cancelled { return [] }
-        return try await analyzer.generateTags(articleText: text)
+        return try await SharedLlamaInference.shared.generateTags(articleText: text)
     }
 
     func extracts(_ text: String) async throws -> [Extract] {
         if cancelled { return [] }
-        return try await analyzer.generateExtracts(articleText: text)
+        return try await SharedLlamaInference.shared.generateExtracts(articleText: text)
     }
 }

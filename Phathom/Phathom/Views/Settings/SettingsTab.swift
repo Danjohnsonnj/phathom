@@ -1,12 +1,17 @@
 import SwiftData
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct SettingsContent: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Query(filter: #Predicate<ContentItem> { $0.isArchived == true })
     private var archivedForBadge: [ContentItem]
 
     @State private var modelFiles: [URL] = []
+    /// Mirrors UserDefaults selection so the Form redraws when the user picks a model.
+    @State private var displayedSelectedPath: String?
+    @State private var applyingModelPath: String?
     @State private var testPhase: TestPhase = .idle
     @State private var showFileImporter = false
     @State private var importerError: String?
@@ -27,6 +32,13 @@ struct SettingsContent: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 
+    private var selectedURLForDisplay: URL? {
+        if let p = displayedSelectedPath {
+            return URL(fileURLWithPath: p)
+        }
+        return ModelManager.selectedModelURL
+    }
+
     private let recommendedModels: [(name: String, url: URL)] = [
         ("Llama-3.1-8B-Instruct Q4_K_M (~4.5 GB)", URL(string: "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF")!),
         ("Llama-3.2-3B-Instruct Q4_K_M (~1.8 GB)", URL(string: "https://huggingface.co/bartowski/Meta-Llama-3.2-3B-Instruct-GGUF")!),
@@ -36,7 +48,7 @@ struct SettingsContent: View {
     var body: some View {
         Form {
             Section {
-                if let url = ModelManager.selectedModelURL {
+                if let url = selectedURLForDisplay, FileManager.default.isReadableFile(atPath: url.path) {
                     LabeledContent("Selected model", value: url.lastPathComponent)
                     LabeledContent("Size", value: ModelManager.byteString(for: url))
                 } else {
@@ -54,20 +66,25 @@ struct SettingsContent: View {
 
                 if !modelFiles.isEmpty {
                     ForEach(modelFiles, id: \.self) { url in
+                        let stdPath = url.standardizedFileURL.path
                         Button {
-                            ModelManager.selectedModelURL = url
-                            testPhase = .idle
-                            showTestResponse = false
+                            applyModelSelection(url)
                         } label: {
-                            HStack {
+                            HStack(spacing: 10) {
+                                if applyingModelPath == stdPath {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .accessibilityLabel("Applying selection")
+                                }
                                 Text(url.lastPathComponent)
                                 Spacer()
-                            if ModelManager.selectedModelURL?.standardizedFileURL.path == url.standardizedFileURL.path {
+                                if displayedSelectedPath == stdPath {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(AppPalette.accent)
                                 }
                             }
                         }
+                        .disabled(applyingModelPath != nil && applyingModelPath != stdPath)
                     }
                 }
 
@@ -162,8 +179,13 @@ struct SettingsContent: View {
         .tint(AppPalette.accent)
         .foregroundStyle(AppPalette.textPrimary)
         .onAppear {
-            ModelManager.validateSelection()
+            syncDisplayedSelectionFromManager()
             refreshModels()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                syncDisplayedSelectionFromManager()
+            }
         }
         .fileImporter(
             isPresented: $showFileImporter,
@@ -192,6 +214,25 @@ struct SettingsContent: View {
         modelFiles = ModelManager.ggufFilesInDocuments()
     }
 
+    private func syncDisplayedSelectionFromManager() {
+        ModelManager.validateSelection()
+        displayedSelectedPath = ModelManager.selectedModelURL?.standardizedFileURL.path
+    }
+
+    private func applyModelSelection(_ url: URL) {
+        let stdPath = url.standardizedFileURL.path
+        applyingModelPath = stdPath
+        Task { @MainActor in
+            ModelManager.selectedModelURL = url
+            displayedSelectedPath = stdPath
+            testPhase = .idle
+            showTestResponse = false
+            await Task.yield()
+            applyingModelPath = nil
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+    }
+
     private func copyImportedGGUF(from sourceURL: URL) {
         guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             importerError = "Could not reach Documents directory."
@@ -208,6 +249,7 @@ struct SettingsContent: View {
             }
             try FileManager.default.copyItem(at: sourceURL, to: dest)
             ModelManager.selectedModelURL = dest
+            displayedSelectedPath = dest.standardizedFileURL.path
             testPhase = .idle
             showTestResponse = false
             refreshModels()
@@ -221,11 +263,10 @@ struct SettingsContent: View {
         testPhase = .running
         showTestResponse = false
         Task {
-            let analyzer = LlamaContentAnalyzer()
             do {
-                try await analyzer.loadModel(path: path)
-                let text = try await analyzer.runQuickTest()
-                await analyzer.unloadModel()
+                try await SharedLlamaInference.shared.ensureLoaded(path: path)
+                let text = try await SharedLlamaInference.shared.runQuickTest()
+                await SharedLlamaInference.shared.unload()
                 await MainActor.run {
                     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                     let response = trimmed.isEmpty ? "(empty response)" : trimmed
@@ -235,6 +276,7 @@ struct SettingsContent: View {
                     )
                 }
             } catch {
+                await SharedLlamaInference.shared.unload()
                 await MainActor.run {
                     testPhase = .failed(message: error.localizedDescription)
                 }

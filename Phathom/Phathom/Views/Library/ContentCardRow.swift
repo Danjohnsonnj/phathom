@@ -22,7 +22,7 @@ struct ContentCardRow: View {
             )
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(item.title ?? "Untitled")
+                Text(item.displayTitle)
                     .font(.headline)
                     .foregroundStyle(AppPalette.textPrimary)
                     .lineLimit(1)

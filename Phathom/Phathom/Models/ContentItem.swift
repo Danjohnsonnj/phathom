@@ -52,4 +52,12 @@ extension ContentItem {
     var kind: ContentKind { ContentKind(rawValue: contentKind) ?? .web }
 
     var status: ProcessingStatus { ProcessingStatus(rawValue: processingStatus) ?? .pending }
+
+    /// Title for list and detail; falls back to host when web title not set yet.
+    var displayTitle: String {
+        if let t = title?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty {
+            return t
+        }
+        return displayHost ?? originalURL?.host ?? "Untitled"
+    }
 }

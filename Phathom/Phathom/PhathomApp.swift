@@ -27,6 +27,7 @@ struct PhathomApp: App {
 
     init() {
         BackgroundPipeline.register(modelContainer: sharedModelContainer)
+        SharedLlamaInference.scheduleWarmFromPersistedSelection()
     }
 
     var body: some Scene {
