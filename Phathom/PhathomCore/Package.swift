@@ -17,5 +17,9 @@ let package = Package(
                 .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
+        .testTarget(
+            name: "PhathomCoreTests",
+            dependencies: ["PhathomCore"]
+        ),
     ]
 )

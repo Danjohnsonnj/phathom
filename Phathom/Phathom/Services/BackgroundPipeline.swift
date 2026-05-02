@@ -310,7 +310,9 @@ enum BackgroundPipeline: Sendable {
             item.displayHost = result.displayHost
             let hadUserTitle = !(item.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             if !hadUserTitle {
-                if let pt = result.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !pt.isEmpty {
+                if let st = result.suggestedListTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !st.isEmpty {
+                    item.title = String(st.prefix(200))
+                } else if let pt = result.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !pt.isEmpty {
                     item.title = String(pt.prefix(200))
                 } else {
                     item.title = nil
@@ -416,6 +418,7 @@ enum BackgroundPipeline: Sendable {
                     item.tags.append(tag)
                 }
             }
+            mergePlatformHashtagTags(item: item, context: ctx)
             try? ctx.save()
 
             if cancel() {
@@ -467,6 +470,23 @@ enum BackgroundPipeline: Sendable {
             item.processingStatus = ProcessingStatus.pending.rawValue
         }
         item.processingDetail = "Paused — will resume when resources allow"
+    }
+
+    /// Adds `#hashtag` tokens from captions for Instagram / TikTok web items after Llama tagging.
+    nonisolated private static func mergePlatformHashtagTags(item: ContentItem, context: ModelContext) {
+        guard item.kind == .web else { return }
+        guard let host = item.displayHost?.lowercased() else { return }
+        guard host.contains("instagram") || host.contains("tiktok") else { return }
+        guard let raw = item.rawText else { return }
+        for name in HashtagParser.tagNames(in: raw) {
+            let td = FetchDescriptor<Tag>(predicate: #Predicate<Tag> { $0.name == name })
+            let existing = try? context.fetch(td).first
+            let tag = existing ?? Tag(name: name)
+            if existing == nil { context.insert(tag) }
+            if !item.tags.contains(where: { $0.name == tag.name }) {
+                item.tags.append(tag)
+            }
+        }
     }
 }
 
