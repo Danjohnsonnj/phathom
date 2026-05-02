@@ -10,8 +10,6 @@ struct DetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var sourceExpanded = false
-    @State private var showStubAlert = false
-    @State private var stubMessage = ""
 
     private static let timestampFormat = Date.FormatStyle()
         .month(.abbreviated)
@@ -29,6 +27,8 @@ struct DetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 HeroSection(item: item)
+
+                detailStatusChip
 
                 VStack(alignment: .leading, spacing: 8) {
                     if let host = item.displayHost, item.kind == .web {
@@ -104,11 +104,6 @@ struct DetailView: View {
                 }
             }
         }
-        .alert("Coming soon", isPresented: $showStubAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("\(stubMessage) is not available in this build.")
-        }
     }
 
     private var summarySnippet: String? {
@@ -118,6 +113,24 @@ struct DetailView: View {
             if !clean.isEmpty { return clean }
         }
         return item.displaySummaryBullets.first.map { "Summary, \($0)" }
+    }
+
+    @ViewBuilder
+    private var detailStatusChip: some View {
+        if let label = ProcessingStatusPresentation.label(for: item.status) {
+            HStack(spacing: 4) {
+                Image(systemName: ProcessingStatusPresentation.symbolName(for: item.status))
+                    .font(.caption.weight(.semibold))
+                Text(label)
+                    .font(.caption.weight(.semibold))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(AppPalette.metaChipBackground)
+            .foregroundStyle(AppPalette.floralWhite)
+            .clipShape(Capsule())
+            .accessibilityLabel("Status: \(label)")
+        }
     }
 
     @ViewBuilder
@@ -237,10 +250,6 @@ struct DetailView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                stubButton("Read Full Text (AI Parsed)")
-                stubButton("Translate")
-            }
             if item.isArchived {
                 restoreToLibraryButton
             } else {
@@ -285,23 +294,6 @@ struct DetailView: View {
             }
         } label: {
             Text("Archive")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppPalette.textPrimary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(AppPalette.surfaceNested)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func stubButton(_ title: String) -> some View {
-        Button {
-            stubMessage = title
-            showStubAlert = true
-        } label: {
-            Text(title)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(AppPalette.textPrimary)
                 .multilineTextAlignment(.center)

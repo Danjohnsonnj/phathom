@@ -89,32 +89,19 @@ struct ProcessingStatusBadge: View {
     let status: ProcessingStatus
 
     var body: some View {
-        HStack(spacing: 4) {
-            if status == .pending {
-                Image(systemName: "clock")
+        if let label = ProcessingStatusPresentation.label(for: status) {
+            HStack(spacing: 4) {
+                Image(systemName: ProcessingStatusPresentation.symbolName(for: status))
                     .font(.caption.weight(.semibold))
-            } else if status == .failed {
-                Image(systemName: "exclamationmark.circle")
+                Text(label)
                     .font(.caption.weight(.semibold))
-            } else {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
             }
-            Text(badgeLabel)
-                .font(.caption.weight(.semibold))
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(AppPalette.metaChipBackground)
-        .foregroundStyle(AppPalette.floralWhite)
-        .clipShape(Capsule())
-    }
-
-    private var badgeLabel: String {
-        switch status {
-        case .pending: "Pending"
-        case .failed: "Failed"
-        default: "Processing"
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(AppPalette.metaChipBackground)
+            .foregroundStyle(AppPalette.floralWhite)
+            .clipShape(Capsule())
         }
     }
 }

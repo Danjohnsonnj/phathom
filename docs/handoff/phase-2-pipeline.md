@@ -268,13 +268,30 @@ Expected output: `["Bullet one", "Bullet two", "Bullet three"]`
 **Tagging prompt**:
 ```
 <|begin_of_text|><|start_header_id|>system<|end_header_id|>
-You are a content tagger. Given an article, produce 3-8 lowercase topic tags. Output ONLY a JSON array of strings, no other text.
-<|eot_id|><|start_header_id|>user<|end_header_id|>
+You produce topic tags for an article.
+
+Rules:
+- Output ONLY a JSON array of 3-8 strings.
+- Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
+- Allowed characters: a-z, 0-9, hyphen.
+- Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
+- Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
+- No duplicates, no hashtags, no commentary.
+
+Example:
+Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
+Tags: ["eu-policy","climate-change","emissions","news"]
+
+### Article
 {articleText}
+
+Reply with ONLY a JSON array of lowercase kebab-case tags.
 <|eot_id|><|start_header_id|>assistant<|end_header_id|>
 ```
 
-Expected output: `["urban planning", "sustainability", "architecture"]`
+Expected output: `["urban-planning", "sustainability", "architecture", "news"]`
+
+**Tag conventions (normalization)**: The tag prompt targets lowercase kebab-case JSON-array output and a 2–5 subject + 1–2 content-type mix. **`TagNameNormalizer`** (PhathomCore) deterministically cleans both LLM and hashtag-sourced tag strings before SwiftData upsert so storage stays consistent even when the model drifts. Tag prompt budget is unchanged: first **~4k** chars of article text, **`maxTokens` 96**.
 
 **Extraction prompt**:
 ```
@@ -482,7 +499,8 @@ Optional shared implementation: e.g. `ArchiveRetention.purgeExpired(in: ModelCon
 ## What exists after Phase 2 (implementation)
 
 - **`Phathom/vendor/llama/llama.xcframework`** linked on the app target; **`OTHER_LDFLAGS = -lc++`**; inference code uses **`import llama`** under **`#if canImport(llama)`**.
-- **Inference**: `LlamaCppRuntime` + **`LlamaContentAnalyzer`** (templated user prompts for summarize / tags / extracts; JSON array parsing with graceful nil fields).
+- **Inference**: `LlamaCppRuntime` + **`LlamaContentAnalyzer`** (templated user prompts for summarize / tags / extracts; JSON array parsing with graceful nil fields). Tag prompts ask for lowercase kebab-case JSON arrays (2–5 subject + 1–2 content-type tags); **`TagNameNormalizer`** in PhathomCore applies before SwiftData upsert for both LLM tags and merged Instagram/TikTok hashtags. **Speed tuning**: tag prompts use the first **~4k** chars of article text and **maxTokens 96**; extract prompts use **~8k** chars; summary still uses **~12k** (see code). **`PipelineMetrics`** prints per-stage wall times to the Xcode console (`scrape`, `load_model`, `summarize`, `tags_llm`, `tag_db`, `extracts_llm`) prefixed with `[PhathomPipeline]` — remove `PipelineMetrics.swift` and wrappers to drop logging.
+- **Status UI**: **`ProcessingStatusPresentation`** maps `ProcessingStatus` to friendly labels; **`DetailView`** shows a status chip under the hero; **`ContentCardRow`’s** `ProcessingStatusBadge` uses the same mapping so Library and Detail stay in sync and update live.
 - **Model UX**: `ModelManager` (bookmark persistence + scoped `openSelection`) + **Settings** (Files picker, in-app GGUF guidance — e.g. vendor-agnostic “obtain a `.gguf`” copy — test inference, Recently Deleted).
 - **Share extension**: **`PhathomShare`** target (`ShareViewController.swift`) — saves URL / plain text / image into the shared app-group SwiftData store via `ShareCapture.insertFromShare`, then dismisses (see [docs/decisions.md](../decisions.md)).
 - **Recently Deleted**: `RecentlyDeletedView` uses **`ScrollView` + `LazyVStack`**, **`fetchLimit`**, and **`ContentCardRow` chrome `.plain`** for stable scrolling (see debugging note in [docs/debugging/recently-deleted-freeze.md](../debugging/recently-deleted-freeze.md)).
@@ -543,6 +561,7 @@ Work tracked **after** Phase 2 closure — see [docs/handoff/phase-3-rag-chat.md
 | 3 | **Detail screen stubs** | e.g. “Read Full Text (AI Parsed)”, “Translate” — still non-functional by design until scoped. |
 | 4 | **`requiresExternalPower` revisit** | Currently `false` per decisions — reconsider only if production shows jetsam / thermal pain. |
 | 5 | **Social ingest maintenance** | Instagram / TikTok markup drift — extend parsers as needed ([social-web-ingest-instagram-tiktok.md](social-web-ingest-instagram-tiktok.md)). Optional future: Instagram transcript via on-device ASR (privacy-gated). |
+| 6 | **Single-pass structured LLM output** | Optional future: one generation returning summary + tags + extracts — may improve **total** pipeline time but delays **first** visible summary vs the current three-call flow (evaluate with `PipelineMetrics`). |
 
 ---
 

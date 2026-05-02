@@ -455,7 +455,7 @@ Refer to [docs/assets/main-screen.PNG](../assets/main-screen.PNG).
 3. **Card list**: each row contains:
    - Left: 70-80pt rounded thumbnail (image or fallback)
    - Right: title (bold, 1 line), domain or description (secondary, 2 lines), timestamp (`"Jul 15, 2026 at 10:45am"` — use `.formatted()` with date+time style)
-   - State badge: if `processingStatus != .completed`, show a capsule badge — blue tint, spinner icon + "Processing" text. When `.pending`, show clock icon + "Pending".
+   - State badge: if `processingStatus != .completed`, show a capsule meta chip (same styling as Detail) bound to granular `ProcessingStatus` via **`ProcessingStatusPresentation`** in [`Phathom/Phathom/Helpers/ProcessingStatusPresentation.swift`](../../Phathom/Phathom/Helpers/ProcessingStatusPresentation.swift): **Queued**, **Fetching source**, **Preparing analysis**, **Generating summary**, **Creating tags**, **Needs attention** (`.failed`). Hide when `.completed`. Updates live as `@Query` / background writes advance `processingStatus`.
 4. **Tab bar**: 4 tabs — Library (photo icon, selected), Chat (bubble icon), Add new (plus icon), Settings (gear icon).
 
 **Dark mode**: the mockup uses a dark background. Use the system dark appearance; do not hardcode colors. The card rows should have a slightly elevated surface (`Color(.secondarySystemGroupedBackground)` or a custom Material).
@@ -661,7 +661,7 @@ Phase 1 is complete when ALL of the following are true:
 - [ ] The Library tab displays "Recent items" with a large title and filter pills
 - [ ] Tapping filter pills correctly filters the list by content kind
 - [ ] The list shows 4 seed items matching the mockup data (WWDC24, Future City, Mon Ami Gabi, Weekend Projects)
-- [ ] The WWDC24 row shows a "Processing" badge with a spinner
+- [ ] The WWDC24 row shows a granular status meta chip while processing (e.g., Queued / Preparing analysis / Generating summary / Creating tags — exact label depends on seed `processingStatus`)
 - [ ] Completed rows show title, domain/description, and timestamp — no badge
 - [ ] Rows without thumbnail data show a colored fallback with a content-kind icon
 - [ ] Tapping a row pushes to the Detail screen

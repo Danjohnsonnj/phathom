@@ -304,7 +304,10 @@ enum BackgroundPipeline: Sendable {
 
         do {
             guard let url = item.originalURL else { return true }
-            let result = try await WebIngestService.scrape(url: url)
+            let scrapeItemID = item.id
+            let result = try await PipelineMetrics.time("scrape", itemID: scrapeItemID) {
+                try await WebIngestService.scrape(url: url)
+            }
             item.rawText = result.text
             if let t = result.thumbnailData { item.thumbnailData = t }
             item.displayHost = result.displayHost
@@ -377,7 +380,9 @@ enum BackgroundPipeline: Sendable {
         let article = String(raw.prefix(12_000))
 
         do {
-            try await session.load()
+            try await PipelineMetrics.time("load_model", itemID: itemID) {
+                try await session.load()
+            }
             if cancel() {
                 await session.unload()
                 checkpointAfterCancel(item: item)
@@ -389,7 +394,9 @@ enum BackgroundPipeline: Sendable {
             item.processingDetail = "Generating summary…"
             try? ctx.save()
 
-            let bullets = try await session.summarize(article)
+            let bullets = try await PipelineMetrics.time("summarize", itemID: itemID) {
+                try await session.summarize(article)
+            }
             if bullets.isEmpty {
                 item.summaryBullets = nil
             } else {
@@ -408,17 +415,13 @@ enum BackgroundPipeline: Sendable {
             item.processingDetail = "Auto-tagging…"
             try? ctx.save()
 
-            let tagNames = try await session.tags(article)
-            for tagName in tagNames {
-                let td = FetchDescriptor<Tag>(predicate: #Predicate<Tag> { $0.name == tagName })
-                let existing = try? ctx.fetch(td).first
-                let tag = existing ?? Tag(name: tagName)
-                if existing == nil { ctx.insert(tag) }
-                if !item.tags.contains(where: { $0.name == tag.name }) {
-                    item.tags.append(tag)
-                }
+            let tagNames = try await PipelineMetrics.time("tags_llm", itemID: itemID) {
+                try await session.tags(article)
             }
+            let tagDbStart = Date()
+            upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
             mergePlatformHashtagTags(item: item, context: ctx)
+            PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
             try? ctx.save()
 
             if cancel() {
@@ -431,7 +434,9 @@ enum BackgroundPipeline: Sendable {
             item.processingDetail = "Extracting key information…"
             try? ctx.save()
 
-            let extracts = try await session.extracts(article)
+            let extracts = try await PipelineMetrics.time("extracts_llm", itemID: itemID) {
+                try await session.extracts(article)
+            }
             if extracts.isEmpty {
                 item.extracts = nil
             } else {
@@ -472,21 +477,45 @@ enum BackgroundPipeline: Sendable {
         item.processingDetail = "Paused — will resume when resources allow"
     }
 
+    nonisolated private static func upsertTagsOnItem(
+        tagNames: [String],
+        item: ContentItem,
+        context: ModelContext
+    ) {
+        let unique = TagNameNormalizer.normalize(many: tagNames)
+        if unique.isEmpty { return }
+        let fetch = FetchDescriptor<Tag>(
+            predicate: #Predicate<Tag> { unique.contains($0.name) }
+        )
+        let existingTags = (try? context.fetch(fetch)) ?? []
+        var existingByName: [String: Tag] = [:]
+        for t in existingTags {
+            existingByName[t.name] = t
+        }
+        for name in unique {
+            let tag: Tag
+            if let existing = existingByName[name] {
+                tag = existing
+            } else {
+                let created = Tag(name: name)
+                context.insert(created)
+                existingByName[name] = created
+                tag = created
+            }
+            if !item.tags.contains(where: { $0.name == tag.name }) {
+                item.tags.append(tag)
+            }
+        }
+    }
+
     /// Adds `#hashtag` tokens from captions for Instagram / TikTok web items after Llama tagging.
     nonisolated private static func mergePlatformHashtagTags(item: ContentItem, context: ModelContext) {
         guard item.kind == .web else { return }
         guard let host = item.displayHost?.lowercased() else { return }
         guard host.contains("instagram") || host.contains("tiktok") else { return }
         guard let raw = item.rawText else { return }
-        for name in HashtagParser.tagNames(in: raw) {
-            let td = FetchDescriptor<Tag>(predicate: #Predicate<Tag> { $0.name == name })
-            let existing = try? context.fetch(td).first
-            let tag = existing ?? Tag(name: name)
-            if existing == nil { context.insert(tag) }
-            if !item.tags.contains(where: { $0.name == tag.name }) {
-                item.tags.append(tag)
-            }
-        }
+        let names = TagNameNormalizer.normalize(many: HashtagParser.tagNames(in: raw))
+        upsertTagsOnItem(tagNames: names, item: item, context: context)
     }
 }
 

@@ -49,20 +49,34 @@ actor LlamaContentAnalyzer {
     }
 
     func generateTags(articleText: String) async throws -> [String] {
-        let body = String(articleText.prefix(12_000))
+        let body = String(articleText.prefix(4_000))
         let user = """
-        You are a content tagger. Given an article, produce 3-8 lowercase topic tags. Output ONLY a JSON array of strings, no other text.
+        You produce topic tags for an article.
 
-        Article:
+        Rules:
+        - Output ONLY a JSON array of 3-8 strings.
+        - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
+        - Allowed characters: a-z, 0-9, hyphen.
+        - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
+        - Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
+        - No duplicates, no hashtags, no commentary.
+
+        Example:
+        Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
+        Tags: ["eu-policy","climate-change","emissions","news"]
+
+        ### Article
         \(body)
+
+        Reply with ONLY a JSON array of lowercase kebab-case tags.
         """
-        let out = try await collectTemplated(user: user, maxTokens: 256)
+        let out = try await collectTemplated(user: user, maxTokens: 96)
         let tags = LLMJSONExtractor.decodeStringArray(out) ?? []
-        return tags.map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
     func generateExtracts(articleText: String) async throws -> [Extract] {
-        let body = String(articleText.prefix(12_000))
+        let body = String(articleText.prefix(8_000))
         let user = """
         You extract the 3-5 most notable facts, statistics, or actionable items from content. Output ONLY a JSON array of objects with "label" and "value" keys, no other text.
 
