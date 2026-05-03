@@ -92,8 +92,13 @@ struct MainTabView: View {
                 .padding(.vertical, 12)
                 .background(AppPalette.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(AppPalette.textTertiary.opacity(0.35), lineWidth: 1)
+                }
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
+                .padding(.bottom, 24)
             }
         }
     }
@@ -102,7 +107,7 @@ struct MainTabView: View {
         undoArchiveItemID = id
         undoArchiveTask?.cancel()
         undoArchiveTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
             undoArchiveItemID = nil
         }
