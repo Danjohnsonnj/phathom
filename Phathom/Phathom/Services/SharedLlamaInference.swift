@@ -40,6 +40,13 @@ struct ModelSession: Sendable {
         )
     }
 
+    func analyze(
+        _ articleText: String,
+        onPartial: @escaping (LlamaContentAnalyzer.PartialAnalysis) -> Void
+    ) async throws {
+        try await inference.sessionAnalyzeArticle(articleText, onPartial: onPartial)
+    }
+
     func runQuickTest() async throws -> String {
         try await inference.sessionRunQuickTest()
     }
@@ -146,6 +153,13 @@ actor SharedLlamaInference {
         loadedPath = nil
         scopedAccess?.end()
         scopedAccess = nil
+    }
+
+    fileprivate func sessionAnalyzeArticle(
+        _ articleText: String,
+        onPartial: @escaping (LlamaContentAnalyzer.PartialAnalysis) -> Void
+    ) async throws {
+        try await analyzer.analyzeArticle(articleText, onPartial: onPartial)
     }
 
     fileprivate func sessionGenerateSummary(_ articleText: String) async throws -> [String] {

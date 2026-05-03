@@ -13,12 +13,18 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         /// (`LlamaContentAnalyzer` token fitting still avoids oversize *prompts*).
         let contextWindow: UInt32
         let promptSlackTokens: Int
+        /// Physical kernel-level batch size (`n_ubatch`). 1024 is chosen over the llama.cpp standard 512 because
+        /// Phathom's pipeline is heavily prefill-dominated (3–8k token articles). Must be ≤ `contextWindow`; since
+        /// `n_batch` is set to the full context window, this constraint is always satisfied. Lower to 512 if OOM on
+        /// very small quants or older devices.
+        let physicalBatchSize: UInt32
 
-        static let `default` = RuntimeConfig(contextWindow: 8192, promptSlackTokens: 64)
+        static let `default` = RuntimeConfig(contextWindow: 8192, promptSlackTokens: 64, physicalBatchSize: 1024)
 
-        init(contextWindow: UInt32, promptSlackTokens: Int) {
+        init(contextWindow: UInt32, promptSlackTokens: Int, physicalBatchSize: UInt32 = 1024) {
             self.contextWindow = contextWindow
             self.promptSlackTokens = promptSlackTokens
+            self.physicalBatchSize = physicalBatchSize
         }
     }
 
@@ -96,9 +102,22 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
             effectiveCtx = requested
         }
         contextParams.n_ctx = effectiveCtx
-        // Must be >= largest single llama_decode batch. We pass the whole prompt on the first decode
-        // (`llama_batch_get_one(pBuf, nPrompt)`); n_batch=512 aborted when nPrompt>512 (SIGABRT in llama_decode).
+        // Logical batch: must be >= largest single llama_decode submission (full prompt on first pass).
+        // n_batch=512 caused SIGABRT when nPrompt>512 (llama_decode rejects oversized batches).
         contextParams.n_batch = effectiveCtx
+        // Physical (kernel-level) batch. 1024 is better than the llama.cpp default for prefill-heavy
+        // pipelines (long articles); must be <= n_batch, which is always satisfied here.
+        contextParams.n_ubatch = config.physicalBatchSize
+        // Support up to 4 concurrent sequences: seq 0 (shared prefix) + 3 task forks (summary/tags/extracts).
+        contextParams.n_seq_max = 4
+        // Flash Attention: AUTO lets llama.cpp enable it when both model and backend support it (Metal does
+        // for Llama-3). Using AUTO rather than ENABLED so non-Llama-3 GGUFs degrade gracefully.
+        contextParams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO
+        // Offload KQV ops (not just storage) to the GPU. Eliminates CPU↔GPU round-trips for the attention
+        // pipeline. No-op when n_gpu_layers=0 (simulator); always safe to enable.
+        contextParams.offload_kqv = true
+        // Unified KV buffer is optimal when sequences share a large prefix (our shared-article-prefix case).
+        contextParams.kv_unified = true
 
         let nThreads = max(1, min(8, ProcessInfo.processInfo.processorCount - 2))
         contextParams.n_threads = Int32(nThreads)
@@ -215,6 +234,203 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
 
     func cancelGeneration() {
         shouldCancel = true
+    }
+
+    func generateWithSharedPrefix(
+        prefix: String,
+        tasks: [(suffix: String, maxTokens: Int, temperature: Double)],
+        onPartial: (String) -> Void
+    ) throws {
+        guard let ctx = context, let mdl = model else { throw LlamaInferenceError.modelNotLoaded }
+        guard !tasks.isEmpty else { return }
+
+        let vocab = llama_model_get_vocab(mdl)
+        let mem = llama_get_memory(ctx)
+
+        // ── 1. Tokenise all full prompts and find the shared token prefix length ──
+        // Each full prompt = chat-template(prefix + taskSuffix). They share an identical opening
+        // token run (the article body). We find the length by scanning for the first divergence.
+        var taskTokens: [[llama_token]] = []
+        taskTokens.reserveCapacity(tasks.count)
+
+        for task in tasks {
+            let formatted = makeFormattedChatPrompt(userText: prefix + task.suffix, model: mdl)
+            let nTok = formatted.withCString { cstr in
+                Int32(-llama_tokenize(vocab, cstr, Int32(strlen(cstr)), nil, 0, false, true))
+            }
+            guard nTok > 0 else {
+                throw LlamaInferenceError.generationFailed("Failed to count tokens for task prompt.")
+            }
+            let buf = UnsafeMutablePointer<llama_token>.allocate(capacity: Int(nTok))
+            defer { buf.deallocate() }
+            let written = formatted.withCString { cstr in
+                llama_tokenize(vocab, cstr, Int32(strlen(cstr)), buf, nTok, false, true)
+            }
+            guard written >= 0 else {
+                throw LlamaInferenceError.generationFailed("Tokenisation failed for task prompt.")
+            }
+            taskTokens.append(Array(UnsafeBufferPointer(start: buf, count: Int(written))))
+        }
+
+        let minLen = taskTokens.map(\.count).min() ?? 0
+        var commonLen = 0
+        outer: for i in 0..<minLen {
+            let ref = taskTokens[0][i]
+            for arr in taskTokens.dropFirst() where arr[i] != ref { break outer }
+            commonLen = i + 1
+        }
+        guard commonLen > 0 else {
+            throw LlamaInferenceError.generationFailed("No common token prefix found across tasks.")
+        }
+
+        // ── 2. Context budget check ──
+        let maxTailLen = taskTokens.map { $0.count - commonLen }.max() ?? 0
+        let maxGen = tasks.map(\.maxTokens).max() ?? 0
+        guard commonLen + maxTailLen + maxGen + config.promptSlackTokens <= contextLimitTokens else {
+            throw LlamaInferenceError.contextLimitReached(
+                "Prefix + longest task suffix + generation exceeds context window."
+            )
+        }
+
+        // ── 3. Allocate a reusable batch sized for the largest single decode ──
+        // Capacity covers prefix decode, per-task suffix decode, and single-token generation steps.
+        let batchCap = Int32(max(commonLen, maxTailLen, 1))
+        var batch = llama_batch_init(batchCap, 0, 1)
+        defer { llama_batch_free(batch) }
+
+        // ── 4. Decode shared prefix into seq 0 ──
+        llama_memory_clear(mem, true)
+        shouldCancel = false
+
+        batch.n_tokens = Int32(commonLen)
+        for i in 0..<commonLen {
+            batch.token[i]   = taskTokens[0][i]
+            batch.pos[i]     = Int32(i)
+            batch.n_seq_id[i] = 1
+            if let sid = batch.seq_id[i] { sid[0] = 0 }
+            batch.logits[i]  = 0
+        }
+        batch.logits[commonLen - 1] = 1  // logits for last prefix token (needed by first task's sampler)
+
+        let prefixRet = llama_decode(ctx, batch)
+        if prefixRet < 0 {
+            throw LlamaInferenceError.generationFailed("Prefix decode failed (\(prefixRet)).")
+        }
+        if prefixRet == 1 {
+            throw LlamaInferenceError.contextLimitReached("Context full during shared prefix decode.")
+        }
+
+        // ── 5. Process each task sequentially: fork → suffix → generate → cleanup ──
+        for (taskIdx, task) in tasks.enumerated() {
+            if shouldCancel { break }
+
+            let taskSeqId = llama_seq_id(taskIdx + 1)  // seq 1, 2, 3 for tasks 0, 1, 2
+
+            // Fork the shared prefix KV into this task's sequence (O(1) metadata copy).
+            llama_memory_seq_cp(mem, 0, taskSeqId, -1, -1)
+
+            let tail = taskTokens[taskIdx][commonLen...]
+            var nPos = Int32(commonLen)
+
+            // Decode task-specific suffix tokens into taskSeqId.
+            if !tail.isEmpty {
+                batch.n_tokens = Int32(tail.count)
+                for (i, tok) in tail.enumerated() {
+                    batch.token[i]    = tok
+                    batch.pos[i]      = nPos + Int32(i)
+                    batch.n_seq_id[i] = 1
+                    if let sid = batch.seq_id[i] { sid[0] = taskSeqId }
+                    batch.logits[i]   = 0
+                }
+                batch.logits[tail.count - 1] = 1  // logits for last suffix token
+
+                let suffixRet = llama_decode(ctx, batch)
+                if suffixRet < 0 {
+                    llama_memory_seq_rm(mem, taskSeqId, -1, -1)
+                    throw LlamaInferenceError.generationFailed(
+                        "Task \(taskIdx) suffix decode failed (\(suffixRet))."
+                    )
+                }
+                if suffixRet == 1 {
+                    llama_memory_seq_rm(mem, taskSeqId, -1, -1)
+                    throw LlamaInferenceError.contextLimitReached(
+                        "Context full during task \(taskIdx) suffix decode."
+                    )
+                }
+                nPos += Int32(tail.count)
+            }
+
+            // Build sampler for this task's temperature / strategy.
+            var sp = llama_sampler_chain_default_params()
+            sp.no_perf = true
+            guard let smpl = llama_sampler_chain_init(sp) else {
+                llama_memory_seq_rm(mem, taskSeqId, -1, -1)
+                throw LlamaInferenceError.generationFailed(
+                    "Failed to create sampler for task \(taskIdx)."
+                )
+            }
+            defer { llama_sampler_free(smpl) }
+
+            let temp = max(0.0, min(2.0, task.temperature))
+            if temp < 0.0001 {
+                llama_sampler_chain_add(smpl, llama_sampler_init_greedy())
+            } else {
+                llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40))
+                llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.95, 1))
+                llama_sampler_chain_add(smpl, llama_sampler_init_temp(Float(temp)))
+                llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED))
+            }
+
+            // Generate output tokens. We sample from -1 (last decoded position) after the suffix
+            // decode, then feed each sampled token back via a single-token batch on taskSeqId.
+            var output = ""
+            var genCount = 0
+            var currentToken = llama_sampler_sample(smpl, ctx, -1)
+
+            while genCount < task.maxTokens && !shouldCancel {
+                if llama_vocab_is_eog(vocab, currentToken) { break }
+
+                var piece = [CChar](repeating: 0, count: 512)
+                var n = llama_token_to_piece(vocab, currentToken, &piece, Int32(piece.count), 0, true)
+                if n < 0 {
+                    let need = -Int(n)
+                    piece = [CChar](repeating: 0, count: need + 1)
+                    n = llama_token_to_piece(vocab, currentToken, &piece, Int32(piece.count), 0, true)
+                }
+                if n > 0 {
+                    let clen = min(Int(n), piece.count)
+                    if clen < piece.count { piece[clen] = 0 } else { piece[clen - 1] = 0 }
+                    output.append(String(cString: piece))
+                }
+
+                // Feed sampled token back for the next step (single-token batch on taskSeqId).
+                batch.n_tokens      = 1
+                batch.token[0]      = currentToken
+                batch.pos[0]        = nPos
+                batch.n_seq_id[0]   = 1
+                if let sid = batch.seq_id[0] { sid[0] = taskSeqId }
+                batch.logits[0]     = 1
+                nPos += 1
+                genCount += 1
+
+                let genRet = llama_decode(ctx, batch)
+                if genRet < 0 {
+                    // Hard decode error — clean up and propagate; don't deliver partial output.
+                    llama_memory_seq_rm(mem, taskSeqId, -1, -1)
+                    throw LlamaInferenceError.generationFailed(
+                        "Generation decode error during task \(taskIdx) (\(genRet))."
+                    )
+                }
+                if genRet == 1 { break }  // context full — deliver whatever was generated
+
+                currentToken = llama_sampler_sample(smpl, ctx, -1)
+            }
+
+            // Remove this task's KV fork before moving to the next task.
+            llama_memory_seq_rm(mem, taskSeqId, -1, -1)
+
+            onPartial(output)
+        }
     }
 
     private func makeFormattedChatPrompt(userText: String, model: OpaquePointer) -> String {
@@ -409,6 +625,16 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
     func nextTokenChunk() throws -> String? { nil }
 
     func cancelGeneration() {}
+
+    func generateWithSharedPrefix(
+        prefix: String,
+        tasks: [(suffix: String, maxTokens: Int, temperature: Double)],
+        onPartial: (String) -> Void
+    ) throws {
+        _ = prefix
+        _ = tasks
+        throw LlamaInferenceError.modelNotLoaded
+    }
 }
 
 #endif

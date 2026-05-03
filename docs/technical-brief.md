@@ -145,6 +145,12 @@ On an iPhone 16 Pro, the Neural Engine is powerful but can generate heat.
 | Cleanup | Foreground      | App Launch     | Purge **expired archived** items (48h after `archivedAt`); finalize tags; refresh UI. |
 | Cleanup | BGAppRefresh    | System-driven  | Same purge as foreground so archives expire without opening the app. |
 
-### 6. Archive retention (SwiftData)
+### 6. On-device article inference (implemented)
+
+The analyze pass (summarize, auto-tags, extracts) uses **llama.cpp** with **KV cache prefix reuse**: the chat-templated article is **prefilled once**; each task **forks** that KV state (`llama_memory_seq_cp`), decodes only its instruction suffix, generates, then drops the fork. Prompts are **article-first** so the shared token prefix matches across tasks. Runtime context enables **Flash Attention (AUTO)**, **KV offload (`offload_kqv`)**, **`n_ubatch`** tuning, **`n_seq_max`** for multi-sequence decode, and **`kv_unified`** for the shared-prefix case. If the combined path hits context limits or the stub runtime is used, the app **falls back** to three sequential generations with per-task token fitting.
+
+**Informal benchmark:** same article on **iPhone 16 Pro** after a cold launch (force-quit then reopen), end-to-end analyze dropped from **~1 minute to ~30 seconds** (model and article dependent).
+
+### 7. Archive retention (SwiftData)
 
 `ContentItem` carries **`isArchived`** and **`archivedAt`**. **Foreground** and **`BGAppRefresh`** run a single-query purge of records archived longer than **48 hours**. **Spotlight** entries are removed when archiving and restored when a **completed** item is un-archived. Background **ingest/analyze** skips archived rows. Spec: [docs/handoff/phase-1-ui-shell.md](handoff/phase-1-ui-shell.md), [docs/handoff/phase-2-pipeline.md](handoff/phase-2-pipeline.md) §2D, [docs/decisions.md](decisions.md).

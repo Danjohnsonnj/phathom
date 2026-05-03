@@ -15,12 +15,12 @@
 
 ## Major functionality
 
-| Area | What it does |
-|------|----------------|
-| **Ingest** | Fetches and normalizes web pages (generic HTML uses a Readability-style **main content** pass for both plain **`rawText`** and optional **`sourceMarkdown`**). Specialized paths exist for some social hosts. |
-| **Pipeline** | **Background** tasks and foreground **drain** coordinate scraping, then **embedding** queue stages, then **Llama** passes—serialized so overlapping wakes don’t corrupt in-flight analysis. |
-| **Inference** | **`SharedLlamaInference`** loads/unloads the GGUF inside a locked **`withSession`**; **`LlamaCppRuntime`** wraps vendored **`llama.xcframework`** (Metal on device, CPU on simulator). |
-| **Storage** | **SwiftData** models for items, tags, chat scaffolding, etc. **Embeddings** are not persisted yet (queue state only); RAG storage is future work. |
+| Area          | What it does                                                                                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ingest**    | Fetches and normalizes web pages (generic HTML uses a Readability-style **main content** pass for both plain **`rawText`** and optional **`sourceMarkdown`**). Specialized paths exist for some social hosts. |
+| **Pipeline**  | **Background** tasks and foreground **drain** coordinate scraping, then **embedding** queue stages, then **Llama** passes—serialized so overlapping wakes don’t corrupt in-flight analysis.                   |
+| **Inference** | **`SharedLlamaInference`** loads/unloads the GGUF inside a locked **`withSession`**; **`LlamaCppRuntime`** wraps vendored **`llama.xcframework`** (Metal on device, CPU on simulator). Article analyze uses **KV cache prefix reuse** (`llama_memory_seq_cp`): one prefill of the article for summarize → tags → extracts, plus Flash Attention (AUTO), **`offload_kqv`**, and tuned **`n_ubatch`**. See **Llama performance** below. |
+| **Storage**   | **SwiftData** models for items, tags, chat scaffolding, etc. **Embeddings** are not persisted yet (queue state only); RAG storage is future work.                                                             |
 
 Deeper architecture and file map: [`docs/handoff/phase-2-pipeline.md`](docs/handoff/phase-2-pipeline.md).
 
@@ -28,6 +28,7 @@ Deeper architecture and file map: [`docs/handoff/phase-2-pipeline.md`](docs/hand
 
 - **Xcode** and **iOS SDK** matching the deployment target set in **`Phathom/Phathom.xcodeproj`** (open the project to see the current value).
 - A **physical device** is recommended for realistic Llama performance (Neural Engine / GPU path). The **simulator** runs Llama **CPU-only** and is mainly useful for UI and light testing.
+- Optimized for an iPhone 16 Pro or better.
 
 ## Building the app
 
@@ -60,6 +61,12 @@ The script’s comments point at a typical source (`intrai-llama`); you can also
 
 - **Load / unload** are tied to **`SharedLlamaInference.withSession`**: the model is loaded for a pipeline or Settings test, then unloaded when the session ends (including error and cooperative cancel paths). Background **expiration** signals cancel and lets the session tear down cleanly—avoid parallel **unload** from task handlers.
 - **Device:** `LlamaCppRuntime` sets **`n_gpu_layers = -1`** (GPU/ANE path). **Simulator:** **`n_gpu_layers = 0`** (CPU).
+
+### Llama performance (article analyze)
+
+Summarize, tag, and extract run in one session with **article-first prompts** so the chat-templated article prefix is identical across tasks; the runtime **decodes that prefix once** into sequence 0, then **forks** it per task via **`llama_memory_seq_cp`** before decoding each task’s instruction suffix—avoiding two extra full prefills of the article. Context creation also enables **Flash Attention (AUTO)**, **`offload_kqv`**, **`n_ubatch`** (default 1024), **`n_seq_max = 4`**, and **`kv_unified`** for the multi-sequence path.
+
+**Measured (informal):** same web article, **iPhone 16 Pro**, app **force-quit then cold launch** (model load + full analyze pass), wall time dropped from **~1 minute to ~30 seconds**. Actual numbers depend on GGUF size/quant, article length, thermals, and whether the fast path runs or the pipeline falls back to sequential decode (e.g. context pressure). Use Xcode console lines prefixed **`[PhathomPipeline]`** (`summarize`, `tags_llm`, `extracts_llm`, `load_model`) to profile your setup.
 
 ### Optional warm-up
 

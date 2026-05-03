@@ -396,55 +396,51 @@ enum BackgroundPipeline: Sendable {
                 item.processingDetail = "Generating summary…"
                 try? ctx.save()
 
-                let bullets = try await PipelineMetrics.time("summarize", itemID: itemID) {
-                    try await session.summarize(article)
+                // All three analysis tasks share a single prefill of the article body via KV cache
+                // prefix reuse. The `onPartial` callback fires after each task's decode completes
+                // — before the next task's suffix begins — preserving the original checkpointing
+                // granularity (summary saved before tags decode, tags saved before extracts decode).
+                var stageStart = Date()
+
+                try await session.analyze(article) { partial in
+                    switch partial {
+                    case .summary(let bullets):
+                        PipelineMetrics.logSyncElapsed("summarize", itemID: itemID, start: stageStart)
+                        stageStart = Date()
+                        if bullets.isEmpty { item.summaryBullets = nil } else { item.encodeSummaryBullets(bullets) }
+                        try? ctx.save()
+
+                        if cancel() { return }
+                        item.processingStatus = ProcessingStatus.tagging.rawValue
+                        item.processingDetail = "Auto-tagging…"
+                        try? ctx.save()
+
+                    case .tags(let tagNames):
+                        PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: stageStart)
+                        stageStart = Date()
+                        let tagDbStart = Date()
+                        // Replace the item's tag set for this run (do not accumulate).
+                        item.tags.removeAll()
+                        upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
+                        mergePlatformHashtagTags(item: item, context: ctx)
+                        PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
+                        try? ctx.save()
+
+                        if cancel() { return }
+                        item.processingDetail = "Extracting key information…"
+                        try? ctx.save()
+
+                    case .extracts(let extracts):
+                        PipelineMetrics.logSyncElapsed("extracts_llm", itemID: itemID, start: stageStart)
+                        if extracts.isEmpty { item.extracts = nil } else { item.encodeExtracts(extracts) }
+                    }
                 }
-                if bullets.isEmpty {
-                    item.summaryBullets = nil
-                } else {
-                    item.encodeSummaryBullets(bullets)
-                }
-                try? ctx.save()
 
                 if cancel() {
                     await session.cancelInFlight()
                     checkpointAfterCancel(item: item)
                     try? ctx.save()
                     throw PipelineLlmCancelled()
-                }
-
-                item.processingStatus = ProcessingStatus.tagging.rawValue
-                item.processingDetail = "Auto-tagging…"
-                try? ctx.save()
-
-                let tagNames = try await PipelineMetrics.time("tags_llm", itemID: itemID) {
-                    try await session.tags(article)
-                }
-                let tagDbStart = Date()
-                // Replace the item's tag set for this run (do not accumulate). Re-analysis paths rely on this.
-                item.tags.removeAll()
-                upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
-                mergePlatformHashtagTags(item: item, context: ctx)
-                PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
-                try? ctx.save()
-
-                if cancel() {
-                    await session.cancelInFlight()
-                    checkpointAfterCancel(item: item)
-                    try? ctx.save()
-                    throw PipelineLlmCancelled()
-                }
-
-                item.processingDetail = "Extracting key information…"
-                try? ctx.save()
-
-                let extracts = try await PipelineMetrics.time("extracts_llm", itemID: itemID) {
-                    try await session.extracts(article)
-                }
-                if extracts.isEmpty {
-                    item.extracts = nil
-                } else {
-                    item.encodeExtracts(extracts)
                 }
 
                 item.processingStatus = ProcessingStatus.completed.rawValue

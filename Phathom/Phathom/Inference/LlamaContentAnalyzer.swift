@@ -94,45 +94,126 @@ actor LlamaContentAnalyzer {
         bridge.cancelGeneration()
     }
 
+    // MARK: - Article-first prompt builders
+    // The article body appears first so that all three task prompts share an identical prefix
+    // (everything up to and including </ARTICLE>). This enables KV cache prefix reuse via
+    // llama_memory_seq_cp: the article is prefilled once into seq 0, then copied O(1) to seq 1/2/3
+    // before each task's suffix is decoded. The shared prefix must be byte-for-byte identical across
+    // all three builders — do not add whitespace, headers, or role text before <ARTICLE>.
+
+    nonisolated static func summaryTaskSuffix() -> String {
+        """
+
+        <TASK>summarize</TASK>
+
+        <ROLE>You are an expert analyst specializing in extracting actionable insights from complex information.</ROLE>
+
+        <CONTEXT>
+        Distill the article above into a concise summary that captures the core message and amplifies the most significant, novel, and potentially impactful insights.
+        </CONTEXT>
+
+        <INSTRUCTIONS>
+        *Identify Core Theme(s):* Identify the 1-3 overarching themes or main arguments.
+        *Extract Novel Insights:* Pinpoint specific insights that are new, counter-intuitive, or offer a fresh perspective.
+        *Amplify & Explain Significance:* For each insight, explain why it matters, its implications, and what action it might inform.
+        *Synthesize:* Combine into a structured summary — core theme(s) first, then amplified insights. Prioritize depth over breadth.
+        </INSTRUCTIONS>
+
+        <CONSTRAINTS>
+        - The summary must be no more than 250 words.
+        - Avoid jargon where possible, or explain it briefly if essential.
+        - Output ONLY a JSON array of strings, no other text.
+        </CONSTRAINTS>
+
+        <IMPORTANT>
+        Output ONLY a JSON array of strings, no other text.
+        </IMPORTANT>
+        """
+    }
+
+    nonisolated static func tagsTaskSuffix() -> String {
+        """
+
+        <TASK>tag</TASK>
+
+        <ROLE>You are an expert analyst specializing in producing topic tags from complex information.</ROLE>
+
+        <INSTRUCTIONS>
+        1. Analyze the core themes and overarching arguments of the article above.
+        2. Select 2-5 tags that categorize it based on those themes and novel insights.
+        3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
+        4. Assign 1-2 content-type tags that accurately describe the format (e.g., "opinion", "technical-guide", "recipe").
+        5. Verify all tags against the CONSTRAINTS before outputting.
+        </INSTRUCTIONS>
+
+        <CONSTRAINTS>
+        - Output ONLY a JSON array of 3-8 strings.
+        - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
+        - Allowed characters: a-z, 0-9, hyphen.
+        - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
+        - Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
+        - No duplicates, no hashtags, no commentary.
+
+        Example:
+        Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
+        Tags: ["eu-policy","climate-change","emissions","news"]
+        </CONSTRAINTS>
+
+        <IMPORTANT>
+        Output ONLY a JSON array of lowercase kebab-case tags.
+        </IMPORTANT>
+        """
+    }
+
+    nonisolated static func extractsTaskSuffix() -> String {
+        """
+
+        <TASK>extract</TASK>
+
+        <ROLE>You are a precise data extraction specialist focused on identifying high-impact information.</ROLE>
+
+        <CONTEXT>
+        Scan the article above for the most significant data points: hard statistics, notable facts, or concrete actionable items.
+        </CONTEXT>
+
+        <INSTRUCTIONS>
+        1. Scrutinize the text for quantitative data (percentages, dollar amounts, counts) and qualitative "gold nuggets" (key takeaways or specific advice).
+        2. Select the 3-5 most impactful items based on relevance and uniqueness.
+        3. For each item, create a concise "label" (category or subject) and a specific "value" (the fact, stat, or action).
+        4. Ensure "value" contains the specific detail or number; "label" provides context.
+        </INSTRUCTIONS>
+
+        <CONSTRAINTS>
+        - Output ONLY a valid JSON array of objects.
+        - Each object MUST contain exactly two keys: "label" and "value".
+        - Do not include any markdown formatting, preamble, or postscript.
+        - Values must be strings.
+        </CONSTRAINTS>
+
+        <EXAMPLE>
+        Input: "Our 2023 survey showed that 65% of remote workers feel more productive. Managers should schedule 10-minute daily syncs."
+        Output:
+        [
+          {"label": "Remote Productivity", "value": "65% of workers reported an increase in efficiency."},
+          {"label": "Management Action", "value": "Implement a 10-minute daily synchronization meeting."}
+        ]
+        </EXAMPLE>
+
+        <IMPORTANT>
+        Return ONLY the JSON array. Do not include any other text or explanation.
+        </IMPORTANT>
+        """
+    }
+
+    // MARK: - Sequential generate methods (used independently or as fallback)
+
     func generateSummary(articleText: String) async throws -> [String] {
         let out = try await collectTemplatedFittingArticleBody(
             articleText: articleText,
             maxArticleChars: Self.summaryArticleCharCap,
             maxTokens: 512
         ) { body in
-            """
-            <PROMPT>
-
-            <ROLE>You are an expert analyst specializing in extracting actionable insights from complex information.</ROLE>
-
-            <CONTEXT>
-            You will be provided with a piece of text. Your task is to distill it into a concise summary that not only captures the core message but also amplifies the most significant, novel, and potentially impactful insights.
-            </CONTEXT>
-
-            <INSTRUCTIONS>
-            *Identify Core Theme(s):* Read the provided text and identify the 1-3 overarching themes or main arguments.
-            *Extract Novel Insights:* Within these themes, pinpoint specific insights that are new, counter-intuitive, or offer a fresh perspective. These should go beyond mere restatements of the obvious.
-            *Amplify & Explain Significance:* For each novel insight identified, explain why it matters. What are the implications? Who should care? What action might this insight inform?
-            *Synthesize:* Combine these elements into a structured summary. Start with the core theme(s), followed by the amplified insights and their significance. The summary should be significantly shorter than the original text, prioritizing depth of insight over breadth of coverage.
-            </INSTRUCTIONS>
-
-            <CONSTRAINTS>
-            - The summary must be no more than 250 words.
-            - Avoid jargon where possible, or explain it briefly if essential.
-            - Focus on what is important, capturing the detail and breadth.
-            - Output ONLY a JSON array of strings, no other text.
-            </CONSTRAINTS>
-
-            <TEXT_TO_SUMMARIZE>
-            \(body)
-            </TEXT_TO_SUMMARIZE>
-
-            <IMPORTANT>
-            Output ONLY a JSON array of strings, no other text.
-            </IMPORTANT>
-
-            </PROMPT>
-            """
+            "<ARTICLE>\n\(body)\n</ARTICLE>" + Self.summaryTaskSuffix()
         }
         return LLMJSONExtractor.decodeStringArray(out) ?? []
     }
@@ -143,46 +224,7 @@ actor LlamaContentAnalyzer {
             maxArticleChars: Self.tagsArticleCharCap,
             maxTokens: 96
         ) { body in
-            """
-            <PROMPT>
-
-            <ROLE>You are an expert analyst specializing in producing topic tags from complex information.</ROLE>
-
-            <CONTEXT>
-            You will be provided with text to tag. Your task is to distill it into a a series of topic tags that capture the core themes, subjects, .
-            </CONTEXT>
-
-            <INSTRUCTIONS>
-            1. Analyze the core themes and overarching arguments of the text.
-            2. Select 2-5 tags that categorize the text based on these core themes and novel insights.
-            3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
-            4. Assign 1-2 content-type tags that accurately describe the format (e.g., "opinion", "technical-guide", "recipe").
-            5. Verify all selected tags against the strict formatting rules in the CONSTRAINTS section before outputting.
-            </INSTRUCTIONS>
-
-            <CONSTRAINTS>
-            - Output ONLY a JSON array of 3-8 strings.
-            - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
-            - Allowed characters: a-z, 0-9, hyphen.
-            - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
-            - Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
-            - No duplicates, no hashtags, no commentary.
-
-            Example:
-            Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
-            Tags: ["eu-policy","climate-change","emissions","news"]
-            </CONSTRAINTS>
-
-            <TEXT_TO_TAG>
-            \(body)
-            </TEXT_TO_TAG>
-
-            <IMPORTANT>
-            Output ONLY a JSON array of lowercase kebab-case tags.
-            </IMPORTANT>
-
-            </PROMPT>
-            """
+            "<ARTICLE>\n\(body)\n</ARTICLE>" + Self.tagsTaskSuffix()
         }
         let tags = LLMJSONExtractor.decodeStringArray(out) ?? []
         return tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
@@ -194,48 +236,7 @@ actor LlamaContentAnalyzer {
             maxArticleChars: Self.extractsArticleCharCap,
             maxTokens: 512
         ) { body in
-            """
-            <PROMPT>
-
-            <ROLE>You are a precise data extraction specialist focused on identifying high-impact information.</ROLE>
-
-            <CONTEXT>
-            You will be provided with an article. Your task is to scan the content for the most significant data points, specifically focusing on hard statistics, notable facts, or concrete actionable items that provide the most value to a reader.
-            </CONTEXT>
-
-            <INSTRUCTIONS>
-            1. Scrutinize the text for quantitative data (percentages, dollar amounts, counts) and qualitative "gold nuggets" (key takeaways or specific advice).
-            2. Select the 3-5 most impactful items based on their relevance and uniqueness.
-            3. For each item, create a concise "label" (the category or subject) and a specific "value" (the fact, stat, or action).
-            4. Ensure the "value" contains the specific detail or number, while the "label" provides context.
-            </INSTRUCTIONS>
-
-            <CONSTRAINTS>
-            - Output ONLY a valid JSON array of objects.
-            - Each object MUST contain exactly two keys: "label" and "value".
-            - Do not include any markdown formatting, preamble, or postscript.
-            - Values must be strings.
-            </CONSTRAINTS>
-
-            <ARTICLE>
-            \(body)
-            </ARTICLE>
-
-            <EXAMPLE>
-            Input: "Our 2023 survey showed that 65% of remote workers feel more productive. To maintain this, managers should schedule 10-minute daily syncs."
-            Output:
-            [
-              {"label": "Remote Productivity", "value": "65% of workers reported an increase in efficiency."},
-              {"label": "Management Action", "value": "Implement a 10-minute daily synchronization meeting."}
-            ]
-            </EXAMPLE>
-
-            <IMPORTANT>
-            Return ONLY the JSON array. Do not include any other text or explanation.
-            </IMPORTANT>
-
-            </PROMPT>
-            """
+            "<ARTICLE>\n\(body)\n</ARTICLE>" + Self.extractsTaskSuffix()
         }
         return LLMJSONExtractor.decodeExtracts(out) ?? []
     }
@@ -367,6 +368,84 @@ actor LlamaContentAnalyzer {
             }
         }
         return filtered
+    }
+
+    // MARK: - Combined analysis (KV prefix reuse)
+
+    /// Result emitted after each task completes inside `analyzeArticle`.
+    /// Delivered synchronously before the next task's suffix begins decoding,
+    /// so callers can checkpoint to persistent storage between tasks.
+    enum PartialAnalysis {
+        case summary([String])
+        case tags([String])
+        case extracts([Extract])
+    }
+
+    /// Runs summarisation, tagging, and extraction in a single model session using KV cache prefix
+    /// reuse. The article body is prefilled once; each task's suffix is decoded against that shared
+    /// KV state. `onPartial` fires after each task in order (summary → tags → extracts).
+    ///
+    /// Falls back to sequential `generate*` calls (with adaptive token fitting) when:
+    ///   - the bridge is a stub (`modelNotLoaded`), or
+    ///   - the combined prompt budget check fails (`contextLimitReached`) — the sequential path's
+    ///     binary-search fitting may still succeed for the individual tasks.
+    /// Other errors (tokenisation, hard decode failures) propagate to the caller.
+    func analyzeArticle(
+        _ articleText: String,
+        onPartial: (PartialAnalysis) -> Void
+    ) async throws {
+        // Cap at `tagsArticleCharCap` — the most constrained task's char budget — so the shared
+        // prefix is conservative and unlikely to hit the bridge's token budget check. The sequential
+        // fallback (which uses per-task caps and binary-search fitting) handles any remaining overflow.
+        let pool = String(articleText.prefix(Self.tagsArticleCharCap))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // The shared prefix is the article wrapped in <ARTICLE>…</ARTICLE>.
+        // Each task suffix begins immediately after the closing tag.
+        let sharedPrefix = "<ARTICLE>\n\(pool)\n</ARTICLE>"
+
+        let taskDefs: [(suffix: String, maxTokens: Int, temperature: Double)] = [
+            (Self.summaryTaskSuffix(), 512,  0.15),
+            (Self.tagsTaskSuffix(),    96,   0.15),
+            (Self.extractsTaskSuffix(), 512, 0.15),
+        ]
+
+        var partials: [String] = []
+
+        do {
+            try bridge.generateWithSharedPrefix(
+                prefix: sharedPrefix,
+                tasks: taskDefs
+            ) { raw in
+                partials.append(raw)
+            }
+        } catch LlamaInferenceError.modelNotLoaded,
+                LlamaInferenceError.contextLimitReached {
+            // Stub runtime or combined budget too large — fall back to sequential calls with
+            // per-task adaptive token fitting.
+            let summaryOut  = try await generateSummary(articleText: articleText)
+            let tagsOut     = try await generateTags(articleText: articleText)
+            let extractsOut = try await generateExtracts(articleText: articleText)
+            onPartial(.summary(summaryOut))
+            onPartial(.tags(tagsOut))
+            onPartial(.extracts(extractsOut))
+            return
+        }
+        // Deliver each partial in task order. Index guard is defensive — the bridge guarantees
+        // onPartial is called once per task, but we protect against a future stub mismatch.
+        if partials.indices.contains(0) {
+            onPartial(.summary(LLMJSONExtractor.decodeStringArray(partials[0]) ?? []))
+        }
+        if partials.indices.contains(1) {
+            let raw = LLMJSONExtractor.decodeStringArray(partials[1]) ?? []
+            let normalized = raw
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            onPartial(.tags(normalized))
+        }
+        if partials.indices.contains(2) {
+            onPartial(.extracts(LLMJSONExtractor.decodeExtracts(partials[2]) ?? []))
+        }
     }
 
     /// Short verification run for Settings.
