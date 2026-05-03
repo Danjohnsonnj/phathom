@@ -187,7 +187,7 @@ Phathom/Phathom/
 │   ├── HTMLMarkdownConverter.swift  # HTML → markdown (generic web) for Detail Source Content
 │   ├── MainContentExtractor.swift   # Readability-style scorer that picks the main-content subtree for both rawText and sourceMarkdown
 │   ├── ThermalMonitor.swift
-│   └── BackgroundPipeline.swift   # BGAppRefresh + BGProcessing handlers
+│   └── BackgroundPipeline.swift   # BGAppRefresh + BGProcessing; `PipelineWorkGate` actor serializes revive + ingest/analyze across foreground and BG
 ├── Models/
 │   └── ContentItem+Spotlight.swift
 ├── AppIntents/
@@ -363,6 +363,8 @@ try? BGTaskScheduler.shared.submit(request)
 **Implementation source of truth:** `BackgroundPipeline.swift`, `SharedLlamaInference` (`ModelSession` / `withSession`), `AsyncLock`, **`ModelManager`** (security-scoped bookmark — **not** a raw path string in `UserDefaults` like `selectedModelPath`), and **`LlamaContentAnalyzer`** for summarize / tag / extract.
 
 There is no global `PipelineSerialGate` around the pipeline: the old gate did not mutually exclude suspended async work. **All GGUF use** goes through **`withSession`**, which holds a FIFO async lock for load → prompts → optional unload so Settings tests, warmup, and the analyze pipeline cannot interleave `unload()` with `generate*`.
+
+**`PipelineWorkGate` (same file as `BackgroundPipeline`):** a private actor serializes **`reviveAbortedPipelineItems`** together with **foreground drain** work (`scheduleForegroundDrain` / `runForegroundDrain`) and the **BG ingest** and **BG analyze** entry paths. Only one of those sequences runs at a time. That prevents overlapping drains (e.g. Safari share + Darwin notify + scene-active) from calling **`reviveAbortedPipelineItems`** while another pass still has rows in **`summarizing`** or **`tagging`**, which would otherwise rewind them to **`embedding`** and repeat Llama phases.
 
 **Lifecycle rule:** load inside **`SharedLlamaInference.withSession`** (at the start of that session), run the staged prompts, then **`unload()`** when the session exits — on success, thrown error, or cooperative cancel (`PipelineLlmCancelled`). **`BGProcessingTask.expirationHandler`** only sets **`cancelFlag`** and **`signalCancelInFlight()`**; it does **not** call `unload()`. The still-running session observes cancel, stops generation, and unloads when **`withSession`** returns. Never keep the GGUF resident between background wakes.
 

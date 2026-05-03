@@ -32,9 +32,10 @@ private enum SingleAnalyzeOutcome: Sendable {
 /// Thrown from inside `SharedLlamaInference.withSession` when the pipeline is cancelled (BG expiration / cooperative cancel).
 private struct PipelineLlmCancelled: Error {}
 
-// LLM work is serialized by `SharedLlamaInference`'s `AsyncLock` (`withSession`). The old `PipelineSerialGate` did not
-// mutually exclude async work (Swift actor reentrancy). Ingest/analyze BG tasks remain one task each from the system;
-// multiple `scheduleForegroundDrain` calls can overlap, but any path that touches the model queues on `withSession`.
+// LLM load/generate/unload is serialized by `SharedLlamaInference`'s `AsyncLock` (`withSession`).
+// `PipelineWorkGate` additionally serializes `reviveAbortedPipelineItems` plus ingest/analyze passes so a second
+// foreground drain or BG task cannot rewind `summarizing`/`tagging` rows while another pass is still running
+// (e.g. Safari share sheet + Darwin notify + scene-active all scheduling drains).
 
 enum BackgroundPipeline: Sendable {
     nonisolated(unsafe) private static var containerRef: ModelContainer?
@@ -57,7 +58,8 @@ enum BackgroundPipeline: Sendable {
 
     nonisolated static func scheduleForegroundDrain() {
         Task(priority: .utility) {
-            await runForegroundDrain()
+            guard let container = containerRef else { return }
+            await PipelineWorkGate.shared.performForegroundDrain(modelContainer: container)
         }
     }
 
@@ -85,7 +87,7 @@ enum BackgroundPipeline: Sendable {
 
     /// After a crash mid-inference, rows can stay in `summarizing` / `tagging` / `scraping` forever because
     /// `processNextEmbeddingItem` only fetches `embedding`. Rewind those so the next drain can finish them.
-    nonisolated private static func reviveAbortedPipelineItems(modelContainer: ModelContainer) {
+    fileprivate nonisolated static func reviveAbortedPipelineItems(modelContainer: ModelContainer) {
         let ctx = ModelContext(modelContainer)
         let llmStuck = FetchDescriptor<ContentItem>(
             predicate: #Predicate<ContentItem> { item in
@@ -140,9 +142,13 @@ enum BackgroundPipeline: Sendable {
         try? ctx.save()
     }
 
+    /// Awaits the same serialized queue as `scheduleForegroundDrain` (tests or tooling may call this directly).
     nonisolated static func runForegroundDrain() async {
         guard let container = containerRef else { return }
+        await PipelineWorkGate.shared.performForegroundDrain(modelContainer: container)
+    }
 
+    fileprivate nonisolated static func runForegroundDrainBody(modelContainer container: ModelContainer) async {
         await MainActor.run {
             let purgeCtx = ModelContext(container)
             ArchiveRetention.purgeExpired(in: purgeCtx)
@@ -204,17 +210,10 @@ enum BackgroundPipeline: Sendable {
         }
 
         Task.detached {
-            await MainActor.run {
-                let purgeCtx = ModelContext(container)
-                ArchiveRetention.purgeExpired(in: purgeCtx)
-            }
-            reviveAbortedPipelineItems(modelContainer: container)
-            var processed = 0
-            while !cancelFlag.value, processed < 3 {
-                let did = await processNextPendingWebItem(modelContainer: container) { cancelFlag.value }
-                if !did { break }
-                processed += 1
-            }
+            await PipelineWorkGate.shared.performBackgroundIngest(
+                modelContainer: container,
+                cancel: { cancelFlag.value }
+            )
 
             task.setTaskCompleted(success: true)
             scheduleIngest()
@@ -250,8 +249,7 @@ enum BackgroundPipeline: Sendable {
         }
 
         Task.detached {
-            reviveAbortedPipelineItems(modelContainer: container)
-            let outcome = await processNextEmbeddingItem(
+            let outcome = await PipelineWorkGate.shared.performBackgroundAnalyze(
                 modelContainer: container,
                 cancel: { cancelFlag.value }
             )
@@ -269,7 +267,7 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
-    nonisolated private static func processNextPendingWebItem(
+    fileprivate nonisolated static func processNextPendingWebItem(
         modelContainer: ModelContainer,
         cancel: @Sendable @escaping () -> Bool
     ) async -> Bool {
@@ -348,7 +346,7 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
-    nonisolated private static func processNextEmbeddingItem(
+    fileprivate nonisolated static func processNextEmbeddingItem(
         modelContainer: ModelContainer,
         cancel: @Sendable @escaping () -> Bool
     ) async -> SingleAnalyzeOutcome {
@@ -528,5 +526,49 @@ enum BackgroundPipeline: Sendable {
         guard let raw = item.rawText else { return }
         let names = TagNameNormalizer.normalize(many: HashtagParser.tagNames(in: raw))
         upsertTagsOnItem(tagNames: names, item: item, context: context)
+    }
+}
+
+// MARK: - Serialize revive + ingest/analyze (foreground + BG)
+
+/// Ensures only one code path at a time runs `reviveAbortedPipelineItems` or advances `embedding`/`scraping`
+/// work. Without this, overlapping `scheduleForegroundDrain` tasks and BG ingest/analyze could rewind rows still
+/// in `summarizing` or `tagging` back to `embedding`, repeating Llama phases and clearing in-progress UI.
+private actor PipelineWorkGate {
+    static let shared = PipelineWorkGate()
+
+    func performForegroundDrain(modelContainer: ModelContainer) async {
+        await BackgroundPipeline.runForegroundDrainBody(modelContainer: modelContainer)
+    }
+
+    func performBackgroundIngest(
+        modelContainer: ModelContainer,
+        cancel: @Sendable @escaping () -> Bool
+    ) async {
+        await MainActor.run {
+            let purgeCtx = ModelContext(modelContainer)
+            ArchiveRetention.purgeExpired(in: purgeCtx)
+        }
+        BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
+        var processed = 0
+        while !cancel() && processed < 3 {
+            let did = await BackgroundPipeline.processNextPendingWebItem(
+                modelContainer: modelContainer,
+                cancel: cancel
+            )
+            if !did { break }
+            processed += 1
+        }
+    }
+
+    func performBackgroundAnalyze(
+        modelContainer: ModelContainer,
+        cancel: @Sendable @escaping () -> Bool
+    ) async -> SingleAnalyzeOutcome {
+        BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
+        return await BackgroundPipeline.processNextEmbeddingItem(
+            modelContainer: modelContainer,
+            cancel: cancel
+        )
     }
 }

@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "phathom-white on black.png",
+      "filename" : "phathom-drop on grey.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -13,7 +13,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "phathom-white on black 1.png",
+      "filename" : "phathom-drop on grey 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -25,7 +25,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "phathom-black on white.png",
+      "filename" : "phathom-drop on white.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
