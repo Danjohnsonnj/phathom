@@ -193,30 +193,37 @@ actor LlamaContentAnalyzer {
 
         let user = """
         <PROMPT>
-
-        <ROLE>You rank items by conceptual relatedness using only their tag lists.</ROLE>
-
+        <ROLE>You are a semantic relationship engine specializing in tag-based taxonomy and conceptual mapping.</ROLE>
         <CONTEXT>
-        The user tapped one tag on a source item. Below are candidate items that do NOT share that exact tag, but may be conceptually related (e.g. "computers" relates to "artificial-intelligence"). Rank them most → least related to the tapped tag and source tags.
+        A user interacted with a specific tag (the "Tapped Tag") on a source item. You must rank a list of candidate items that do NOT contain the Tapped Tag based on how closely their own tag sets relate conceptually to both the Tapped Tag and the broader Source Tag context.
         </CONTEXT>
-
+        <INSTRUCTIONS>
+        1. Establish a "Semantic Anchor": Use the Tapped Tag as the primary weight for relevance, supported by the Source Tags for context.
+        2. Evaluate Candidates: Analyze each candidate's tag list. Look for synonyms, hierarchical relations (e.g., if the tag is "perennials," look for related biological or horticultural concepts like "native-plants", or if it is "AI" then topics like "Machine Learning", or strong industry associations like "Hardware" and "Semiconductors").
+        3. Determine Rank: 
+        - Highest rank: Candidates with tags that are direct sub-topics or super-topics of the Tapped Tag.
+        - Middle rank: Candidates with tags that share a thematic ecosystem with the Source Tags.
+        - Lowest rank: Candidates with generic or unrelated tags.
+        4. Contextual Tie-Breaking: If two candidates are equally related to the Tapped Tag, use the Source Tags to break the tie.
+        5. Finalize: Sort the candidate IDs from highest conceptual affinity to lowest.
+        </INSTRUCTIONS>
         <INPUT>
         Tapped tag: "\(tappedTag)"
         Source tags: [\(sourceTagsJSON)]
-        Candidates:
-        [\(candidatesJSON)]
+        Candidates: [\(candidatesJSON)]
         </INPUT>
-
         <CONSTRAINTS>
-        - Output ONLY a JSON array of candidate id strings.
-        - Order: most related first.
-        - Include every candidate id exactly once.
-        - No commentary, no markdown, no extra text.
+        - Output ONLY a flat JSON array of strings (the "id" values).
+        - The array must include every candidate ID provided in the input exactly once.
+        - Order the IDs from most related to least related.
+        - No markdown formatting (no ```json blocks), no preamble, no explanation.
         </CONSTRAINTS>
-
+        <IMPORTANT>
+        Your response must be a raw JSON array. Any text outside of the array will break the integration.
+        </IMPORTANT>
         </PROMPT>
         """
-        let out = try await collectTemplated(user: user, maxTokens: 256)
+        let out = try await collectTemplated(user: user, maxTokens: 192, temperature: 0)
         let ranked = LLMJSONExtractor.decodeStringArray(out) ?? []
         let inputIDs = candidates.map(\.id)
         let inputIDSet = Set(inputIDs)
@@ -241,8 +248,15 @@ actor LlamaContentAnalyzer {
         return try await collectTemplated(user: user, maxTokens: 64)
     }
 
-    private func collectTemplated(user: String, maxTokens: Int) async throws -> String {
-        try bridge.startTemplatedUserPrompt(user, options: GenerationOptions(maxTokens: maxTokens, temperature: 0.15))
+    private func collectTemplated(
+        user: String,
+        maxTokens: Int,
+        temperature: Double = 0.15
+    ) async throws -> String {
+        try bridge.startTemplatedUserPrompt(
+            user,
+            options: GenerationOptions(maxTokens: maxTokens, temperature: temperature)
+        )
         var acc = ""
         while true {
             try Task.checkCancellation()
