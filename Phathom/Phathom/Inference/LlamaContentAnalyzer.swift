@@ -119,7 +119,7 @@ actor LlamaContentAnalyzer {
             <CONSTRAINTS>
             - The summary must be no more than 250 words.
             - Avoid jargon where possible, or explain it briefly if essential.
-            - Focus on 'what is new' and 'so what'.
+            - Focus on what is important, capturing the detail and breadth.
             - Output ONLY a JSON array of strings, no other text.
             </CONSTRAINTS>
 

@@ -298,9 +298,31 @@ struct DetailView: View {
             if item.isArchived {
                 restoreToLibraryButton
             } else {
+                if ProcessingRecovery.canSummarizeAgain(item) {
+                    summarizeAgainButton
+                }
                 archiveButton
             }
         }
+    }
+
+    private var summarizeAgainButton: some View {
+        Button {
+            _ = ProcessingRecovery.summarizeAgain(item, modelContext: modelContext)
+        } label: {
+            Text("Summarize again")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(AppPalette.accent)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(AppPalette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(
+            "Clears the current summary, tags, and extracts, then runs the full pipeline again: summary, tagging, and key extracts."
+        )
     }
 
     /// Clears `isArchived` / `archivedAt` and returns the item to the main Library query (`!isArchived`).

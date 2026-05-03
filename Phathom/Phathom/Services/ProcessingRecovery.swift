@@ -60,6 +60,36 @@ enum ProcessingRecovery {
         }
     }
 
+    /// Whether the user can re-run LLM analysis from the detail screen (completed web/note with body text).
+    @MainActor
+    static func canSummarizeAgain(_ item: ContentItem) -> Bool {
+        guard !item.isArchived, item.status == .completed else { return false }
+        switch item.kind {
+        case .media:
+            return false
+        case .web, .note:
+            return rawTextNonEmpty(item)
+        }
+    }
+
+    /// Clears AI-derived fields and re-queues the item for the full analyze pass: new summary bullets, new tags
+    /// (LLM plus platform hashtag merge), and new extracts — same `processNextEmbeddingItem` path as after scrape.
+    @MainActor
+    @discardableResult
+    static func summarizeAgain(_ item: ContentItem, modelContext: ModelContext) -> Bool {
+        guard canSummarizeAgain(item) else { return false }
+        clearAIDerivedFields(item)
+        item.failureReason = nil
+        item.processingDetail = "Preparing analysis…"
+        item.processingStatus = ProcessingStatus.embedding.rawValue
+        item.lastProcessedChunk = 0
+        try? modelContext.save()
+        item.indexInSpotlight()
+        BackgroundPipeline.scheduleAll()
+        BackgroundPipeline.scheduleForegroundDrain()
+        return true
+    }
+
     private static func rawTextNonEmpty(_ item: ContentItem) -> Bool {
         guard let raw = item.rawText else { return false }
         return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

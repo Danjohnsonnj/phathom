@@ -421,6 +421,8 @@ enum BackgroundPipeline: Sendable {
                     try await session.tags(article)
                 }
                 let tagDbStart = Date()
+                // Replace the item's tag set for this run (do not accumulate). Re-analysis paths rely on this.
+                item.tags.removeAll()
                 upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
                 mergePlatformHashtagTags(item: item, context: ctx)
                 PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
