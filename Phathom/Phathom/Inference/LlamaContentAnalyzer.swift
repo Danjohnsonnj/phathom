@@ -242,6 +242,65 @@ actor LlamaContentAnalyzer {
         return ordered
     }
 
+    /// Resolve a free-text search query into related tag names drawn **only** from `libraryTagNames`.
+    /// Used by the "Dive deeper" flow to expand from an exact-tag query (or no tag match at all) to
+    /// a broader set of conceptually-related tags before computing adjacent items. Returns names that
+    /// appear in the input vocabulary; any hallucinated names are dropped by the post-decode filter.
+    func expandTagsSemantically(query: String, libraryTagNames: [String]) async throws -> [String] {
+        guard !libraryTagNames.isEmpty else { return [] }
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return [] }
+
+        // Cap vocabulary size so the prompt stays bounded even on very large libraries; the cap is
+        // generous enough to cover typical personal libraries.
+        let vocabulary = Array(libraryTagNames.prefix(500))
+        let vocabularyJSON = vocabulary.map { "\"\($0)\"" }.joined(separator: ",")
+
+        let user = """
+        <PROMPT>
+        <ROLE>You are a tag taxonomy specialist mapping a user's search query to a fixed library vocabulary.</ROLE>
+        <CONTEXT>
+        A user typed a free-text search query. You will receive the query and a JSON array of tag names that exist in their library. Identify which tags from that vocabulary are conceptually related to the query — synonyms, parent/child topics, or strong thematic associations.
+        </CONTEXT>
+        <INSTRUCTIONS>
+        1. Read the query and the vocabulary.
+        2. Pick tags from the vocabulary that match the query directly (same concept, different wording) or relate to it strongly (e.g., "green" -> "climate", "environment", "sustainability").
+        3. Prefer specific, on-topic matches over generic ones.
+        4. If nothing in the vocabulary fits, return an empty array.
+        </INSTRUCTIONS>
+        <INPUT>
+        Query: "\(trimmedQuery)"
+        Vocabulary: [\(vocabularyJSON)]
+        </INPUT>
+        <CONSTRAINTS>
+        - Output ONLY a JSON array of strings.
+        - Every string MUST appear verbatim in the Vocabulary.
+        - Include at most 8 tags, ordered most related first.
+        - No markdown formatting, no preamble, no explanation.
+        </CONSTRAINTS>
+        <IMPORTANT>
+        Your response must be a raw JSON array. Any text outside of the array will break the integration.
+        </IMPORTANT>
+        </PROMPT>
+        """
+        let out = try await collectTemplated(user: user, maxTokens: 96, temperature: 0)
+        let raw = LLMJSONExtractor.decodeStringArray(out) ?? []
+        // Filter against `vocabulary` (the truncated set sent to the model), not the full input.
+        // Using the full list would incorrectly admit names the model never saw.
+        let vocabularySet = Set(vocabulary)
+        var seen = Set<String>()
+        var filtered: [String] = []
+        for name in raw {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { continue }
+            if !vocabularySet.contains(trimmed) { continue }
+            if seen.insert(trimmed).inserted {
+                filtered.append(trimmed)
+            }
+        }
+        return filtered
+    }
+
     /// Short verification run for Settings.
     func runQuickTest() async throws -> String {
         let user = "Summarize in one short sentence: The quick brown fox jumps over the lazy dog."

@@ -33,6 +33,13 @@ struct ModelSession: Sendable {
         )
     }
 
+    func expandTagsSemantically(query: String, libraryTagNames: [String]) async throws -> [String] {
+        try await inference.sessionExpandTagsSemantically(
+            query: query,
+            libraryTagNames: libraryTagNames
+        )
+    }
+
     func runQuickTest() async throws -> String {
         try await inference.sessionRunQuickTest()
     }
@@ -166,6 +173,16 @@ actor SharedLlamaInference {
             tappedTag: tappedTag,
             sourceTagNames: sourceTagNames,
             candidates: candidates
+        )
+    }
+
+    fileprivate func sessionExpandTagsSemantically(
+        query: String,
+        libraryTagNames: [String]
+    ) async throws -> [String] {
+        try await analyzer.expandTagsSemantically(
+            query: query,
+            libraryTagNames: libraryTagNames
         )
     }
 
