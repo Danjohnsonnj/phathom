@@ -8,23 +8,28 @@ struct HeroSection: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Group {
-                if let data = item.thumbnailData, let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    ZStack {
-                        Color(hex: item.thumbnailColorHex ?? AppPalette.thumbnailFallbackHex)
-                        Image(systemName: iconName)
-                            .font(.system(size: 64 * 0.35))
-                            .foregroundStyle(AppPalette.floralWhite.opacity(0.85))
+            // Use Color.clear as the layout anchor so the image overlay never reports a
+            // fill-scaled width as its layout size. Without this, a wide OG image (e.g. 3:1
+            // banner) would make the VStack wider than the viewport, causing ScrollView to
+            // centre its content and clip both horizontal edges.
+            Color.clear
+                .overlay {
+                    if let data = item.thumbnailData, let uiImage = UIImage(data: data) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        ZStack {
+                            Color(hex: item.thumbnailColorHex ?? AppPalette.thumbnailFallbackHex)
+                            Image(systemName: iconName)
+                                .font(.system(size: 64 * 0.35))
+                                .foregroundStyle(AppPalette.floralWhite.opacity(0.85))
+                        }
                     }
                 }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 200)
-            .clipped()
+                .frame(maxWidth: .infinity)
+                .frame(height: 200)
+                .clipped()
 
             if item.kind == .web, item.originalURL != nil {
                 Button {
