@@ -24,8 +24,61 @@ enum LLMJSONExtractor {
 actor LlamaContentAnalyzer {
     private let bridge: LlamaCppBridge
 
+    /// Character caps for fitting (token budget is enforced separately); avoids tokenizing megabyte notes.
+    private static let summaryArticleCharCap = 120_000
+    private static let tagsArticleCharCap = 60_000
+    private static let extractsArticleCharCap = 120_000
+
     init(bridge: LlamaCppBridge = LlamaCppRuntime()) {
         self.bridge = bridge
+    }
+
+    private nonisolated static func characterPrefix(_ s: String, characterCount: Int) -> String {
+        guard characterCount > 0 else { return "" }
+        if characterCount >= s.count { return s }
+        let idx = s.index(s.startIndex, offsetBy: characterCount)
+        return String(s[..<idx])
+    }
+
+    /// Shrinks embedded article text only when the templated prompt would exceed context; short articles incur one token count.
+    /// The `body` passed to `buildUser` is trimmed so leading/trailing whitespace from Swift multi-line
+    /// literal indentation doesn't appear as part of the article content.
+    private func collectTemplatedFittingArticleBody(
+        articleText: String,
+        maxArticleChars: Int,
+        maxTokens: Int,
+        temperature: Double = 0.15,
+        buildUser: (String) -> String
+    ) async throws -> String {
+        let pool = String(articleText.prefix(maxArticleChars)).trimmingCharacters(in: .whitespacesAndNewlines)
+        let limit = bridge.maxTemplatedPromptTokensForGeneration(maxTokens)
+
+        if try bridge.countTemplatedUserPromptTokens(buildUser("")) > limit {
+            throw LlamaInferenceError.contextLimitReached(
+                "The instruction prompt exceeds the available context."
+            )
+        }
+
+        let fullUser = buildUser(pool)
+        if try bridge.countTemplatedUserPromptTokens(fullUser) <= limit {
+            return try await collectTemplated(user: fullUser, maxTokens: maxTokens, temperature: temperature)
+        }
+
+        var lo = 0
+        var hi = pool.count
+        var bestUser = buildUser("")
+        while lo <= hi {
+            let mid = (lo + hi) / 2
+            let user = buildUser(Self.characterPrefix(pool, characterCount: mid))
+            let tok = try bridge.countTemplatedUserPromptTokens(user)
+            if tok <= limit {
+                bestUser = user
+                lo = mid + 1
+            } else {
+                hi = mid - 1
+            }
+        }
+        return try await collectTemplated(user: bestUser, maxTokens: maxTokens, temperature: temperature)
     }
 
     func loadModel(path: String) throws {
@@ -42,136 +95,148 @@ actor LlamaContentAnalyzer {
     }
 
     func generateSummary(articleText: String) async throws -> [String] {
-        let body = String(articleText.prefix(12_000))
-        let user = """
-        <PROMPT>
+        let out = try await collectTemplatedFittingArticleBody(
+            articleText: articleText,
+            maxArticleChars: Self.summaryArticleCharCap,
+            maxTokens: 512
+        ) { body in
+            """
+            <PROMPT>
 
-        <ROLE>You are an expert analyst specializing in extracting actionable insights from complex information.</ROLE>
+            <ROLE>You are an expert analyst specializing in extracting actionable insights from complex information.</ROLE>
 
-        <CONTEXT>
-        You will be provided with a piece of text. Your task is to distill it into a concise summary that not only captures the core message but also amplifies the most significant, novel, and potentially impactful insights.
-        </CONTEXT>
+            <CONTEXT>
+            You will be provided with a piece of text. Your task is to distill it into a concise summary that not only captures the core message but also amplifies the most significant, novel, and potentially impactful insights.
+            </CONTEXT>
 
-        <INSTRUCTIONS>
-        *Identify Core Theme(s):* Read the provided text and identify the 1-3 overarching themes or main arguments.
-        *Extract Novel Insights:* Within these themes, pinpoint specific insights that are new, counter-intuitive, or offer a fresh perspective. These should go beyond mere restatements of the obvious.
-        *Amplify & Explain Significance:* For each novel insight identified, explain why it matters. What are the implications? Who should care? What action might this insight inform?
-        *Synthesize:* Combine these elements into a structured summary. Start with the core theme(s), followed by the amplified insights and their significance. The summary should be significantly shorter than the original text, prioritizing depth of insight over breadth of coverage.
-        </INSTRUCTIONS>
+            <INSTRUCTIONS>
+            *Identify Core Theme(s):* Read the provided text and identify the 1-3 overarching themes or main arguments.
+            *Extract Novel Insights:* Within these themes, pinpoint specific insights that are new, counter-intuitive, or offer a fresh perspective. These should go beyond mere restatements of the obvious.
+            *Amplify & Explain Significance:* For each novel insight identified, explain why it matters. What are the implications? Who should care? What action might this insight inform?
+            *Synthesize:* Combine these elements into a structured summary. Start with the core theme(s), followed by the amplified insights and their significance. The summary should be significantly shorter than the original text, prioritizing depth of insight over breadth of coverage.
+            </INSTRUCTIONS>
 
-        <CONSTRAINTS>
-        - The summary must be no more than 250 words.
-        - Avoid jargon where possible, or explain it briefly if essential.
-        - Focus on 'what is new' and 'so what'.
-        - Output ONLY a JSON array of strings, no other text.
-        </CONSTRAINTS>
+            <CONSTRAINTS>
+            - The summary must be no more than 250 words.
+            - Avoid jargon where possible, or explain it briefly if essential.
+            - Focus on 'what is new' and 'so what'.
+            - Output ONLY a JSON array of strings, no other text.
+            </CONSTRAINTS>
 
-        <TEXT_TO_SUMMARIZE>
-        \(body)
-        </TEXT_TO_SUMMARIZE>
-        
-        <IMPORTANT>
-        Output ONLY a JSON array of strings, no other text.
-        </IMPORTANT>
+            <TEXT_TO_SUMMARIZE>
+            \(body)
+            </TEXT_TO_SUMMARIZE>
 
-        </PROMPT>
-        """
-        let out = try await collectTemplated(user: user, maxTokens: 512)
+            <IMPORTANT>
+            Output ONLY a JSON array of strings, no other text.
+            </IMPORTANT>
+
+            </PROMPT>
+            """
+        }
         return LLMJSONExtractor.decodeStringArray(out) ?? []
     }
 
     func generateTags(articleText: String) async throws -> [String] {
-        let body = String(articleText.prefix(4_000))
-        let user = """
-        <PROMPT>
+        let out = try await collectTemplatedFittingArticleBody(
+            articleText: articleText,
+            maxArticleChars: Self.tagsArticleCharCap,
+            maxTokens: 96
+        ) { body in
+            """
+            <PROMPT>
 
-        <ROLE>You are an expert analyst specializing in producing topic tags from complex information.</ROLE>
+            <ROLE>You are an expert analyst specializing in producing topic tags from complex information.</ROLE>
 
-        <CONTEXT>
-        You will be provided with text to tag. Your task is to distill it into a a series of topic tags that capture the core themes, subjects, .
-        </CONTEXT>
+            <CONTEXT>
+            You will be provided with text to tag. Your task is to distill it into a a series of topic tags that capture the core themes, subjects, .
+            </CONTEXT>
 
-        <INSTRUCTIONS>
-        1. Analyze the core themes and overarching arguments of the text.
-        2. Select 2-5 tags that categorize the text based on these core themes and novel insights. 
-        3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
-        4. Assign 1-2 content-type tags that accurately describe the format (e.g., "opinion", "technical-guide", "recipe").
-        5. Verify all selected tags against the strict formatting rules in the CONSTRAINTS section before outputting.
-        </INSTRUCTIONS>
+            <INSTRUCTIONS>
+            1. Analyze the core themes and overarching arguments of the text.
+            2. Select 2-5 tags that categorize the text based on these core themes and novel insights.
+            3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
+            4. Assign 1-2 content-type tags that accurately describe the format (e.g., "opinion", "technical-guide", "recipe").
+            5. Verify all selected tags against the strict formatting rules in the CONSTRAINTS section before outputting.
+            </INSTRUCTIONS>
 
-        <CONSTRAINTS>
-        - Output ONLY a JSON array of 3-8 strings.
-        - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
-        - Allowed characters: a-z, 0-9, hyphen.
-        - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
-        - Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
-        - No duplicates, no hashtags, no commentary.
+            <CONSTRAINTS>
+            - Output ONLY a JSON array of 3-8 strings.
+            - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
+            - Allowed characters: a-z, 0-9, hyphen.
+            - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
+            - Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
+            - No duplicates, no hashtags, no commentary.
 
-        Example:
-        Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
-        Tags: ["eu-policy","climate-change","emissions","news"]
-        </CONSTRAINTS>
+            Example:
+            Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
+            Tags: ["eu-policy","climate-change","emissions","news"]
+            </CONSTRAINTS>
 
-        <TEXT_TO_TAG>
-        \(body)
-        </TEXT_TO_TAG>
+            <TEXT_TO_TAG>
+            \(body)
+            </TEXT_TO_TAG>
 
-        <IMPORTANT>
-        Output ONLY a JSON array of lowercase kebab-case tags.
-        </IMPORTANT>
+            <IMPORTANT>
+            Output ONLY a JSON array of lowercase kebab-case tags.
+            </IMPORTANT>
 
-        </PROMPT>
-        """
-        let out = try await collectTemplated(user: user, maxTokens: 96)
+            </PROMPT>
+            """
+        }
         let tags = LLMJSONExtractor.decodeStringArray(out) ?? []
         return tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
     func generateExtracts(articleText: String) async throws -> [Extract] {
-        let body = String(articleText.prefix(8_000))
-        let user = """
-        <PROMPT>
+        let out = try await collectTemplatedFittingArticleBody(
+            articleText: articleText,
+            maxArticleChars: Self.extractsArticleCharCap,
+            maxTokens: 512
+        ) { body in
+            """
+            <PROMPT>
 
-        <ROLE>You are a precise data extraction specialist focused on identifying high-impact information.</ROLE>
+            <ROLE>You are a precise data extraction specialist focused on identifying high-impact information.</ROLE>
 
-        <CONTEXT>
-        You will be provided with an article. Your task is to scan the content for the most significant data points, specifically focusing on hard statistics, notable facts, or concrete actionable items that provide the most value to a reader.
-        </CONTEXT>
+            <CONTEXT>
+            You will be provided with an article. Your task is to scan the content for the most significant data points, specifically focusing on hard statistics, notable facts, or concrete actionable items that provide the most value to a reader.
+            </CONTEXT>
 
-        <INSTRUCTIONS>
-        1. Scrutinize the text for quantitative data (percentages, dollar amounts, counts) and qualitative "gold nuggets" (key takeaways or specific advice).
-        2. Select the 3-5 most impactful items based on their relevance and uniqueness.
-        3. For each item, create a concise "label" (the category or subject) and a specific "value" (the fact, stat, or action).
-        4. Ensure the "value" contains the specific detail or number, while the "label" provides context.
-        </INSTRUCTIONS>
+            <INSTRUCTIONS>
+            1. Scrutinize the text for quantitative data (percentages, dollar amounts, counts) and qualitative "gold nuggets" (key takeaways or specific advice).
+            2. Select the 3-5 most impactful items based on their relevance and uniqueness.
+            3. For each item, create a concise "label" (the category or subject) and a specific "value" (the fact, stat, or action).
+            4. Ensure the "value" contains the specific detail or number, while the "label" provides context.
+            </INSTRUCTIONS>
 
-        <CONSTRAINTS>
-        - Output ONLY a valid JSON array of objects.
-        - Each object MUST contain exactly two keys: "label" and "value".
-        - Do not include any markdown formatting, preamble, or postscript.
-        - Values must be strings.
-        </CONSTRAINTS>
+            <CONSTRAINTS>
+            - Output ONLY a valid JSON array of objects.
+            - Each object MUST contain exactly two keys: "label" and "value".
+            - Do not include any markdown formatting, preamble, or postscript.
+            - Values must be strings.
+            </CONSTRAINTS>
 
-        <ARTICLE>
-        \(body)
-        </ARTICLE>
+            <ARTICLE>
+            \(body)
+            </ARTICLE>
 
-        <EXAMPLE>
-        Input: "Our 2023 survey showed that 65% of remote workers feel more productive. To maintain this, managers should schedule 10-minute daily syncs."
-        Output: 
-        [
-          {"label": "Remote Productivity", "value": "65% of workers reported an increase in efficiency."},
-          {"label": "Management Action", "value": "Implement a 10-minute daily synchronization meeting."}
-        ]
-        </EXAMPLE>
+            <EXAMPLE>
+            Input: "Our 2023 survey showed that 65% of remote workers feel more productive. To maintain this, managers should schedule 10-minute daily syncs."
+            Output:
+            [
+              {"label": "Remote Productivity", "value": "65% of workers reported an increase in efficiency."},
+              {"label": "Management Action", "value": "Implement a 10-minute daily synchronization meeting."}
+            ]
+            </EXAMPLE>
 
-        <IMPORTANT>
-        Return ONLY the JSON array. Do not include any other text or explanation.
-        </IMPORTANT>
+            <IMPORTANT>
+            Return ONLY the JSON array. Do not include any other text or explanation.
+            </IMPORTANT>
 
-        </PROMPT>
-        """
-        let out = try await collectTemplated(user: user, maxTokens: 512)
+            </PROMPT>
+            """
+        }
         return LLMJSONExtractor.decodeExtracts(out) ?? []
     }
 
@@ -185,8 +250,11 @@ actor LlamaContentAnalyzer {
         candidates: [(id: UUID, tagNames: [String])]
     ) async throws -> [UUID] {
         guard !candidates.isEmpty else { return [] }
+        // Cap per-item tag count so the JSON payload stays bounded even if individual items have many tags.
+        // Candidates are already capped upstream (adjacentCandidateLimit = 8); this limits tag fan-out.
+        let maxTagsPerCandidate = 20
         let candidatesJSON = candidates.map { c in
-            let tagsList = c.tagNames.map { "\"\($0)\"" }.joined(separator: ",")
+            let tagsList = c.tagNames.prefix(maxTagsPerCandidate).map { "\"\($0)\"" }.joined(separator: ",")
             return "{\"id\":\"\(c.id.uuidString)\",\"tags\":[\(tagsList)]}"
         }.joined(separator: ",\n ")
         let sourceTagsJSON = sourceTagNames.map { "\"\($0)\"" }.joined(separator: ",")

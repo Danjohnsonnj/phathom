@@ -7,10 +7,14 @@ import llama
 
 nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
     struct RuntimeConfig: Sendable {
+        /// Requested `n_ctx` before capping to `llama_model_n_ctx_train`. KV-cache RAM scales ~linearly with this value;
+        /// Phathom unloads between `withSession` runs. On **8GB** unified-memory phones (e.g. iPhone 16 Pro), **8192** is a
+        /// practical default for typical **7–8B Q4** GGUFs—if you see Jetsam/OOM, try a smaller quant or lower this value
+        /// (`LlamaContentAnalyzer` token fitting still avoids oversize *prompts*).
         let contextWindow: UInt32
         let promptSlackTokens: Int
 
-        static let `default` = RuntimeConfig(contextWindow: 4096, promptSlackTokens: 64)
+        static let `default` = RuntimeConfig(contextWindow: 8192, promptSlackTokens: 64)
 
         init(contextWindow: UInt32, promptSlackTokens: Int) {
             self.contextWindow = contextWindow
@@ -83,10 +87,18 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         }
 
         var contextParams = llama_context_default_params()
-        contextParams.n_ctx = config.contextWindow
+        let trainCtx = Int(llama_model_n_ctx_train(loadedModel))
+        let requested = config.contextWindow
+        let effectiveCtx: UInt32
+        if trainCtx > 0 {
+            effectiveCtx = min(requested, UInt32(clamping: trainCtx))
+        } else {
+            effectiveCtx = requested
+        }
+        contextParams.n_ctx = effectiveCtx
         // Must be >= largest single llama_decode batch. We pass the whole prompt on the first decode
         // (`llama_batch_get_one(pBuf, nPrompt)`); n_batch=512 aborted when nPrompt>512 (SIGABRT in llama_decode).
-        contextParams.n_batch = config.contextWindow
+        contextParams.n_batch = effectiveCtx
 
         let nThreads = max(1, min(8, ProcessInfo.processInfo.processorCount - 2))
         contextParams.n_threads = Int32(nThreads)
@@ -104,6 +116,27 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
 
     func unloadModel() {
         releaseGenerationState(freeContext: true)
+    }
+
+    func countTemplatedUserPromptTokens(_ user: String) throws -> Int {
+        guard let mdl = model else { throw LlamaInferenceError.modelNotLoaded }
+        let formatted = makeFormattedChatPrompt(userText: user, model: mdl)
+        let vocab = llama_model_get_vocab(mdl)
+        let nTok = formatted.withCString { cstr in
+            Int32(-llama_tokenize(vocab, cstr, Int32(strlen(cstr)), nil, 0, false, true))
+        }
+        guard nTok > 0 else {
+            throw LlamaInferenceError.generationFailed("Failed to tokenize the prompt.")
+        }
+        return Int(nTok)
+    }
+
+    func maxTemplatedPromptTokensForGeneration(_ generationMaxTokens: Int) -> Int {
+        let L = contextLimitTokens
+        let S = config.promptSlackTokens
+        // Clamp G to at least 1 so callers passing 0 get a conservative bound; all current call sites use >0.
+        let G = max(1, generationMaxTokens)
+        return max(1, min(L - S, L - G - 1))
     }
 
     func startTemplatedUserPrompt(_ user: String, options: GenerationOptions) throws {
@@ -347,6 +380,19 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
     }
 
     func unloadModel() {}
+
+    func countTemplatedUserPromptTokens(_ user: String) throws -> Int {
+        _ = user
+        throw LlamaInferenceError.modelNotLoaded
+    }
+
+    func maxTemplatedPromptTokensForGeneration(_ generationMaxTokens: Int) -> Int {
+        // Must match `RuntimeConfig.default.contextWindow` / `promptSlackTokens` when llama is not linked.
+        let L = 8192
+        let S = 64
+        let G = max(1, generationMaxTokens)
+        return max(1, min(L - S, L - G - 1))
+    }
 
     func startTemplatedUserPrompt(_ user: String, options: GenerationOptions) throws {
         _ = user
