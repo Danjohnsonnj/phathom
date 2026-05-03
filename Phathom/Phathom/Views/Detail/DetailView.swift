@@ -11,6 +11,8 @@ struct DetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var sourceExpanded = false
+    @State private var titleDraft: String = ""
+    @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
         .month(.abbreviated)
@@ -38,9 +40,16 @@ struct DetailView: View {
                             .foregroundStyle(AppPalette.accent)
                     }
 
-                    Text(item.displayTitle)
+                    TextField(item.displayTitle, text: $titleDraft, axis: .vertical)
                         .font(.title.bold())
                         .foregroundStyle(AppPalette.textPrimary)
+                        .textFieldStyle(.plain)
+                        .submitLabel(.done)
+                        .focused($titleFocused)
+                        .onSubmit { commitTitleDraft() }
+                        .onChange(of: titleFocused) { _, isFocused in
+                            if !isFocused { commitTitleDraft() }
+                        }
 
                     if let snippet = summarySnippet {
                         Text(snippet)
@@ -92,6 +101,10 @@ struct DetailView: View {
         .background(AppPalette.background)
         .navigationTitle("Phathom")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { syncTitleDraftFromItem() }
+        .onChange(of: item.title) { _, _ in
+            if !titleFocused { syncTitleDraftFromItem() }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if let url = shareURL {
@@ -105,6 +118,26 @@ struct DetailView: View {
                 }
             }
         }
+    }
+
+    private func syncTitleDraftFromItem() {
+        titleDraft = item.title ?? ""
+    }
+
+    /// Trim, write back to `item.title`, set `titleUserSet` accordingly, persist, and refresh Spotlight.
+    /// Clearing the field resets `titleUserSet` so the next scrape can repopulate the title automatically.
+    private func commitTitleDraft() {
+        let trimmed = titleDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newTitle: String? = trimmed.isEmpty ? nil : String(trimmed.prefix(200))
+        let priorTitle = item.title
+        let priorFlag = item.titleUserSet
+        item.title = newTitle
+        item.titleUserSet = (newTitle != nil)
+        if newTitle != priorTitle || item.titleUserSet != priorFlag {
+            try? modelContext.save()
+            item.indexInSpotlight()
+        }
+        titleDraft = newTitle ?? ""
     }
 
     private var summarySnippet: String? {

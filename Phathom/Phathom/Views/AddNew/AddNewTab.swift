@@ -172,6 +172,7 @@ struct AddNewTab: View {
 
             let item = ContentItem(contentKind: .web, originalURL: url)
             item.title = trimmedTitle.isEmpty ? nil : trimmedTitle
+            item.titleUserSet = !trimmedTitle.isEmpty
             item.processingStatus = ProcessingStatus.pending.rawValue
             item.processingDetail = "Queued for capture"
             modelContext.insert(item)
@@ -189,6 +190,7 @@ struct AddNewTab: View {
                 item.title = plain.isEmpty ? "Untitled note" : String(plain.prefix(80))
             } else {
                 item.title = trimmedTitle
+                item.titleUserSet = true
             }
             item.rawText = trimmedNote
             item.mediaDescription = String(trimmedNote.prefix(120))

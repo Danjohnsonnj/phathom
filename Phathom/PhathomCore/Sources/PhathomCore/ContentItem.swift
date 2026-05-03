@@ -6,6 +6,8 @@ public final class ContentItem {
     @Attribute(.unique) public var id: UUID
     public var createdAt: Date
     public var title: String?
+    /// `true` when the user manually entered/edited the title; the scrape pipeline must not overwrite it.
+    public var titleUserSet: Bool = false
     public var originalURL: URL?
     public var displayHost: String?
     public var contentKind: String

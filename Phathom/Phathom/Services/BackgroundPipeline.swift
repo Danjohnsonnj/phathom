@@ -309,14 +309,7 @@ enum BackgroundPipeline: Sendable {
             item.sourceMarkdown = result.sourceMarkdown
             if let t = result.thumbnailData { item.thumbnailData = t }
             item.displayHost = result.displayHost
-            let trimmedExisting = (item.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            let originalHost = item.originalURL?.host?.lowercased() ?? ""
-            let priorHost = item.displayHost?.lowercased() ?? ""
-            let titleLower = trimmedExisting.lowercased()
-            let isAutoHostTitle = !trimmedExisting.isEmpty
-                && (titleLower == originalHost || titleLower == priorHost)
-            let hadUserTitle = !trimmedExisting.isEmpty && !isAutoHostTitle
-            if !hadUserTitle {
+            if !item.titleUserSet {
                 if let st = result.suggestedListTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !st.isEmpty {
                     item.title = String(st.prefix(200))
                 } else if let pt = result.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !pt.isEmpty {

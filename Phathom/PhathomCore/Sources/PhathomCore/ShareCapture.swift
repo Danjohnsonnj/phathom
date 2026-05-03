@@ -27,6 +27,7 @@ public enum ShareCapture {
         let item = ContentItem(contentKind: .media, originalURL: nil)
         let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines)
         item.title = (trimmed?.isEmpty == false) ? trimmed : nil
+        item.titleUserSet = item.title != nil
         item.thumbnailData = imageJPEGData
         item.mediaDescription = mediaPlaceholderDescription
         item.rawText = nil
