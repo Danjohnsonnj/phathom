@@ -51,19 +51,20 @@ struct ContentCardRow: View {
                     .foregroundStyle(AppPalette.textPrimary)
                     .lineLimit(1)
 
-                Text(secondaryText)
-                    .font(.subheadline)
-                    .foregroundStyle(AppPalette.textSecondary)
-                    .lineLimit(2)
+
+                if item.status != .completed {
+                    ProcessingStatusBadge(status: item.status, onTap: chipAction(for: item))
+                } else {
+                    Text(secondaryText)
+                        .font(.subheadline)
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .lineLimit(2)
+                }
 
                 HStack(spacing: 8) {
                     Text(item.createdAt.formatted(Self.timestampFormat))
                         .font(.caption)
                         .foregroundStyle(AppPalette.textTertiary)
-
-                    if item.status != .completed {
-                        ProcessingStatusBadge(status: item.status, onTap: chipAction(for: item))
-                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
