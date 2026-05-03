@@ -6,12 +6,18 @@ import MarkdownUI
 
 struct DetailView: View {
     @Bindable var item: ContentItem
+    /// Optional handler invoked when the user picks a related item from the tag-tap sheet.
+    /// `LibraryTab` supplies a handler that replaces its `NavigationPath` so the user lands on the
+    /// chosen item's detail. Call sites without their own NavigationStack (preview, RecentlyDeletedView)
+    /// can omit this; tapping a related item will simply dismiss the sheet.
+    var onRelatedItemSelected: ((UUID) -> Void)? = nil
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var sourceExpanded = false
     @State private var titleDraft: String = ""
+    @State private var relatedSheetTag: Tag?
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -78,7 +84,9 @@ struct DetailView: View {
                             .font(.subheadline)
                             .foregroundStyle(AppPalette.textSecondary)
                     } else {
-                        TagChipsView(tags: item.tags)
+                        TagChipsView(tags: item.tags) { tag in
+                            relatedSheetTag = tag
+                        }
                     }
                 }
 
@@ -98,6 +106,7 @@ struct DetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
+        .id(item.id)
         .background(AppPalette.background)
         .navigationTitle("Phathom")
         .navigationBarTitleDisplayMode(.inline)
@@ -116,6 +125,13 @@ struct DetailView: View {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
+            }
+        }
+        .sheet(item: $relatedSheetTag) { tag in
+            RelatedItemsSheet(sourceItem: item, tappedTag: tag) { selected in
+                let id = selected.id
+                relatedSheetTag = nil
+                onRelatedItemSelected?(id)
             }
         }
     }

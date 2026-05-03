@@ -101,7 +101,10 @@ struct LibraryTab: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: UUID.self) { id in
                 if let item = items.first(where: { $0.id == id }) {
-                    DetailView(item: item)
+                    DetailView(item: item) { selectedID in
+                        if !navPath.isEmpty { navPath.removeLast() }
+                        navPath.append(selectedID)
+                    }
                 } else {
                     Text("This item is not in your library.")
                         .font(.subheadline)

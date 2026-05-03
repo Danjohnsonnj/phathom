@@ -175,6 +175,66 @@ actor LlamaContentAnalyzer {
         return LLMJSONExtractor.decodeExtracts(out) ?? []
     }
 
+    /// Re-rank "adjacent" candidate items (none of which contain the tapped tag) by conceptual relatedness
+    /// to the tapped tag and the source item's full tag list. Returns IDs in ranked order; unknown IDs are
+    /// dropped, missing input IDs are appended at the end in the input's original (Jaccard) order so the
+    /// caller never loses candidates.
+    func rankAdjacentItems(
+        tappedTag: String,
+        sourceTagNames: [String],
+        candidates: [(id: UUID, tagNames: [String])]
+    ) async throws -> [UUID] {
+        guard !candidates.isEmpty else { return [] }
+        let candidatesJSON = candidates.map { c in
+            let tagsList = c.tagNames.map { "\"\($0)\"" }.joined(separator: ",")
+            return "{\"id\":\"\(c.id.uuidString)\",\"tags\":[\(tagsList)]}"
+        }.joined(separator: ",\n ")
+        let sourceTagsJSON = sourceTagNames.map { "\"\($0)\"" }.joined(separator: ",")
+
+        let user = """
+        <PROMPT>
+
+        <ROLE>You rank items by conceptual relatedness using only their tag lists.</ROLE>
+
+        <CONTEXT>
+        The user tapped one tag on a source item. Below are candidate items that do NOT share that exact tag, but may be conceptually related (e.g. "computers" relates to "artificial-intelligence"). Rank them most → least related to the tapped tag and source tags.
+        </CONTEXT>
+
+        <INPUT>
+        Tapped tag: "\(tappedTag)"
+        Source tags: [\(sourceTagsJSON)]
+        Candidates:
+        [\(candidatesJSON)]
+        </INPUT>
+
+        <CONSTRAINTS>
+        - Output ONLY a JSON array of candidate id strings.
+        - Order: most related first.
+        - Include every candidate id exactly once.
+        - No commentary, no markdown, no extra text.
+        </CONSTRAINTS>
+
+        </PROMPT>
+        """
+        let out = try await collectTemplated(user: user, maxTokens: 256)
+        let ranked = LLMJSONExtractor.decodeStringArray(out) ?? []
+        let inputIDs = candidates.map(\.id)
+        let inputIDSet = Set(inputIDs)
+        var seen = Set<UUID>()
+        var ordered: [UUID] = []
+        for raw in ranked {
+            guard let uuid = UUID(uuidString: raw.trimmingCharacters(in: .whitespacesAndNewlines)),
+                  inputIDSet.contains(uuid),
+                  !seen.contains(uuid) else { continue }
+            ordered.append(uuid)
+            seen.insert(uuid)
+        }
+        for id in inputIDs where !seen.contains(id) {
+            ordered.append(id)
+        }
+        return ordered
+    }
+
     /// Short verification run for Settings.
     func runQuickTest() async throws -> String {
         let user = "Summarize in one short sentence: The quick brown fox jumps over the lazy dog."

@@ -21,6 +21,18 @@ struct ModelSession: Sendable {
         try await inference.sessionGenerateExtracts(text)
     }
 
+    func rankAdjacentItems(
+        tappedTag: String,
+        sourceTagNames: [String],
+        candidates: [(id: UUID, tagNames: [String])]
+    ) async throws -> [UUID] {
+        try await inference.sessionRankAdjacentItems(
+            tappedTag: tappedTag,
+            sourceTagNames: sourceTagNames,
+            candidates: candidates
+        )
+    }
+
     func runQuickTest() async throws -> String {
         try await inference.sessionRunQuickTest()
     }
@@ -143,6 +155,18 @@ actor SharedLlamaInference {
 
     fileprivate func sessionRunQuickTest() async throws -> String {
         try await analyzer.runQuickTest()
+    }
+
+    fileprivate func sessionRankAdjacentItems(
+        tappedTag: String,
+        sourceTagNames: [String],
+        candidates: [(id: UUID, tagNames: [String])]
+    ) async throws -> [UUID] {
+        try await analyzer.rankAdjacentItems(
+            tappedTag: tappedTag,
+            sourceTagNames: sourceTagNames,
+            candidates: candidates
+        )
     }
 
     fileprivate func sessionCancelBridgeGeneration() async {
