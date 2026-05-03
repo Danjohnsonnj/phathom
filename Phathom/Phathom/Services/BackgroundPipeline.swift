@@ -531,33 +531,38 @@ enum BackgroundPipeline: Sendable {
 
 // MARK: - Serialize revive + ingest/analyze (foreground + BG)
 
-/// Ensures only one code path at a time runs `reviveAbortedPipelineItems` or advances `embedding`/`scraping`
-/// work. Without this, overlapping `scheduleForegroundDrain` tasks and BG ingest/analyze could rewind rows still
-/// in `summarizing` or `tagging` back to `embedding`, repeating Llama phases and clearing in-progress UI.
-private actor PipelineWorkGate {
+/// FIFO async lock around all pipeline entry points so `reviveAbortedPipelineItems` never runs while another
+/// pass holds rows in `summarizing` or `tagging`. Uses `AsyncLock` (non-reentrant FIFO) rather than a Swift
+/// actor, which would be reentrant at every `await` suspension point.
+private final class PipelineWorkGate: @unchecked Sendable {
     static let shared = PipelineWorkGate()
+    private let lock = AsyncLock()
 
     func performForegroundDrain(modelContainer: ModelContainer) async {
-        await BackgroundPipeline.runForegroundDrainBody(modelContainer: modelContainer)
+        await lock.withLock { @Sendable [modelContainer] in
+            await BackgroundPipeline.runForegroundDrainBody(modelContainer: modelContainer)
+        }
     }
 
     func performBackgroundIngest(
         modelContainer: ModelContainer,
         cancel: @Sendable @escaping () -> Bool
     ) async {
-        await MainActor.run {
-            let purgeCtx = ModelContext(modelContainer)
-            ArchiveRetention.purgeExpired(in: purgeCtx)
-        }
-        BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
-        var processed = 0
-        while !cancel() && processed < 3 {
-            let did = await BackgroundPipeline.processNextPendingWebItem(
-                modelContainer: modelContainer,
-                cancel: cancel
-            )
-            if !did { break }
-            processed += 1
+        await lock.withLock { @Sendable [modelContainer] in
+            await MainActor.run {
+                let purgeCtx = ModelContext(modelContainer)
+                ArchiveRetention.purgeExpired(in: purgeCtx)
+            }
+            BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
+            var processed = 0
+            while !cancel() && processed < 3 {
+                let did = await BackgroundPipeline.processNextPendingWebItem(
+                    modelContainer: modelContainer,
+                    cancel: cancel
+                )
+                if !did { break }
+                processed += 1
+            }
         }
     }
 
@@ -565,10 +570,12 @@ private actor PipelineWorkGate {
         modelContainer: ModelContainer,
         cancel: @Sendable @escaping () -> Bool
     ) async -> SingleAnalyzeOutcome {
-        BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
-        return await BackgroundPipeline.processNextEmbeddingItem(
-            modelContainer: modelContainer,
-            cancel: cancel
-        )
+        await lock.withLock { @Sendable [modelContainer] in
+            BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
+            return await BackgroundPipeline.processNextEmbeddingItem(
+                modelContainer: modelContainer,
+                cancel: cancel
+            )
+        }
     }
 }
