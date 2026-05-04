@@ -63,6 +63,9 @@ actor SharedLlamaInference {
     private let analyzer = LlamaContentAnalyzer()
     private let lifecycleLock = AsyncLock()
     private var loadedPath: String?
+    /// Backend used for the currently-loaded weights. `nil` when nothing is loaded. If a `withSession`
+    /// caller requests a different backend, we unload first and reload with the new flag.
+    private var loadedBackend: LlamaBackend?
     /// Active security-scoped access for `loadedPath`; released in `unload()`.
     private var scopedAccess: ModelManager.ScopedAccess?
 
@@ -82,8 +85,12 @@ actor SharedLlamaInference {
     }
 
     /// Acquire the lifecycle lock, load weights if needed, run `work`, then optionally unload and release the lock.
+    /// `backend` controls the inference path: `.metal` for foreground (default), `.cpu` for the user-initiated
+    /// background lane. If the requested backend differs from what's loaded, the existing context is unloaded
+    /// before reloading with the new flag — Metal and CPU contexts are mutually exclusive.
     func withSession<R: Sendable>(
         unloadOnExit: Bool = true,
+        backend: LlamaBackend = .metal,
         pipelineItemID: UUID?,
         _ work: @escaping (ModelSession) async throws -> R
     ) async throws -> R {
@@ -91,10 +98,10 @@ actor SharedLlamaInference {
         do {
             if let itemID = pipelineItemID {
                 let start = Date()
-                try await ensureLoadedLocked()
+                try await ensureLoadedLocked(backend: backend)
                 PipelineMetrics.logSyncElapsed("load_model", itemID: itemID, start: start)
             } else {
-                try await ensureLoadedLocked()
+                try await ensureLoadedLocked(backend: backend)
             }
             let result = try await work(ModelSession(self))
             if unloadOnExit { await unloadLocked() }
@@ -110,20 +117,32 @@ actor SharedLlamaInference {
     /// Convenience for callers that do not need `load_model` pipeline metrics (Settings, warmup).
     func withSession<R: Sendable>(
         unloadOnExit: Bool = true,
+        backend: LlamaBackend = .metal,
         _ work: @escaping (ModelSession) async throws -> R
     ) async throws -> R {
-        try await withSession(unloadOnExit: unloadOnExit, pipelineItemID: nil, work)
+        try await withSession(unloadOnExit: unloadOnExit, backend: backend, pipelineItemID: nil, work)
+    }
+
+    /// Acquire the lifecycle lock and unload any loaded model. Used by the app lifecycle observer on
+    /// `scenePhase != .active` so a stale Metal backend is never held across foreground↔background
+    /// transitions (the iOS Metal backend can hit deferred command-buffer failures otherwise).
+    /// If a session is mid-flight the lock will wait until it completes; the cancel flag should be
+    /// signalled first so the in-flight decode bails quickly.
+    func forceUnloadIfIdle() async {
+        await lifecycleLock.acquire()
+        await unloadLocked()
+        await lifecycleLock.release()
     }
 
     // MARK: - Session entry points (only valid while lifecycle lock is held)
 
-    private func ensureLoadedLocked() async throws {
+    private func ensureLoadedLocked(backend: LlamaBackend = .metal) async throws {
         guard let access = ModelManager.openSelection() else {
             ModelManager.setLastLoadFailed(true)
             throw SharedLlamaInferenceError.noModelSelected
         }
         let path = access.path
-        if loadedPath == path {
+        if loadedPath == path, loadedBackend == backend {
             ModelManager.setLastLoadFailed(false)
             access.end()
             return
@@ -133,16 +152,20 @@ actor SharedLlamaInference {
         scopedAccess?.end()
         scopedAccess = nil
         loadedPath = nil
+        loadedBackend = nil
 
         scopedAccess = access
         do {
+            await analyzer.setBackend(backend)
             try await analyzer.loadModel(path: path)
             loadedPath = path
+            loadedBackend = backend
             ModelManager.setLastLoadFailed(false)
         } catch {
             scopedAccess?.end()
             scopedAccess = nil
             loadedPath = nil
+            loadedBackend = nil
             ModelManager.setLastLoadFailed(true)
             throw error
         }
@@ -151,6 +174,7 @@ actor SharedLlamaInference {
     private func unloadLocked() async {
         await analyzer.unloadModel()
         loadedPath = nil
+        loadedBackend = nil
         scopedAccess?.end()
         scopedAccess = nil
     }

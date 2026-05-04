@@ -4,6 +4,10 @@ import Foundation
 nonisolated protocol LlamaCppBridge: Sendable {
     func loadModel(path: String) throws
     func unloadModel()
+    /// Swap the inference backend (Metal vs. CPU) for the next `loadModel` call. The live model is unaffected;
+    /// callers must `unloadModel()` for the change to take effect. `SharedLlamaInference.withSession(backend:)`
+    /// orchestrates the unload/reload when the requested backend differs from the loaded one.
+    func setBackend(_ backend: LlamaBackend)
     /// Token count of the chat-templated prompt (matches what `startTemplatedUserPrompt` tokenizes).
     func countTemplatedUserPromptTokens(_ user: String) throws -> Int
     /// Max templated prompt tokens allowed so the prompt plus up to `generationMaxTokens` of output fits the context.

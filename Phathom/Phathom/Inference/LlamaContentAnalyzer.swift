@@ -89,6 +89,12 @@ actor LlamaContentAnalyzer {
         bridge.unloadModel()
     }
 
+    /// Forward to the bridge so `SharedLlamaInference` can swap backends between Metal (foreground) and
+    /// CPU (user-initiated background lane). The change takes effect on the next `loadModel`.
+    func setBackend(_ backend: LlamaBackend) {
+        bridge.setBackend(backend)
+    }
+
     /// Request stop of an in-flight `collectTemplated` loop (e.g. BG task expiration).
     func cancelBridgeGeneration() {
         bridge.cancelGeneration()

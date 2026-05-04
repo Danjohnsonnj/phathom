@@ -22,8 +22,8 @@
 | Area          | What it does                                                                                                                                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Ingest**    | Fetches and normalizes web pages (generic HTML uses a Readability-style **main content** pass for both plain **`rawText`** and optional **`sourceMarkdown`**). Specialized paths exist for some social hosts. |
-| **Pipeline**  | **Background** tasks and foreground **drain** coordinate scraping, then **embedding** queue stages, then **Llama** passes—serialized so overlapping wakes don’t corrupt in-flight analysis.                   |
-| **Inference** | **`SharedLlamaInference`** loads/unloads the GGUF inside a locked **`withSession`**; **`LlamaCppRuntime`** wraps vendored **`llama.xcframework`** (Metal on device, CPU on simulator). Article analyze uses **KV cache prefix reuse** (`llama_memory_seq_cp`): one prefill of the article for summarize → tags → extracts, plus Flash Attention (AUTO), **`offload_kqv`**, and tuned **`n_ubatch`**. See **Llama performance** below. |
+| **Pipeline**  | A **`BGAppRefreshTask`** drains the web scrape queue; LLM analysis runs as a foreground **drain** (Metal) or, when the user taps **Continue in background**, as a snapshot CPU pass inside a **`BGContinuedProcessingTask`** with a system Live Activity. All three lanes share one **`PipelineWorkGate`** lock so overlapping wakes never corrupt in-flight analysis. |
+| **Inference** | **`SharedLlamaInference`** loads/unloads the GGUF inside a locked **`withSession(backend:)`**; **`LlamaCppRuntime`** wraps vendored **`llama.xcframework`**. Foreground uses **Metal** (`n_gpu_layers = -1`); the user-initiated background lane uses **CPU** (`n_gpu_layers = 0`, smaller `n_ubatch`) because iPhone Background GPU is not available today. Article analyze uses **KV cache prefix reuse** (`llama_memory_seq_cp`): one prefill of the article for summarize → tags → extracts, plus Flash Attention (AUTO), **`offload_kqv`**, and tuned **`n_ubatch`**. See **Llama performance** below. |
 | **Storage**   | **SwiftData** models for items, tags, chat scaffolding, etc. **Embeddings** are not persisted yet (queue state only); RAG storage is future work.                                                             |
 
 Deeper architecture and file map: [`docs/handoff/phase-2-pipeline.md`](docs/handoff/phase-2-pipeline.md).
@@ -63,8 +63,8 @@ The script’s comments point at a typical source (`intrai-llama`); you can also
 
 ### Runtime behavior
 
-- **Load / unload** are tied to **`SharedLlamaInference.withSession`**: the model is loaded for a pipeline or Settings test, then unloaded when the session ends (including error and cooperative cancel paths). Background **expiration** signals cancel and lets the session tear down cleanly—avoid parallel **unload** from task handlers.
-- **Device:** `LlamaCppRuntime` sets **`n_gpu_layers = -1`** (GPU/ANE path). **Simulator:** **`n_gpu_layers = 0`** (CPU).
+- **Load / unload** are tied to **`SharedLlamaInference.withSession(backend:)`**: the model is loaded for a pipeline or Settings test, then unloaded when the session ends (including error and cooperative cancel paths). Background **expiration** signals cancel and lets the session tear down cleanly—avoid parallel **unload** from task handlers. The app additionally calls **`forceUnloadIfIdle()`** on `scenePhase != .active` so a Metal context is never held across a background transition.
+- **Foreground (device):** `LlamaCppRuntime` sets **`n_gpu_layers = -1`** (GPU/ANE path). **Background lane** (user-initiated `BGContinuedProcessingTask`) and **simulator**: **`n_gpu_layers = 0`** (CPU). Tap **Continue in background** in the Library banner to keep processing while the app is closed; the OS shows a Live Activity for progress and cancellation.
 
 ### Llama performance (article analyze)
 

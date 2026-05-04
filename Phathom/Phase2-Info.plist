@@ -5,12 +5,11 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.phathom.ingest</string>
-		<string>com.phathom.analyze</string>
+		<string>com.phathom.continued-analyze</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
-		<string>processing</string>
 	</array>
 </dict>
 </plist>

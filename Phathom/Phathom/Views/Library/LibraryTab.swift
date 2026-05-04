@@ -18,6 +18,12 @@ struct LibraryTab: View {
     @State private var searchText = ""
     @State private var navPath = NavigationPath()
     @State private var isModelHealthyForIndicator = false
+    /// IDs the user committed to "Continue in background". Read from `PendingSnapshotStore` on
+    /// scene activation and after the user taps the banner. Only IDs still in pending/embedding
+    /// count toward the confirmation banner — once they complete (or fail), the original banner
+    /// returns for any newly added items.
+    @State private var submittedSnapshot: Set<UUID> = []
+    @State private var bannerSubmitError: String?
 
     /// Stage 1 result. Recomputed via `.task(id:)` with a ~150 ms debounce so per-keystroke work is
     /// off the body re-evaluation path even on large libraries.
@@ -66,9 +72,31 @@ struct LibraryTab: View {
         max(displayedAdjacent.count, sections.adjacent.count, 3)
     }
 
+    /// Items that still need LLM work (web pending → scrape+analyze, or any non-media in `embedding`).
+    /// Drives the banner counts. Excludes archived items because the @Query already filters those out.
+    private var processableItems: [ContentItem] {
+        items.filter { item in
+            guard item.kind != .media else { return false }
+            return item.status == .pending || item.status == .embedding
+        }
+    }
+
+    /// IDs from `submittedSnapshot` that are still in a processable state. Once an item completes or
+    /// fails, it falls out of this set, and when the set empties the confirmation banner is replaced
+    /// (either by the regular banner if more processable items exist, or by nothing).
+    private var remainingSubmitted: [UUID] {
+        guard !submittedSnapshot.isEmpty else { return [] }
+        let processableIDs = Set(processableItems.map { $0.id })
+        return submittedSnapshot.intersection(processableIDs).sorted { lhs, rhs in
+            lhs.uuidString < rhs.uuidString
+        }
+    }
+
     var body: some View {
         NavigationStack(path: $navPath) {
             List {
+                processingBannerSection
+
                 librarySection
 
                 if !displayedAdjacent.isEmpty || isDeepRanking {
@@ -130,6 +158,7 @@ struct LibraryTab: View {
         }
         .onAppear {
             refreshModelIndicator()
+            refreshSubmittedSnapshot()
         }
         .onReceive(NotificationCenter.default.publisher(for: .phathomModelAvailabilityDidChange)) { _ in
             refreshModelIndicator()
@@ -137,12 +166,124 @@ struct LibraryTab: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             refreshModelIndicator()
+            // Snapshot may have been consumed in the BG run while we were inactive; re-read so the
+            // confirmation banner falls back to the submit banner if processable items remain.
+            refreshSubmittedSnapshot()
         }
         .onChange(of: deepLinkItemID) { _, newValue in
             guard let id = newValue else { return }
             navPath.append(id)
             deepLinkItemID = nil
         }
+    }
+
+    /// Three-state banner above the library list:
+    ///   1. No processable items → no banner (returns empty view).
+    ///   2. Some processable items, no snapshot in flight → "Processing N items. Continue in
+    ///      background." with the submit button.
+    ///   3. Snapshot in flight (= remainingSubmitted == processableItems) → confirmation copy.
+    /// When new items arrive after submission, state 2 returns for the full set so the user can
+    /// tap again for the new ones.
+    @ViewBuilder
+    private var processingBannerSection: some View {
+        let processable = processableItems
+        let remaining = remainingSubmitted
+
+        if processable.isEmpty {
+            EmptyView()
+        } else {
+            Section {
+                if !remaining.isEmpty && remaining.count == processable.count {
+                    bannerCard(
+                        primary: "Continuing in background",
+                        secondary: "Check the Lock Screen for progress on \(remaining.count) item\(remaining.count == 1 ? "" : "s")."
+                    )
+                } else {
+                    submitBannerCard(itemCount: processable.count)
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 0, trailing: 16))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    private func submitBannerCard(itemCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Processing \(itemCount) item\(itemCount == 1 ? "" : "s")")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppPalette.textPrimary)
+            Text("Keep this screen open or tap Continue in background.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                submitContinueInBackground()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "moon.fill")
+                    Text("Continue in background")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(AppPalette.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(AppPalette.surfaceNested)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Process these items in the background while the app is closed")
+
+            if let bannerSubmitError {
+                Text(bannerSubmitError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppPalette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func bannerCard(primary: String, secondary: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(AppPalette.accent)
+                Text(primary)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppPalette.textPrimary)
+            }
+            Text(secondary)
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppPalette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func submitContinueInBackground() {
+        let ids = processableItems.map { $0.id }
+        guard !ids.isEmpty else { return }
+        do {
+            try BackgroundContinuedAnalyze.submit(itemIDs: ids)
+            submittedSnapshot = Set(ids)
+            bannerSubmitError = nil
+        } catch {
+            // Sweep any prior successful submit's snapshot so the confirmation banner doesn't
+            // re-appear on the next scene activation referring to a task that no longer exists.
+            PendingSnapshotStore.clear()
+            submittedSnapshot = []
+            bannerSubmitError = "Couldn't schedule background work: \(error.localizedDescription)"
+        }
+    }
+
+    private func refreshSubmittedSnapshot() {
+        submittedSnapshot = Set(PendingSnapshotStore.load())
     }
 
     @ViewBuilder

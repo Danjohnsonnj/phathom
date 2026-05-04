@@ -38,7 +38,7 @@ Read before starting:
 - **Schema is frozen** except where **`docs/decisions.md`** explicitly extends **`ContentItem`** (currently: **`archivedAt`** for archive retention, **`sourceMarkdown`** for generic web Detail rendering, **`titleUserSet`** for user-editable titles). Do not add, remove, or rename **other** properties on `ContentItem`, `Tag`, `ChatThread`, or `ChatMessage`. The only other new models you may propose are for embedding/vector storage — and that requires escalation.
 - **Embedded Llama.cpp only (Intrai-style).** Link a vendored **`llama.xcframework`** built from upstream **llama.cpp**; use **`import llama`** and a **first-party** Swift bridge in the app target — **no** third-party Swift packages that ship or wrap Llama.cpp (e.g. `mattt/llama.swift`, `pgorzelany/swift-llama-cpp`). Do not add any **other** third-party packages without escalation.
 - **Stay in your phase.** Do not build RAG chat, conversation starters, or any Phase 3 features. The Chat tab remains a placeholder. Do not "prepare for Phase 3" by adding services or abstractions that aren't needed to pass Phase 2's acceptance criteria.
-- **Model lifecycle is critical.** Every code path that loads a llama.cpp model must unload it — including error paths and cooperative cancellation (work exits `SharedLlamaInference.withSession`, which unloads). **`BGProcessingTask` expiration** must not call `unload()` directly: set a cancel flag, call `SharedLlamaInference.signalCancelInFlight()` to stop the decode loop, and let the in-flight `withSession` finish and unload when the session ends. Memory leaks in background tasks cause iOS to kill the app.
+- **Model lifecycle is critical.** Every code path that loads a llama.cpp model must unload it — including error paths and cooperative cancellation (work exits `SharedLlamaInference.withSession`, which unloads). **`BGContinuedProcessingTask` expiration** must not call `unload()` directly: set a cancel flag, call `SharedLlamaInference.signalCancelInFlight()` to stop the decode loop, and let the in-flight `withSession` finish and unload when the session ends. The app also calls **`SharedLlamaInference.forceUnloadIfIdle()`** on `scenePhase != .active` to release any stale Metal context across foreground↔background transitions. Memory leaks in background tasks cause iOS to kill the app.
 - **After completing work, update the next phase.** Fill in the `[TBD after Phase 1]` sections in this document with actual file paths and patterns. Then fill in the `What Exists After Phase 2` section in [docs/handoff/phase-3-rag-chat.md](phase-3-rag-chat.md). Append any new decisions to [docs/decisions.md](../decisions.md).
 
 ### Decision framework — handling unknowns
@@ -333,42 +333,46 @@ The Settings tab needs:
 Capture (Add tab)
     → SwiftData write (status: .pending)
     → BGAppRefreshTask picks up (.pending → .scraping → .embedding)
-    → BGProcessingTask picks up (.embedding → .summarizing → .tagging → .completed)
+    → Foreground drain (Metal) OR user-initiated BGContinuedProcessingTask (CPU)
+        finishes (.embedding → .summarizing → .tagging → .completed)
     → UI observes SwiftData changes via @Query and updates automatically
 ```
 
 ### BGTaskScheduler Registration
 
 Register two task identifiers in `Info.plist` under `BGTaskSchedulerPermittedIdentifiers`:
-- `com.phathom.ingest`
-- `com.phathom.analyze`
+- `com.phathom.ingest` — `BGAppRefreshTask` for short web scrape bursts; no LLM work runs here.
+- `com.phathom.continued-analyze` — user-initiated `BGContinuedProcessingTask` for the snapshot CPU LLM lane (see [docs/decisions.md](../decisions.md), 2026-05-04). The opportunistic `com.phathom.analyze` `BGProcessingTask` was removed because iPhone Background GPU Access is not available and Metal work submitted from a background task fails; running on CPU there is also unreliable (the OS kills the task as soon as the user picks up the device).
 
 ### Task Registration and Scheduling
 
-**Implementation source of truth:** `BackgroundPipeline.swift` (registers `com.phathom.ingest` and `com.phathom.analyze`, submits requests when the app backgrounds).
+**Implementation source of truth:** `BackgroundPipeline.swift` (registers `com.phathom.ingest`) and `BackgroundContinuedAnalyze.swift` (registers `com.phathom.continued-analyze` and exposes `submit(itemIDs:)` for the LibraryTab banner).
 
-**Scheduling (matches [docs/decisions.md](../decisions.md)):** the analyze task uses **`BGProcessingTaskRequest.requiresExternalPower = false`** so work can progress on battery; revisit only if jetsam or thermal issues show up in production.
-
-Illustration — registration wiring lives in the app target; scheduling pattern:
+**LLM scheduling**: there is no opportunistic LLM background lane. Foreground analysis runs on Metal as the foreground drain (`scheduleForegroundDrain`); the background lane is **user-initiated** via the LibraryTab "Continue in background" banner, which submits a `BGContinuedProcessingTaskRequest` with snapshot semantics — the IDs queued at tap time are persisted in `PendingSnapshotStore` and consumed by the handler on CPU (`backend: .cpu`).
 
 ```swift
 import BackgroundTasks
 
-let request = BGProcessingTaskRequest(identifier: "com.phathom.analyze")
-request.requiresExternalPower = false  // per decisions.md — not true
-request.requiresNetworkConnectivity = false
-try? BGTaskScheduler.shared.submit(request)
+// User taps "Continue in background" with N items pending/embedding.
+let request = BGContinuedProcessingTaskRequest(
+    identifier: "com.phathom.continued-analyze",
+    title: "Processing saved items",
+    subtitle: "\(N) items remaining"
+)
+request.strategy = .queue
+try BGTaskScheduler.shared.submit(request)
+PendingSnapshotStore.save(itemIDs)
 ```
 
 ### Tricky Part: Analyze Task with Llama.cpp Model Lifecycle
 
-**Implementation source of truth:** `BackgroundPipeline.swift`, `SharedLlamaInference` (`ModelSession` / `withSession`), `AsyncLock`, **`ModelManager`** (security-scoped bookmark — **not** a raw path string in `UserDefaults` like `selectedModelPath`), and **`LlamaContentAnalyzer`** for summarize / tag / extract.
+**Implementation source of truth:** `BackgroundPipeline.swift`, `BackgroundContinuedAnalyze.swift`, `SharedLlamaInference` (`ModelSession` / `withSession(backend:)`), `AsyncLock`, **`ModelManager`** (security-scoped bookmark — **not** a raw path string in `UserDefaults` like `selectedModelPath`), and **`LlamaContentAnalyzer`** for summarize / tag / extract.
 
-There is no global `PipelineSerialGate` around the pipeline: the old gate did not mutually exclude suspended async work. **All GGUF use** goes through **`withSession`**, which holds a FIFO async lock for load → prompts → optional unload so Settings tests, warmup, and the analyze pipeline cannot interleave `unload()` with `generate*`.
+There is no global `PipelineSerialGate` around the pipeline: the old gate did not mutually exclude suspended async work. **All GGUF use** goes through **`withSession(backend:)`**, which holds a FIFO async lock for load → prompts → optional unload so Settings tests, warmup, the foreground drain, and the BG continued-processing handler cannot interleave `unload()` with `generate*`. The `backend:` parameter selects Metal (foreground default) or CPU (the BG lane); if the requested backend differs from what's loaded, the existing context is unloaded before reloading.
 
-**`PipelineWorkGate` (same file as `BackgroundPipeline`):** a private actor serializes **`reviveAbortedPipelineItems`** together with **foreground drain** work (`scheduleForegroundDrain` / `runForegroundDrain`) and the **BG ingest** and **BG analyze** entry paths. Only one of those sequences runs at a time. That prevents overlapping drains (e.g. Safari share + Darwin notify + scene-active) from calling **`reviveAbortedPipelineItems`** while another pass still has rows in **`summarizing`** or **`tagging`**, which would otherwise rewind them to **`embedding`** and repeat Llama phases.
+**`PipelineWorkGate` (same file as `BackgroundPipeline`):** a private actor serializes **`reviveAbortedPipelineItems`** together with **foreground drain** work (`scheduleForegroundDrain` / `runForegroundDrain`), the **BG ingest** path, and the **`processSnapshotItem(id:backend:)`** path used by the continued-processing lane. Only one of those sequences runs at a time. That prevents overlapping drains (e.g. Safari share + Darwin notify + scene-active) from calling **`reviveAbortedPipelineItems`** while another pass still has rows in **`summarizing`** or **`tagging`**, which would otherwise rewind them to **`embedding`** and repeat Llama phases.
 
-**Lifecycle rule:** load inside **`SharedLlamaInference.withSession`** (at the start of that session), run the staged prompts, then **`unload()`** when the session exits — on success, thrown error, or cooperative cancel (`PipelineLlmCancelled`). **`BGProcessingTask.expirationHandler`** only sets **`cancelFlag`** and **`signalCancelInFlight()`**; it does **not** call `unload()`. The still-running session observes cancel, stops generation, and unloads when **`withSession`** returns. Never keep the GGUF resident between background wakes.
+**Lifecycle rule:** load inside **`SharedLlamaInference.withSession(backend:)`** (at the start of that session), run the staged prompts, then **`unload()`** when the session exits — on success, thrown error, or cooperative cancel (`PipelineLlmCancelled`). **`BGContinuedProcessingTask.expirationHandler`** only sets **`cancelFlag`** and **`signalCancelInFlight()`**; it does **not** call `unload()`. The still-running session observes cancel, stops generation, and unloads when **`withSession`** returns. The app also calls **`SharedLlamaInference.forceUnloadIfIdle()`** on `scenePhase != .active` so a stale Metal context is never held across foreground↔background transitions. Never keep the GGUF resident between background wakes.
 
 **Critical:** every load path must pair with `unload()` on the inference holder (via **`withSession`**). Leaking the model in a background task will cause iOS to terminate the app aggressively.
 

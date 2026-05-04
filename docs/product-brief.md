@@ -15,7 +15,7 @@ A private, local-first iOS "Personal Brain" that captures digital content (links
 
 - Universal Share Support: Handles articles, social posts, photos, and voice memos.
 - Multimodal Vision: Beyond simple OCR, the app uses on-device vision models to understand image context (e.g., recognizing a "modernist floor plan" vs. a "grocery receipt").
-- Resilient Processing: A state-aware queue that checkpoints AI tasks. If iOS terminates the background process, Phathom resumes exactly where it left off (e.g., mid-summary) once resources are available.
+- Resilient Processing: A state-aware queue that checkpoints AI tasks. If iOS terminates the background process, Phathom resumes exactly where it left off (e.g., mid-summary) once resources are available. Foreground analysis runs on Metal for full speed; tapping **Continue in background** in the Library queues a snapshot of items for CPU-only processing inside a system-managed Live Activity that the user can cancel from the Lock Screen.
 
 ### B. "Topic-First" Organization
 

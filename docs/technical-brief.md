@@ -113,12 +113,12 @@ We will register two distinct types of background tasks to handle the workload:
 - Duration: ~30 seconds.
 - Execution: Scrapes 2-3 new links and prepares them for the heavier LLM processing.
 
-#### B. The "Deep-Processing" Task (BGProcessingTask)
+#### B. The "Deep-Processing" Task (BGContinuedProcessingTask, user-initiated)
 
-- Trigger: Scheduled for when the phone is charging and ideally on Wi-Fi (e.g., overnight).
-- Goal: Run Llama.cpp for summarization, auto-tagging, and multimodal vision analysis.
-- Resource Access: Requires requiresExternalPower = true and requiresNetworkConnectivity = false.
-- Duration: Can run for minutes if the system allows.
+- Trigger: User taps **Continue in background** in the Library banner. The opportunistic `BGProcessingTask` originally proposed here was dropped (see [docs/decisions.md](decisions.md), 2026-05-04) because iPhone Background GPU is unavailable today and Metal work submitted from a background task fails — and CPU work in `BGProcessingTask` is killed as soon as the user picks up the phone.
+- Goal: Run Llama.cpp on the **CPU** backend (`n_gpu_layers = 0`, `n_ubatch = 256`) for summarization, auto-tagging, and extracts on a snapshot of items chosen at the moment of the tap.
+- Resource Access: No special entitlement; the system shows a Lock Screen / Dynamic Island Live Activity with progress and a cancel control.
+- Duration: A few minutes per item (CPU-only is multiple-x slower than Metal); items added after the tap stay queued for the next foreground drain or another tap.
 
 ### 3. State Checkpointing (The "Resume" Logic)
 

@@ -3,7 +3,7 @@ import BackgroundTasks
 import Foundation
 import SwiftData
 
-private final class CancelFlagBox: @unchecked Sendable {
+final class CancelFlagBox: @unchecked Sendable {
     private let lock = NSLock()
     nonisolated(unsafe) private var cancelled = false
 
@@ -23,7 +23,7 @@ private final class CancelFlagBox: @unchecked Sendable {
     }
 }
 
-private enum SingleAnalyzeOutcome: Sendable {
+enum SingleAnalyzeOutcome: Sendable {
     case noItemToProcess
     case finished(taskSuccess: Bool)
     case cancelled
@@ -47,9 +47,10 @@ enum BackgroundPipeline: Sendable {
             handleIngest(task: task as! BGAppRefreshTask)
         }
 
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.phathom.analyze", using: nil) { task in
-            handleAnalyze(task: task as! BGProcessingTask)
-        }
+        // Long-running LLM analysis is no longer scheduled opportunistically. The OS-driven
+        // BGProcessingTask lane is unsafe on iPhone (Metal is revoked in the background, killing
+        // any in-flight `llama_decode`) and rarely runs to completion. The new user-initiated
+        // CPU lane lives in `BackgroundContinuedAnalyze`.
     }
 
     nonisolated static func modelContainerOrNil() -> ModelContainer? {
@@ -71,18 +72,8 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
-    nonisolated static func scheduleAnalyze() {
-        Task { @MainActor in
-            let request = BGProcessingTaskRequest(identifier: "com.phathom.analyze")
-            request.requiresExternalPower = false
-            request.requiresNetworkConnectivity = false
-            try? BGTaskScheduler.shared.submit(request)
-        }
-    }
-
     nonisolated static func scheduleAll() {
         scheduleIngest()
-        scheduleAnalyze()
     }
 
     /// After a crash mid-inference, rows can stay in `summarizing` / `tagging` / `scraping` forever because
@@ -149,6 +140,11 @@ enum BackgroundPipeline: Sendable {
     }
 
     fileprivate nonisolated static func runForegroundDrainBody(modelContainer container: ModelContainer) async {
+        // Keep the screen alive while LLM work is in flight; multi-second decodes can outlast the
+        // user's display-sleep timeout, and a screen lock suspends the app within ~30 s.
+        await MainActor.run { IdleTimerCoordinator.acquire() }
+        defer { Task { @MainActor in IdleTimerCoordinator.release() } }
+
         await MainActor.run {
             let purgeCtx = ModelContext(container)
             ArchiveRetention.purgeExpired(in: purgeCtx)
@@ -166,7 +162,6 @@ enum BackgroundPipeline: Sendable {
 
             let didIngest = await processNextPendingWebItem(modelContainer: container) { false }
             if didIngest {
-                scheduleAnalyze()
                 continue
             }
 
@@ -186,7 +181,6 @@ enum BackgroundPipeline: Sendable {
             case .cancelled:
                 return
             case .finished:
-                scheduleAnalyze()
                 continue
             }
         }
@@ -217,53 +211,6 @@ enum BackgroundPipeline: Sendable {
 
             task.setTaskCompleted(success: true)
             scheduleIngest()
-            scheduleAnalyze()
-        }
-    }
-
-    nonisolated private static func handleAnalyze(task: BGProcessingTask) {
-        guard let container = containerRef else {
-            task.setTaskCompleted(success: false)
-            return
-        }
-
-        if ThermalMonitor.shouldThrottle {
-            task.setTaskCompleted(success: false)
-            scheduleAnalyze()
-            return
-        }
-
-        ModelManager.validateSelection()
-
-        guard ModelManager.hasReadableSelection else {
-            task.setTaskCompleted(success: false)
-            scheduleAnalyze()
-            return
-        }
-
-        let cancelFlag = CancelFlagBox()
-
-        task.expirationHandler = {
-            cancelFlag.value = true
-            SharedLlamaInference.signalCancelInFlight()
-        }
-
-        Task.detached {
-            let outcome = await PipelineWorkGate.shared.performBackgroundAnalyze(
-                modelContainer: container,
-                cancel: { cancelFlag.value }
-            )
-
-            switch outcome {
-            case .noItemToProcess:
-                task.setTaskCompleted(success: true)
-            case .cancelled:
-                task.setTaskCompleted(success: false)
-            case .finished(let taskSuccess):
-                task.setTaskCompleted(success: taskSuccess)
-            }
-
-            scheduleAnalyze()
         }
     }
 
@@ -469,6 +416,203 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
+    /// Drive a specific item through the pipeline (scrape if `pending` web, then analyze if `embedding`)
+    /// using the requested LLM backend. Used by the `BGContinuedProcessingTask` lane, where the user
+    /// pre-committed a snapshot of `[UUID]` to process; we cannot use the "next pending" fetch because
+    /// items added after the user tap must be left alone (snapshot semantics).
+    ///
+    /// Reuses `WebIngestService.scrape`, `SharedLlamaInference.withSession`, and
+    /// `upsertTagsOnItem`/`mergePlatformHashtagTags` so the per-item state machine and persistence
+    /// rules match the foreground drain exactly.
+    fileprivate nonisolated static func processSpecificItem(
+        id: UUID,
+        modelContainer: ModelContainer,
+        cancel: @Sendable @escaping () -> Bool,
+        backend: LlamaBackend
+    ) async -> SingleAnalyzeOutcome {
+        let ctx = ModelContext(modelContainer)
+        let desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { $0.id == id }
+        )
+        guard let item = try? ctx.fetch(desc).first, !item.isArchived else {
+            return .noItemToProcess
+        }
+
+        if cancel() { return .cancelled }
+
+        switch item.status {
+        case .completed, .failed:
+            return .noItemToProcess
+        default:
+            break
+        }
+
+        // Media items just need the placeholder description and Spotlight indexing — no LLM work.
+        if item.kind == .media {
+            item.processingStatus = ProcessingStatus.completed.rawValue
+            item.processingDetail = nil
+            item.failureReason = nil
+            if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                item.mediaDescription = ShareCapture.mediaPlaceholderDescription
+            }
+            try? ctx.save()
+            item.indexInSpotlight()
+            return .finished(taskSuccess: true)
+        }
+
+        // Stage 1: scrape if the row is still in `pending` and is a web item. Notes don't need this.
+        if item.status == .pending, item.kind == .web {
+            if !NetworkReachability.hasUsableConnection {
+                item.processingDetail = "Waiting for network…"
+                item.failureReason = nil
+                try? ctx.save()
+                return .finished(taskSuccess: false)
+            }
+
+            item.processingStatus = ProcessingStatus.scraping.rawValue
+            item.processingDetail = "Fetching article…"
+            try? ctx.save()
+
+            do {
+                guard let url = item.originalURL else {
+                    item.processingStatus = ProcessingStatus.failed.rawValue
+                    item.failureReason = "Missing URL"
+                    item.processingDetail = nil
+                    try? ctx.save()
+                    return .finished(taskSuccess: false)
+                }
+                let result = try await PipelineMetrics.time("scrape", itemID: item.id) {
+                    try await WebIngestService.scrape(url: url)
+                }
+                item.rawText = result.text
+                item.sourceMarkdown = result.sourceMarkdown
+                if let t = result.thumbnailData { item.thumbnailData = t }
+                item.displayHost = result.displayHost
+                if !item.titleUserSet {
+                    if let st = result.suggestedListTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !st.isEmpty {
+                        item.title = String(st.prefix(200))
+                    } else if let pt = result.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !pt.isEmpty {
+                        item.title = String(pt.prefix(200))
+                    } else {
+                        item.title = nil
+                    }
+                }
+                item.processingStatus = ProcessingStatus.embedding.rawValue
+                item.processingDetail = "Preparing analysis…"
+                try? ctx.save()
+            } catch WebIngestError.offline {
+                item.processingStatus = ProcessingStatus.pending.rawValue
+                item.processingDetail = "Waiting for network…"
+                item.failureReason = nil
+                try? ctx.save()
+                return .finished(taskSuccess: false)
+            } catch {
+                item.processingStatus = ProcessingStatus.failed.rawValue
+                item.failureReason = error.localizedDescription
+                item.processingDetail = nil
+                try? ctx.save()
+                return .finished(taskSuccess: false)
+            }
+        }
+
+        if cancel() { return .cancelled }
+
+        // Stage 2: LLM analyze. Same body as `processNextEmbeddingItem` but with caller-controlled backend.
+        guard let raw = item.rawText, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            item.processingStatus = ProcessingStatus.failed.rawValue
+            item.failureReason = "No article text to analyze."
+            try? ctx.save()
+            return .finished(taskSuccess: false)
+        }
+
+        let article = String(raw.prefix(12_000))
+        let itemID = item.id
+
+        do {
+            try await SharedLlamaInference.shared.withSession(
+                unloadOnExit: true,
+                backend: backend,
+                pipelineItemID: itemID
+            ) { session in
+                if cancel() {
+                    await session.cancelInFlight()
+                    checkpointAfterCancel(item: item)
+                    try? ctx.save()
+                    throw PipelineLlmCancelled()
+                }
+
+                item.processingStatus = ProcessingStatus.summarizing.rawValue
+                item.processingDetail = "Generating summary…"
+                try? ctx.save()
+
+                var stageStart = Date()
+
+                try await session.analyze(article) { partial in
+                    switch partial {
+                    case .summary(let bullets):
+                        PipelineMetrics.logSyncElapsed("summarize", itemID: itemID, start: stageStart)
+                        stageStart = Date()
+                        if bullets.isEmpty { item.summaryBullets = nil } else { item.encodeSummaryBullets(bullets) }
+                        try? ctx.save()
+
+                        if cancel() { return }
+                        item.processingStatus = ProcessingStatus.tagging.rawValue
+                        item.processingDetail = "Auto-tagging…"
+                        try? ctx.save()
+
+                    case .tags(let tagNames):
+                        PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: stageStart)
+                        stageStart = Date()
+                        let tagDbStart = Date()
+                        item.tags.removeAll()
+                        upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
+                        mergePlatformHashtagTags(item: item, context: ctx)
+                        PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
+                        try? ctx.save()
+
+                        if cancel() { return }
+                        item.processingDetail = "Extracting key information…"
+                        try? ctx.save()
+
+                    case .extracts(let extracts):
+                        PipelineMetrics.logSyncElapsed("extracts_llm", itemID: itemID, start: stageStart)
+                        if extracts.isEmpty { item.extracts = nil } else { item.encodeExtracts(extracts) }
+                    }
+                }
+
+                if cancel() {
+                    await session.cancelInFlight()
+                    checkpointAfterCancel(item: item)
+                    try? ctx.save()
+                    throw PipelineLlmCancelled()
+                }
+
+                item.processingStatus = ProcessingStatus.completed.rawValue
+                item.processingDetail = nil
+                item.failureReason = nil
+                try? ctx.save()
+            }
+
+            let verifyDesc = FetchDescriptor<ContentItem>(
+                predicate: #Predicate<ContentItem> { $0.id == itemID }
+            )
+            if let fresh = try? ctx.fetch(verifyDesc).first,
+               !fresh.isArchived,
+               fresh.status == .completed {
+                fresh.indexInSpotlight()
+            }
+
+            return .finished(taskSuccess: true)
+        } catch is PipelineLlmCancelled {
+            return .cancelled
+        } catch {
+            item.processingStatus = ProcessingStatus.failed.rawValue
+            item.failureReason = error.localizedDescription
+            try? ctx.save()
+            return .finished(taskSuccess: false)
+        }
+    }
+
     nonisolated private static func checkpointAfterCancel(item: ContentItem) {
         if item.rawText != nil {
             item.processingStatus = ProcessingStatus.embedding.rawValue
@@ -525,13 +669,33 @@ enum BackgroundPipeline: Sendable {
 /// FIFO async lock around all pipeline entry points so `reviveAbortedPipelineItems` never runs while another
 /// pass holds rows in `summarizing` or `tagging`. Uses `AsyncLock` (non-reentrant FIFO) rather than a Swift
 /// actor, which would be reentrant at every `await` suspension point.
-private final class PipelineWorkGate: @unchecked Sendable {
+final class PipelineWorkGate: @unchecked Sendable {
     static let shared = PipelineWorkGate()
     private let lock = AsyncLock()
 
     func performForegroundDrain(modelContainer: ModelContainer) async {
         await lock.withLock { @Sendable [modelContainer] in
             await BackgroundPipeline.runForegroundDrainBody(modelContainer: modelContainer)
+        }
+    }
+
+    /// Drive a single item through the pipeline (scrape if needed → analyze) on the requested backend.
+    /// Used by `BackgroundContinuedAnalyze` for snapshot-based BG processing. Acquires the same lock
+    /// as the foreground drain so both lanes serialize cleanly.
+    func processSnapshotItem(
+        id: UUID,
+        modelContainer: ModelContainer,
+        cancel: @Sendable @escaping () -> Bool,
+        backend: LlamaBackend
+    ) async -> SingleAnalyzeOutcome {
+        await lock.withLock { @Sendable [modelContainer] in
+            BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
+            return await BackgroundPipeline.processSpecificItem(
+                id: id,
+                modelContainer: modelContainer,
+                cancel: cancel,
+                backend: backend
+            )
         }
     }
 
@@ -557,16 +721,4 @@ private final class PipelineWorkGate: @unchecked Sendable {
         }
     }
 
-    func performBackgroundAnalyze(
-        modelContainer: ModelContainer,
-        cancel: @Sendable @escaping () -> Bool
-    ) async -> SingleAnalyzeOutcome {
-        await lock.withLock { @Sendable [modelContainer] in
-            BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
-            return await BackgroundPipeline.processNextEmbeddingItem(
-                modelContainer: modelContainer,
-                cancel: cancel
-            )
-        }
-    }
 }

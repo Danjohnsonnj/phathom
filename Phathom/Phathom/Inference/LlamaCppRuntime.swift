@@ -2,10 +2,17 @@ import PhathomCore
 import Foundation
 import Darwin
 
+/// Inference backend selection. Foreground = `.metal` (full GPU offload); user-initiated background lane = `.cpu`
+/// (`n_gpu_layers = 0`) to avoid the iPhone GPU-revocation failure mode (`kIOGPUCommandBufferCallbackErrorBackgroundExecutionNotPermitted`).
+/// Top-level so the stub runtime (no llama linked) can also accept the type for protocol conformance.
+nonisolated enum LlamaBackend: Sendable { case metal, cpu }
+
 #if canImport(llama)
 import llama
 
 nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
+    typealias Backend = LlamaBackend
+
     struct RuntimeConfig: Sendable {
         /// Requested `n_ctx` before capping to `llama_model_n_ctx_train`. KV-cache RAM scales ~linearly with this value;
         /// Phathom unloads between `withSession` runs. On **8GB** unified-memory phones (e.g. iPhone 16 Pro), **8192** is a
@@ -18,20 +25,31 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         /// `n_batch` is set to the full context window, this constraint is always satisfied. Lower to 512 if OOM on
         /// very small quants or older devices.
         let physicalBatchSize: UInt32
+        /// Inference backend. `.metal` for foreground; `.cpu` for the user-initiated background lane.
+        let backend: Backend
 
-        static let `default` = RuntimeConfig(contextWindow: 8192, promptSlackTokens: 64, physicalBatchSize: 1024)
+        /// Foreground default: Metal at full prefill batch.
+        static let foregroundMetal = RuntimeConfig(contextWindow: 8192, promptSlackTokens: 64, physicalBatchSize: 1024, backend: .metal)
+        /// Background lane: CPU-only with smaller `n_ubatch` to reduce memory pressure under jetsam constraints.
+        static let backgroundCPU = RuntimeConfig(contextWindow: 8192, promptSlackTokens: 64, physicalBatchSize: 256, backend: .cpu)
 
-        init(contextWindow: UInt32, promptSlackTokens: Int, physicalBatchSize: UInt32 = 1024) {
+        static let `default` = RuntimeConfig.foregroundMetal
+
+        init(contextWindow: UInt32, promptSlackTokens: Int, physicalBatchSize: UInt32 = 1024, backend: Backend = .metal) {
             self.contextWindow = contextWindow
             self.promptSlackTokens = promptSlackTokens
             self.physicalBatchSize = physicalBatchSize
+            self.backend = backend
         }
     }
 
     private var model: OpaquePointer?
     private var context: OpaquePointer?
     private var shouldCancel = false
-    private let config: RuntimeConfig
+    /// Swapped between `.metal` and `.cpu` by callers (foreground vs. continued-processing BG lane).
+    /// Callers must `unloadModel()` before the change takes effect; `SharedLlamaInference.withSession`
+    /// handles that automatically when the requested backend differs from the loaded one.
+    private var config: RuntimeConfig
     private var contextLimitTokens: Int = Int(RuntimeConfig.default.contextWindow)
 
     private var generationSampler: UnsafeMutablePointer<llama_sampler>?
@@ -60,6 +78,18 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         llama_backend_free()
     }
 
+    /// Swap the runtime backend for the next `loadModel`. Live model unaffected; caller must `unloadModel()`
+    /// for the change to take effect (`SharedLlamaInference.withSession(backend:)` does this automatically).
+    func setBackend(_ backend: LlamaBackend) {
+        let newConfig: RuntimeConfig
+        switch backend {
+        case .metal: newConfig = .foregroundMetal
+        case .cpu:   newConfig = .backgroundCPU
+        }
+        config = newConfig
+        contextLimitTokens = Int(newConfig.contextWindow)
+    }
+
     func loadModel(path: String) throws {
         releaseGenerationState(freeContext: true)
         shouldCancel = false
@@ -80,10 +110,12 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         llama_backend_init()
 
         var modelParams = llama_model_default_params()
+        // CPU backend requested (background lane) → no GPU offload. Simulator has no GPU either, so .cpu is the
+        // de-facto simulator default supplied by callers; a `.metal` request on simulator would fail at decode.
 #if targetEnvironment(simulator)
         modelParams.n_gpu_layers = 0
 #else
-        modelParams.n_gpu_layers = -1
+        modelParams.n_gpu_layers = (config.backend == .cpu) ? 0 : -1
 #endif
 
         guard let loadedModel = llama_model_load_from_file(path, modelParams) else {
@@ -596,6 +628,10 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
     }
 
     func unloadModel() {}
+
+    func setBackend(_ backend: LlamaBackend) {
+        _ = backend
+    }
 
     func countTemplatedUserPromptTokens(_ user: String) throws -> Int {
         _ = user
