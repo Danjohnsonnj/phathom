@@ -1,5 +1,9 @@
 # Phathom
 
+<p align="center">
+  <img src="docs/assets/phathom-icon.png" alt="Phathom" width="128" />
+</p>
+
 **Phathom** is a **local-first iOS “personal brain”**: capture links, notes, and media into your own library, run **on-device** analysis with **Llama.cpp**, and (roadmap) chat over what you saved—without sending your content to the cloud.
 
 ## Product features
