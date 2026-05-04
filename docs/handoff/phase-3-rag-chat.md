@@ -37,7 +37,7 @@ Read before starting:
 - **Schema is frozen.** `ChatThread` and `ChatMessage` already exist from Phase 1. Use them as defined. Do not add properties without escalation. If RAG requires intermediate data structures (chunk caches, embedding buffers), use in-memory types — not new SwiftData models — unless you escalate first.
 - **Model lifecycle differs from Phase 2.** In Phase 2, the model is loaded and unloaded within a single BG task. In Phase 3, the model should stay warm for the duration of a chat session (foreground use). Unload when the user leaves the chat thread or the app backgrounds. Document this clearly in your code.
 - **Stay in your phase.** The **`PhathomShare`** extension already exists — do not expand its surface area (new UTTypes, UI flows) unless explicitly requested. Do not build **voice memo capture**, **export** features, or other post-v1 items listed in the "Future Considerations" section except as bugfixes for existing capture. Those bullets are context for decision-making, not open scope.
-- **Grounding over creativity.** The RAG system must answer from source content only. If the retrieved chunks don't contain enough information, the response should say so. Do not configure the LLM to improvise, speculate, or use general knowledge. Test this with a question that has no answer in the source data.
+- **Saved content is primary; general knowledge bridges gaps.** The RAG system must treat retrieved chunks as the primary source of truth. The LLM may use its general knowledge to connect ideas, provide context, or explain concepts that bridge the retrieved content — but it must not use general knowledge as a substitute when no relevant saved content exists. If retrieval returns nothing relevant, the response must say so rather than answering from general knowledge alone. Test two cases: (1) a question where the answer IS in the source data — verify the response cites it; (2) a question with no relevant saved content — verify the model declines rather than improvising a full answer.
 - **After completing work, update docs.** Append any new decisions to [docs/decisions.md](../decisions.md). Update the `What Exists After Phase 2` section in this document with what actually exists now.
 
 ### Decision framework — handling unknowns
@@ -54,7 +54,7 @@ The chat UI or RAG behavior has a scenario the spec doesn't address.
 - **Action**: Apply the **standard messaging app convention** for UI questions and the **conservative retrieval** convention for RAG questions.
 - Defaults to apply when the spec is silent:
   - Chat UI: follow Apple Messages / iMessage conventions for bubble layout, keyboard handling, scroll behavior, and empty states.
-  - If retrieval returns zero relevant chunks: the assistant should say "I don't have enough information in your saved items to answer that. Try saving more content related to this topic." Do not fall back to the model's general knowledge.
+  - If retrieval returns zero relevant chunks: the assistant should say "I don't have enough information in your saved items to answer that. Try saving more content related to this topic." Do not answer from general knowledge alone when no saved content is found.
   - If the model's response doesn't contain source citations: display it anyway — citations are ideal but not a reason to reject an otherwise grounded response.
   - If conversation starters fail to generate: use the hardcoded fallback array. Do not show an error.
   - Thread ordering: `createdAt` descending (newest first) in the thread list.
@@ -230,8 +230,12 @@ func buildRAGPrompt(question: String, chunks: [TextChunk]) -> String {
     }.joined(separator: "\n\n")
 
     return """
-    You are a research assistant. Answer the user's question using ONLY the provided sources. \
-    If the sources don't contain enough information, say so. Cite source numbers when possible.
+    You are a research assistant. Your saved items are the primary source of truth. \
+    Use the provided sources to answer the question. You may use your general knowledge \
+    to bridge ideas, provide context, or explain concepts that connect the sources — but \
+    do not substitute general knowledge for missing source content. \
+    If the sources don't contain enough information to answer the question, say so clearly. \
+    Cite source numbers when possible.
 
     ## Sources
     \(context)
