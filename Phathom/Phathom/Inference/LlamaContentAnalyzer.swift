@@ -321,8 +321,9 @@ actor LlamaContentAnalyzer {
         guard !trimmedQuery.isEmpty else { return [] }
 
         // Cap vocabulary size so the prompt stays bounded even on very large libraries; the cap is
-        // generous enough to cover typical personal libraries.
-        let vocabulary = Array(libraryTagNames.prefix(500))
+        // generous enough to cover typical personal libraries. Sort first so truncation is
+        // deterministic (input arrives in dictionary-key order, which is non-stable across runs).
+        let vocabulary = Array(libraryTagNames.sorted().prefix(500))
         let vocabularyJSON = vocabulary.map { "\"\($0)\"" }.joined(separator: ",")
 
         let user = """

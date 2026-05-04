@@ -178,7 +178,7 @@ enum LibrarySearchService {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else { return sections.adjacent }
 
-        let (_, tagIndex) = buildTagIndex(items: allItems, filterKind: filterKind)
+        let (kindFiltered, tagIndex) = buildTagIndex(items: allItems, filterKind: filterKind)
         let vocabulary = Array(tagIndex.keys)
         guard !vocabulary.isEmpty else { return sections.adjacent }
 
@@ -201,7 +201,7 @@ enum LibrarySearchService {
         let exactTag = sections.resolvedTagName
         let matchingIDs = Set(sections.matching.map(\.id))
 
-        let snapshot = ItemSnapshot(items: allItems, filterKind: filterKind)
+        let snapshot = ItemSnapshot(kindFilteredItems: kindFiltered)
 
         let rankedIDs: [UUID]
         do {
@@ -260,17 +260,13 @@ enum LibrarySearchService {
         let tagIndex: [String: [UUID]]
         let vocabulary: [String]
 
-        init(items: [ContentItem], filterKind: ContentKind?) {
-            let kindFiltered: [ContentItem]
-            if let filterKind {
-                kindFiltered = items.filter { $0.kind == filterKind }
-            } else {
-                kindFiltered = items
-            }
+        /// Pass items already filtered by kind so we don't re-walk the whole library; the dive-deeper
+        /// callsite has the filtered list from `buildTagIndex` and reuses it here.
+        init(kindFilteredItems: [ContentItem]) {
             var tagsByID: [UUID: [String]] = [:]
             var createdAtByID: [UUID: Date] = [:]
             var tagIndex: [String: [UUID]] = [:]
-            for item in kindFiltered {
+            for item in kindFilteredItems {
                 let names = item.tagNames
                 tagsByID[item.id] = names
                 createdAtByID[item.id] = item.createdAt
