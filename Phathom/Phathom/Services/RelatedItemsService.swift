@@ -41,11 +41,8 @@ enum RelatedItemsService {
             if candidateNames.contains(tappedName) {
                 exact.append(candidate)
             } else {
-                let intersection = sourceTagNames.intersection(candidateNames)
-                if intersection.isEmpty { continue }
-                let union = sourceTagNames.union(candidateNames)
-                guard !union.isEmpty else { continue }
-                let score = Double(intersection.count) / Double(union.count)
+                let score = TagAdjacency.jaccardScore(sourceTagNames, candidateNames)
+                guard score > 0 else { continue }
                 adjacent.append((candidate, score))
             }
         }
@@ -71,9 +68,9 @@ enum RelatedItemsService {
     ) async -> [ContentItem] {
         guard !adjacentCandidates.isEmpty else { return [] }
         let tappedName = tappedTag.name
-        let sourceTagNames = sourceItem.tags.map(\.name)
+        let sourceTagNames = sourceItem.tagNames
         let payload: [(id: UUID, tagNames: [String])] = adjacentCandidates.map { item in
-            (id: item.id, tagNames: item.tags.map(\.name))
+            (id: item.id, tagNames: item.tagNames)
         }
 
         do {
@@ -84,13 +81,7 @@ enum RelatedItemsService {
                     candidates: payload
                 )
             }
-            let lookup = Dictionary(uniqueKeysWithValues: adjacentCandidates.map { ($0.id, $0) })
-            var ordered: [ContentItem] = []
-            ordered.reserveCapacity(adjacentCandidates.count)
-            for id in orderedIDs {
-                if let match = lookup[id] { ordered.append(match) }
-            }
-            return ordered
+            return TagAdjacency.remapOrdered(ids: orderedIDs, from: adjacentCandidates)
         } catch {
             return adjacentCandidates
         }

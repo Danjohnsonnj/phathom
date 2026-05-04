@@ -60,6 +60,9 @@ public extension ContentItem {
 
     var status: ProcessingStatus { ProcessingStatus(rawValue: processingStatus) ?? .pending }
 
+    /// Tag display names in relationship order (same as `tags.map(\.name)`).
+    var tagNames: [String] { tags.map(\.name) }
+
     var displayTitle: String {
         if let t = title?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty {
             return t

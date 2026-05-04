@@ -54,7 +54,7 @@ enum LibrarySearchService {
             let hostMatch = (item.displayHost ?? "").lowercased().contains(normalized)
             let urlMatch = (item.originalURL?.absoluteString ?? "").lowercased().contains(normalized)
             let mediaMatch = (item.mediaDescription ?? "").lowercased().contains(normalized)
-            let tagsMatch = item.tags.map(\.name).joined(separator: " ").lowercased().contains(normalized)
+            let tagsMatch = item.tagNames.joined(separator: " ").lowercased().contains(normalized)
             return titleMatch || rawTextMatch || hostMatch || urlMatch || mediaMatch || tagsMatch
         }
 
@@ -101,7 +101,7 @@ enum LibrarySearchService {
         tagIndex: [String: [ContentItem]]
     ) -> [ContentItem] {
         let anchorIDs = Set(anchorItems.map(\.id))
-        let seedTagSets: [Set<String>] = anchorItems.map { Set($0.tags.map(\.name)) }
+        let seedTagSets: [Set<String>] = anchorItems.map { Set($0.tagNames) }
 
         var candidatesByID: [UUID: ContentItem] = [:]
         for seedTags in seedTagSets {
@@ -118,18 +118,14 @@ enum LibrarySearchService {
         var scored: [(item: ContentItem, jaccard: Double)] = []
         scored.reserveCapacity(candidatesByID.count)
         for (_, candidate) in candidatesByID {
-            let candidateTags = Set(candidate.tags.map(\.name))
+            let candidateTags = Set(candidate.tagNames)
             if candidateTags.isEmpty { continue }
             // Defensive: adjacent never includes items that carry any resolved tag.
             if !candidateTags.intersection(resolvedTags).isEmpty { continue }
 
             var bestScore: Double = 0
             for seedTags in seedTagSets {
-                let intersection = candidateTags.intersection(seedTags)
-                if intersection.isEmpty { continue }
-                let union = candidateTags.union(seedTags)
-                guard !union.isEmpty else { continue }
-                let score = Double(intersection.count) / Double(union.count)
+                let score = TagAdjacency.jaccardScore(candidateTags, seedTags)
                 if score > bestScore { bestScore = score }
             }
             if bestScore > 0 {
@@ -172,7 +168,7 @@ enum LibrarySearchService {
     /// happen inside one `withSession` so the model is loaded once.
     ///
     /// On any error (no model, parse error, cancellation), returns the original `sections.adjacent`
-    /// so the UI keeps its Stage 1 ranking — same fallback contract as `rerankAdjacent`.
+    /// so the UI keeps its Stage 1 ranking — same fallback contract as `RelatedItemsService.rerankAdjacent`.
     static func diveDeeper(
         query: String,
         sections: Sections,
@@ -251,12 +247,7 @@ enum LibrarySearchService {
         }
 
         if rankedIDs.isEmpty { return sections.adjacent }
-        let lookup = Dictionary(uniqueKeysWithValues: allItems.map { ($0.id, $0) })
-        var ordered: [ContentItem] = []
-        ordered.reserveCapacity(rankedIDs.count)
-        for id in rankedIDs {
-            if let match = lookup[id] { ordered.append(match) }
-        }
+        let ordered = TagAdjacency.remapOrdered(ids: rankedIDs, from: allItems)
         return ordered.isEmpty ? sections.adjacent : ordered
     }
 
@@ -280,7 +271,7 @@ enum LibrarySearchService {
             var createdAtByID: [UUID: Date] = [:]
             var tagIndex: [String: [UUID]] = [:]
             for item in kindFiltered {
-                let names = item.tags.map(\.name)
+                let names = item.tagNames
                 tagsByID[item.id] = names
                 createdAtByID[item.id] = item.createdAt
                 for name in names {
@@ -329,11 +320,7 @@ enum LibrarySearchService {
                 if !candidateTags.intersection(resolvedTags).isEmpty { continue }
                 var bestScore: Double = 0
                 for seedTags in seedTagSets {
-                    let intersection = candidateTags.intersection(seedTags)
-                    if intersection.isEmpty { continue }
-                    let union = candidateTags.union(seedTags)
-                    guard !union.isEmpty else { continue }
-                    let score = Double(intersection.count) / Double(union.count)
+                    let score = TagAdjacency.jaccardScore(candidateTags, seedTags)
                     if score > bestScore { bestScore = score }
                 }
                 if bestScore > 0 {
@@ -351,51 +338,4 @@ enum LibrarySearchService {
         }
     }
 
-    /// Stage 2: re-rank the visible `adjacent` set via Llama, picking a representative source item
-    /// from `matching` for `sourceTagNames`. On any failure (no model, parse error, cancellation),
-    /// returns the input order so the section keeps its Stage 1 ranking — same fallback contract as
-    /// `RelatedItemsService.rerankAdjacent`.
-    static func rerankAdjacent(
-        resolvedTagName: String,
-        matching: [ContentItem],
-        adjacent: [ContentItem]
-    ) async -> [ContentItem] {
-        guard !adjacent.isEmpty else { return [] }
-
-        // Prefer a real source item so the prompt's "Source tags" carries the user's actual context.
-        // When substring matching is empty but adjacency was seeded from tag-only anchors, `matching`
-        // is empty and we pass only the resolved tag as context.
-        let sourceTagNames: [String]
-        if let representative = matching.first {
-            sourceTagNames = representative.tags.map(\.name)
-        } else {
-            sourceTagNames = [resolvedTagName]
-        }
-
-        let payload: [(id: UUID, tagNames: [String])] = adjacent.map { item in
-            (id: item.id, tagNames: item.tags.map(\.name))
-        }
-
-        do {
-            let orderedIDs = try await SharedLlamaInference.shared.withSession(
-                unloadOnExit: true,
-                pipelineItemID: nil
-            ) { session in
-                try await session.rankAdjacentItems(
-                    tappedTag: resolvedTagName,
-                    sourceTagNames: sourceTagNames,
-                    candidates: payload
-                )
-            }
-            let lookup = Dictionary(uniqueKeysWithValues: adjacent.map { ($0.id, $0) })
-            var ordered: [ContentItem] = []
-            ordered.reserveCapacity(adjacent.count)
-            for id in orderedIDs {
-                if let match = lookup[id] { ordered.append(match) }
-            }
-            return ordered
-        } catch {
-            return adjacent
-        }
-    }
 }

@@ -11,7 +11,7 @@ public extension ContentItem {
         let attrs = CSSearchableItemAttributeSet(contentType: .text)
         attrs.title = displayTitle
         attrs.contentDescription = teaser
-        attrs.keywords = tags.map(\.name)
+        attrs.keywords = tagNames
         if let data = thumbnailData {
             attrs.thumbnailData = data
         }
