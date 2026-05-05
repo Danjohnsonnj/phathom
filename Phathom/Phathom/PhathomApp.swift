@@ -5,6 +5,7 @@
 //  Created by Daniel Johnson on 4/29/26.
 //
 
+import BackgroundTasks
 import PhathomCore
 import SwiftData
 import SwiftUI
@@ -26,6 +27,8 @@ struct PhathomApp: App {
         // The user-initiated `BGContinuedProcessingTask` lane must register before
         // `applicationDidFinishLaunching` returns, just like the BGAppRefreshTask above.
         BackgroundContinuedAnalyze.register(modelContainer: sharedModelContainer)
+        let gpuSupported = BGTaskScheduler.supportedResources.contains(.gpu)
+        BGLog.info("register called: ingest + continued-analyze; supportedResources.gpu=\(gpuSupported)")
         SharedLlamaInference.scheduleWarmFromPersistedSelection()
         NetworkReachability.start()
         StoreChangedDarwinNotifier.start()
@@ -50,9 +53,19 @@ struct PhathomApp: App {
     /// causes any in-flight `nextTokenChunk` to return early, and `forceUnloadIfIdle` releases the
     /// context once the lifecycle lock is free. Weights remain mmap'd via the security-scoped bookmark.
     private func handleScenePhaseChange(_ phase: ScenePhase) {
+        BGLog.info("scenePhase=\(phaseLabel(phase))")
         guard phase != .active else { return }
         SharedLlamaInference.signalCancelInFlight()
         Task { await SharedLlamaInference.shared.forceUnloadIfIdle() }
+    }
+
+    private func phaseLabel(_ phase: ScenePhase) -> String {
+        switch phase {
+        case .active: return "active"
+        case .inactive: return "inactive"
+        case .background: return "background"
+        @unknown default: return "unknown"
+        }
     }
 
     @MainActor

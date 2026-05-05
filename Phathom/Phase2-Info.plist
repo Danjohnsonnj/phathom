@@ -5,7 +5,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.phathom.ingest</string>
-		<string>com.phathom.continued-analyze</string>
+		<string>com.phathom.Phathom.continued-analyze</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

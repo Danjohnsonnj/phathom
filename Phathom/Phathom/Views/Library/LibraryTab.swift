@@ -273,12 +273,14 @@ struct LibraryTab: View {
             try BackgroundContinuedAnalyze.submit(itemIDs: ids)
             submittedSnapshot = Set(ids)
             bannerSubmitError = nil
+            BGLog.info("LibraryTab submit ok ids=\(ids.count)")
         } catch {
             // Sweep any prior successful submit's snapshot so the confirmation banner doesn't
             // re-appear on the next scene activation referring to a task that no longer exists.
             PendingSnapshotStore.clear()
             submittedSnapshot = []
             bannerSubmitError = "Couldn't schedule background work: \(error.localizedDescription)"
+            BGLog.error("LibraryTab submit failed: \(error.localizedDescription)")
         }
     }
 

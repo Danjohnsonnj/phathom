@@ -18,7 +18,7 @@ import UIKit
 /// `kIOGPUCommandBufferCallbackErrorBackgroundExecutionNotPermitted`. The handler forces the
 /// `.cpu` backend on `SharedLlamaInference` so `n_gpu_layers = 0` for the duration.
 enum BackgroundContinuedAnalyze {
-    nonisolated static let identifier = "com.phathom.continued-analyze"
+    nonisolated static let identifier = "com.phathom.Phathom.continued-analyze"
 
     /// Register the handler at app launch. Call once from `PhathomApp.init()` (after
     /// `BackgroundPipeline.register`, but order doesn't strictly matter — both must complete
@@ -28,7 +28,9 @@ enum BackgroundContinuedAnalyze {
             forTaskWithIdentifier: identifier,
             using: nil
         ) { task in
+            BGLog.info("launch handler fired: id=\(task.identifier)")
             guard let task = task as? BGContinuedProcessingTask else {
+                BGLog.error("launch handler: task is not BGContinuedProcessingTask; type=\(type(of: task))")
                 task.setTaskCompleted(success: false)
                 return
             }
@@ -47,6 +49,7 @@ enum BackgroundContinuedAnalyze {
     static func submit(itemIDs: [UUID]) throws {
         guard !itemIDs.isEmpty else { return }
         let count = itemIDs.count
+        BGLog.info("submit attempt: count=\(count)")
         let request = BGContinuedProcessingTaskRequest(
             identifier: identifier,
             title: "Processing saved items",
@@ -55,8 +58,14 @@ enum BackgroundContinuedAnalyze {
         // `.queue` lets multiple submissions coalesce — but our snapshot semantics mean we'd
         // typically only ever have one in flight; queue is the safer default.
         request.strategy = .queue
-        try BGTaskScheduler.shared.submit(request)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            BGLog.error("submit threw: \(error.localizedDescription)")
+            throw error
+        }
         PendingSnapshotStore.save(itemIDs)
+        BGLog.info("submit ok; snapshot persisted count=\(count)")
     }
 
     private nonisolated static func handle(
@@ -64,10 +73,12 @@ enum BackgroundContinuedAnalyze {
         modelContainer: ModelContainer
     ) {
         let snapshot = PendingSnapshotStore.load()
+        BGLog.info("handle entry: snapshot=\(snapshot.count) thermalThrottle=\(ThermalMonitor.shouldThrottle)")
 
         guard !snapshot.isEmpty else {
             // Defensive clear: nothing to do but make sure the LibraryTab banner doesn't read a
             // ghost snapshot on next foreground.
+            BGLog.info("handle early-exit: empty snapshot")
             PendingSnapshotStore.clear()
             task.setTaskCompleted(success: true)
             return
@@ -78,6 +89,7 @@ enum BackgroundContinuedAnalyze {
         if ThermalMonitor.shouldThrottle {
             // Clear so the confirmation banner doesn't survive an aborted run; the user's queued
             // items remain in pending/embedding and the original submit banner returns.
+            BGLog.info("handle early-exit: thermal throttle")
             PendingSnapshotStore.clear()
             task.setTaskCompleted(success: false)
             return
@@ -85,6 +97,7 @@ enum BackgroundContinuedAnalyze {
 
         let cancel = CancelFlagBox()
         task.expirationHandler = {
+            BGLog.info("expirationHandler fired")
             cancel.value = true
             // The cancel flag tunnels into `nextTokenChunk` via `llama_set_abort_callback` so the
             // in-flight decode bails within milliseconds. The lifecycle lock then unwinds.
@@ -101,16 +114,25 @@ enum BackgroundContinuedAnalyze {
             ModelManager.validateSelection()
 
             for (idx, id) in snapshot.enumerated() {
-                if cancel.value { break }
+                if cancel.value {
+                    BGLog.info("loop break: cancel before item \(idx + 1)/\(snapshot.count)")
+                    break
+                }
 
-                if ThermalMonitor.shouldThrottle { break }
+                if ThermalMonitor.shouldThrottle {
+                    BGLog.info("loop break: thermal throttle before item \(idx + 1)/\(snapshot.count)")
+                    break
+                }
 
+                let start = Date()
                 let outcome = await PipelineWorkGate.shared.processSnapshotItem(
                     id: id,
                     modelContainer: modelContainer,
                     cancel: { cancel.value },
                     backend: .cpu
                 )
+                let ms = Int(Date().timeIntervalSince(start) * 1000)
+                BGLog.info("item \(idx + 1)/\(snapshot.count) outcome=\(outcome) ms=\(ms)")
 
                 let completedSoFar = idx + 1
                 let total = snapshot.count
@@ -132,7 +154,9 @@ enum BackgroundContinuedAnalyze {
             PendingSnapshotStore.clear()
 
             await MainActor.run {
-                task.setTaskCompleted(success: !cancel.value)
+                let success = !cancel.value
+                BGLog.info("setTaskCompleted success=\(success)")
+                task.setTaskCompleted(success: success)
             }
         }
     }
