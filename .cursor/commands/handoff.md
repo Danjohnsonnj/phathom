@@ -25,7 +25,7 @@ Run these steps before emitting the packet:
 
 ## Output Format
 
-Emit exactly one `<handoff>` block, no surrounding prose, no preamble, no closing remarks:
+Emit exactly one `<handoff>` block **wrapped in a triple-backtick code fence**, no surrounding prose, no preamble, no closing remarks. The fence guarantees newlines survive rendering and makes the packet copy-paste-scannable. The fenced output must match the layout below byte-for-byte (one field per line, bullets indented exactly two spaces):
 
 ```
 <handoff v="1">
@@ -52,12 +52,15 @@ BLOCKED: <unresolved error | missing info | none>
 - Use fragments, not sentences.
 - Use `->` for workflows and cause/effect.
 - Omit conversational filler ("The user asked for...").
-- Reference code blocks by file path + line range only (e.g., `src/auth/jwt.ts:42-128`).
+- Reference code blocks by file path + line range only (e.g., `src/auth/jwt.ts:42-128`). Never use `...` ellipses inside paths; use the full path or omit the reference.
 - Hard cap: ≤ 50 lines, ≤ ~1500 tokens.
 - Never emit secret values. Emit env-var names, file paths, or key IDs only.
 - Prefer priority order over completeness; truncate the tail of `TODO`/`DONE` if needed to stay under the cap.
+- Literal line layout (non-negotiable, even under token pressure): each field label starts at column 0 of its own line; each bullet under `DECISIONS`/`DONE`/`AVOID`/`TODO` is on its own line, indented exactly two spaces. Never run two fields together on one line, never inline bullets after a label.
 
 ## Example
+
+This block is **normative** — match its layout (line breaks, indentation, fence) byte-for-byte. The example is not decorative.
 
 ```
 <handoff v="1">
@@ -88,6 +91,7 @@ BLOCKED: none
 
 Before emitting, verify:
 
+- Output is wrapped in a triple-backtick code fence and every field/bullet starts on its own line (column 0 for fields, column 2 for bullets); no two fields share a line.
 - `GOAL` and `NEXT` are non-empty and `NEXT` is a single concrete action.
 - No field contains a secret value (token, password, API key, PEM body) — names and locations only.
 - Every `TODO` item is traceable to the `GOAL`, a `DECISION`, an `AVOID`, or `BLOCKED`; if not, the missing rationale belongs in `DECISIONS`.
