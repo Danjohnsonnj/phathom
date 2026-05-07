@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import Network
+import PhathomCore
+import SwiftData
 import Testing
 @testable import Phathom
 
@@ -92,6 +95,88 @@ struct PhathomTests {
         let order = await log.values
         #expect(order == [1, 2])
     }
+
+    @Test func pendingWebStepSkipsMalformedOldestAndProcessesNextValid() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let malformed = ContentItem(
+            createdAt: Date(timeIntervalSince1970: 10),
+            contentKind: .web,
+            originalURL: nil
+        )
+        malformed.processingStatus = ProcessingStatus.pending.rawValue
+        malformed.processingDetail = "Queued for capture"
+        let valid = ContentItem(
+            createdAt: Date(timeIntervalSince1970: 20),
+            contentKind: .web,
+            originalURL: URL(string: "https://example.com")!
+        )
+        valid.processingStatus = ProcessingStatus.pending.rawValue
+        valid.processingDetail = "Queued for capture"
+        ctx.insert(malformed)
+        ctx.insert(valid)
+        try ctx.save()
+        let malformedID = malformed.id
+        let validID = valid.id
+
+        let didWork = await BackgroundPipeline._test_processNextPendingWebItem(modelContainer: container)
+        #expect(didWork)
+
+        let fdBad = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == malformedID })
+        let fdGood = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == validID })
+        let badFresh = try #require(ctx.fetch(fdBad).first)
+        let goodFresh = try #require(ctx.fetch(fdGood).first)
+        #expect(badFresh.status == .failed)
+        #expect(badFresh.failureReason == "Capture payload missing URL.")
+        #expect(goodFresh.status != .pending)
+    }
+
+    @Test func pendingWebStepReturnsFalseWhenQueueHeadOffline() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let one = ContentItem(
+            createdAt: Date(timeIntervalSince1970: 10),
+            contentKind: .web,
+            originalURL: URL(string: "https://example.com/one")!
+        )
+        one.processingStatus = ProcessingStatus.pending.rawValue
+        one.processingDetail = "Queued for capture"
+        let two = ContentItem(
+            createdAt: Date(timeIntervalSince1970: 20),
+            contentKind: .web,
+            originalURL: URL(string: "https://example.com/two")!
+        )
+        two.processingStatus = ProcessingStatus.pending.rawValue
+        two.processingDetail = "Queued for capture"
+        ctx.insert(one)
+        ctx.insert(two)
+        try ctx.save()
+        let oneID = one.id
+        let twoID = two.id
+
+        let oldStatus = NetworkReachability._test_forceStatus(.requiresConnection)
+        defer { _ = NetworkReachability._test_forceStatus(oldStatus) }
+        let didWork = await BackgroundPipeline._test_processNextPendingWebItem(modelContainer: container)
+        #expect(!didWork)
+
+        let fdOne = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == oneID })
+        let fdTwo = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == twoID })
+        let oneFresh = try #require(ctx.fetch(fdOne).first)
+        let twoFresh = try #require(ctx.fetch(fdTwo).first)
+        #expect(oneFresh.status == .pending)
+        #expect(twoFresh.status == .pending)
+    }
+}
+
+private func makeInMemoryContainer() throws -> ModelContainer {
+    let schema = Schema([
+        ContentItem.self,
+        PhathomCore.Tag.self,
+        ChatThread.self,
+        ChatMessage.self,
+    ])
+    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    return try ModelContainer(for: schema, configurations: [config])
 }
 
 // UserDefaults mutation: run serially so parallel tests do not see a cleared model selection.

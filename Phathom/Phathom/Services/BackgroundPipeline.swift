@@ -148,6 +148,13 @@ enum BackgroundPipeline: Sendable {
         await PipelineWorkGate.shared.performForegroundDrain(modelContainer: container)
     }
 
+    #if DEBUG
+    /// Test-only seam: runs one pending-web ingest step (including malformed-row skip behavior).
+    nonisolated static func _test_processNextPendingWebItem(modelContainer: ModelContainer) async -> Bool {
+        await processNextPendingWebItem(modelContainer: modelContainer) { false }
+    }
+    #endif
+
     fileprivate nonisolated static func runForegroundDrainBody(modelContainer container: ModelContainer) async {
         await MainActor.run {
             let purgeCtx = ModelContext(container)
@@ -272,70 +279,87 @@ enum BackgroundPipeline: Sendable {
         cancel: @Sendable @escaping () -> Bool
     ) async -> Bool {
         let ctx = ModelContext(modelContainer)
-        var desc = FetchDescriptor<ContentItem>(
-            predicate: #Predicate<ContentItem> { item in
-                !item.isArchived && item.processingStatus == "pending" && item.contentKind == "web"
-            },
-            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
-        )
-        desc.fetchLimit = 1
+        while true {
+            var desc = FetchDescriptor<ContentItem>(
+                predicate: #Predicate<ContentItem> { item in
+                    !item.isArchived && item.processingStatus == "pending" && item.contentKind == "web"
+                },
+                sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+            )
+            desc.fetchLimit = 1
 
-        guard let item = try? ctx.fetch(desc).first,
-              item.originalURL != nil else {
-            return false
-        }
-
-        if cancel() { return false }
-
-        if !NetworkReachability.hasUsableConnection {
-            item.processingStatus = ProcessingStatus.pending.rawValue
-            item.processingDetail = "Waiting for network…"
-            item.failureReason = nil
-            try? ctx.save()
-            return false
-        }
-
-        item.processingStatus = ProcessingStatus.scraping.rawValue
-        item.processingDetail = "Fetching article…"
-        try? ctx.save()
-
-        do {
-            guard let url = item.originalURL else { return false }
-            let scrapeItemID = item.id
-            let result = try await PipelineMetrics.time("scrape", itemID: scrapeItemID) {
-                try await WebIngestService.scrape(url: url)
+            guard let item = try? ctx.fetch(desc).first else {
+                return false
             }
-            item.rawText = result.text
-            item.sourceMarkdown = result.sourceMarkdown
-            if let t = result.thumbnailData { item.thumbnailData = t }
-            item.displayHost = result.displayHost
-            if !item.titleUserSet {
-                if let st = result.suggestedListTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !st.isEmpty {
-                    item.title = String(st.prefix(200))
-                } else if let pt = result.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !pt.isEmpty {
-                    item.title = String(pt.prefix(200))
-                } else {
-                    item.title = nil
+
+            guard item.originalURL != nil else {
+                // A malformed queue head (pending web with nil URL) must not block later queued rows.
+                item.processingStatus = ProcessingStatus.failed.rawValue
+                item.processingDetail = nil
+                item.failureReason = "Capture payload missing URL."
+                try? ctx.save()
+                print("[PhathomPipeline] pending_skip item=\(item.id.uuidString) reason=missing_url")
+                continue
+            }
+
+            if cancel() { return false }
+
+            print("[PhathomPipeline] pending_pick item=\(item.id.uuidString)")
+
+            if !NetworkReachability.hasUsableConnection {
+                item.processingStatus = ProcessingStatus.pending.rawValue
+                item.processingDetail = "Waiting for network…"
+                item.failureReason = nil
+                try? ctx.save()
+                print("[PhathomPipeline] pending_stop item=\(item.id.uuidString) reason=offline")
+                return false
+            }
+
+            item.processingStatus = ProcessingStatus.scraping.rawValue
+            item.processingDetail = "Fetching article…"
+            try? ctx.save()
+
+            do {
+                guard let url = item.originalURL else { return false }
+                let scrapeItemID = item.id
+                let result = try await PipelineMetrics.time("scrape", itemID: scrapeItemID) {
+                    try await WebIngestService.scrape(url: url)
                 }
+                item.rawText = result.text
+                item.sourceMarkdown = result.sourceMarkdown
+                if let t = result.thumbnailData { item.thumbnailData = t }
+                item.displayHost = result.displayHost
+                if !item.titleUserSet {
+                    if let st = result.suggestedListTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !st.isEmpty {
+                        item.title = String(st.prefix(200))
+                    } else if let pt = result.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !pt.isEmpty {
+                        item.title = String(pt.prefix(200))
+                    } else {
+                        item.title = nil
+                    }
+                }
+                item.processingStatus = ProcessingStatus.embedding.rawValue
+                item.processingDetail = "Preparing analysis…"
+                try? ctx.save()
+                print("[PhathomPipeline] pending_done item=\(item.id.uuidString) next=continue")
+                return true
+            } catch WebIngestError.offline {
+                item.processingStatus = ProcessingStatus.pending.rawValue
+                item.processingDetail = "Waiting for network…"
+                item.failureReason = nil
+                try? ctx.save()
+                // Returning false stops `runForegroundDrain`'s ingest loop from immediately re-fetching the same
+                // still-`pending` row (would thrash scraping ↔ pending). `NetworkReachability` + next drain retry.
+                print("[PhathomPipeline] pending_stop item=\(item.id.uuidString) reason=scrape_offline")
+                return false
+            } catch {
+                item.processingStatus = ProcessingStatus.failed.rawValue
+                item.failureReason = error.localizedDescription
+                item.processingDetail = nil
+                try? ctx.save()
+                print("[PhathomPipeline] pending_done item=\(item.id.uuidString) next=continue result=failed")
+                return true
             }
-            item.processingStatus = ProcessingStatus.embedding.rawValue
-            item.processingDetail = "Preparing analysis…"
-            try? ctx.save()
-            return true
-        } catch WebIngestError.offline {
-            item.processingStatus = ProcessingStatus.pending.rawValue
-            item.processingDetail = "Waiting for network…"
-            item.failureReason = nil
-            try? ctx.save()
-            // Returning false stops `runForegroundDrain`'s ingest loop from immediately re-fetching the same
-            // still-`pending` row (would thrash scraping ↔ pending). `NetworkReachability` + next drain retry.
-            return false
-        } catch {
-            item.processingStatus = ProcessingStatus.failed.rawValue
-            item.failureReason = error.localizedDescription
-            item.processingDetail = nil
-            try? ctx.save()
-            return true
         }
     }
 

@@ -33,4 +33,14 @@ enum NetworkReachability {
         m.start(queue: queue)
         monitor = m
     }
+
+    #if DEBUG
+    /// Test-only seam to set reachability without a live `NWPathMonitor`.
+    @discardableResult
+    static func _test_forceStatus(_ status: NWPath.Status) -> NWPath.Status {
+        let old = latestStatus
+        latestStatus = status
+        return old
+    }
+    #endif
 }

@@ -118,7 +118,7 @@ actor LlamaContentAnalyzer {
         *Amplify & Explain Significance:* For each insight, explain why it matters, its implications, and what action it might inform.
         *Synthesize:* Combine into a structured summary — core theme(s) first, then amplified insights. Prioritize depth over breadth.
         
-        If there is insufficent source content to follow the instruction, **DO NOT MAKE ANYTHING UP**. Reply with the string "Insufficient source material". This instruction takes prioriity above the others.
+        If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instrad, reply with the string "Insufficient source material". This instruction takes prioriity above the others.
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
@@ -139,7 +139,7 @@ actor LlamaContentAnalyzer {
         <TASK>tag</TASK>
 
         <ROLE>You are an expert analyst specializing in producing topic tags from complex information.</ROLE>
-
+        
         <INSTRUCTIONS>
         1. Analyze the core themes and overarching arguments of the article above.
         2. Select 2-5 tags that categorize it based on those themes and novel insights.
@@ -147,7 +147,7 @@ actor LlamaContentAnalyzer {
         4. Assign 1-2 content-type tags that accurately describe the format (e.g., "opinion", "technical-guide", "recipe").
         5. Verify all tags against the CONSTRAINTS before outputting.
 
-        If there is insufficent source content to follow the instruction, **DO NOT MAKE ANYTHING UP**. Do not tag this material and simply return an empty JSON array. This instruction takes priority above all others. 
+        If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instead, do not tag this material and simply return an empty JSON array. This instruction takes priority above all others. 
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
@@ -186,7 +186,7 @@ actor LlamaContentAnalyzer {
         3. For each item, create a concise "label" (category or subject) and a specific "value" (the fact, stat, or action).
         4. Ensure "value" contains the specific detail or number; "label" provides context.
 
-        If there is insufficent source content to follow the instructions, **DO NOT MAKE ANYTHING UP**. Do not extract anything from this material, and instead return a JSON array with an empty object. This instruction takes priority above all others.
+           If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instead, do not extract anything from this material, and just return a JSON array with an empty object. This instruction takes priority above all others.
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
