@@ -117,6 +117,8 @@ actor LlamaContentAnalyzer {
         *Extract Novel Insights:* Pinpoint specific insights that are new, counter-intuitive, or offer a fresh perspective.
         *Amplify & Explain Significance:* For each insight, explain why it matters, its implications, and what action it might inform.
         *Synthesize:* Combine into a structured summary — core theme(s) first, then amplified insights. Prioritize depth over breadth.
+        
+        If there is insufficent source content to follow the instruction, **DO NOT MAKE ANYTHING UP**. Reply with the string "Insufficient source material". This instruction takes prioriity above the others.
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
@@ -144,6 +146,8 @@ actor LlamaContentAnalyzer {
         3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
         4. Assign 1-2 content-type tags that accurately describe the format (e.g., "opinion", "technical-guide", "recipe").
         5. Verify all tags against the CONSTRAINTS before outputting.
+
+        If there is insufficent source content to follow the instruction, **DO NOT MAKE ANYTHING UP**. Do not tag this material and simply return an empty JSON array. This instruction takes priority above all others. 
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
@@ -153,7 +157,7 @@ actor LlamaContentAnalyzer {
         - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
         - Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
         - No duplicates, no hashtags, no commentary.
-
+        
         Example:
         Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
         Tags: ["eu-policy","climate-change","emissions","news"]
@@ -181,6 +185,8 @@ actor LlamaContentAnalyzer {
         2. Select the 3-5 most impactful items based on relevance and uniqueness.
         3. For each item, create a concise "label" (category or subject) and a specific "value" (the fact, stat, or action).
         4. Ensure "value" contains the specific detail or number; "label" provides context.
+
+        If there is insufficent source content to follow the instructions, **DO NOT MAKE ANYTHING UP**. Do not extract anything from this material, and instead return a JSON array with an empty object. This instruction takes priority above all others.
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
