@@ -99,11 +99,11 @@ enum ModelManager {
         }
 
         let commenced = url.startAccessingSecurityScopedResource()
-        let readable = FileManager.default.isReadableFile(atPath: url.path)
-        if !commenced && !readable {
+        let (reachable, _) = selectionReachability(url: url)
+        if !commenced && !reachable {
             return nil
         }
-        if commenced && !readable {
+        if commenced && !reachable {
             url.stopAccessingSecurityScopedResource()
             return nil
         }
@@ -133,11 +133,12 @@ enum ModelManager {
             }
         }
 
-        guard FileManager.default.isReadableFile(atPath: url.path) else {
+        let (reachable, _) = selectionReachability(url: url)
+        guard reachable else {
             return .missingFile
         }
         let name = url.lastPathComponent
-        let byteString = byteString(forPath: url.path)
+        let byteString = byteString(for: url)
         return .ready(name: name, byteString: byteString)
     }
 
@@ -190,12 +191,30 @@ enum ModelManager {
         return (url, stale)
     }
 
-    private nonisolated static func byteString(forPath path: String) -> String {
-        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+    private nonisolated static func byteString(for url: URL) -> String {
+        if let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+           let n = values.fileSize {
+            return ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .file)
+        }
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
               let n = attrs[.size] as? UInt64 else {
             return "—"
         }
         return ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .file)
+    }
+
+    private nonisolated static func selectionReachability(url: URL) -> (Bool, String) {
+        if (try? url.checkResourceIsReachable()) == true {
+            return (true, "checkResourceIsReachable")
+        }
+        if let values = try? url.resourceValues(forKeys: [.isRegularFileKey]),
+           values.isRegularFile == true {
+            return (true, "resourceValues.isRegularFile")
+        }
+        if FileManager.default.fileExists(atPath: url.path) {
+            return (true, "fileExistsAtPath")
+        }
+        return (false, "allChecksFailed")
     }
 
     /// Process-lifetime: after a full `migrateLegacyIfNeeded()` pass, skip re-reading UserDefaults for migration.

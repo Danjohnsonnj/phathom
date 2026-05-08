@@ -11,7 +11,8 @@ struct SettingsContent: View {
     @State private var archivedCount: Int = 0
     @State private var selectionState: ModelManager.SelectionDisplayState = .noSelection
     @State private var testPhase: TestPhase = .idle
-    @State private var showFileImporter = false
+    @State private var requestedImporter: ImportPickerMode?
+    @State private var callbackImporter: ImportPickerMode?
     @State private var importerError: String?
     @State private var showTestResponse = false
     @State private var changeModelExpanded: Bool = true
@@ -19,7 +20,6 @@ struct SettingsContent: View {
     @State private var showBackupExporter = false
     @State private var backupDocument = BackupJSONDocument()
     @State private var backupDefaultFilename = "phathom-library-backup.json"
-    @State private var showBackupImporter = false
     @State private var pendingImportData: Data?
     @State private var pendingImportPreview: LibraryBackupService.ImportPreview?
     @State private var showImportConflictDialog = false
@@ -34,6 +34,11 @@ struct SettingsContent: View {
         case running
         case succeeded(summary: String, raw: String)
         case failed(message: String)
+    }
+
+    enum ImportPickerMode: String {
+        case model
+        case backup
     }
 
     private var appVersion: String {
@@ -56,12 +61,50 @@ struct SettingsContent: View {
         return false
     }
 
+    private var importerBinding: Binding<Bool> {
+        Binding(
+            get: { requestedImporter != nil },
+            set: { isPresented in
+                if !isPresented {
+                    requestedImporter = nil
+                }
+            }
+        )
+    }
+
+    private var importerAllowedTypes: [UTType] {
+        switch requestedImporter {
+        case .model:
+            return [UTType(filenameExtension: "gguf") ?? .data, .data]
+        case .backup:
+            return [.json]
+        case nil:
+            return [.data]
+        }
+    }
+
     var body: some View {
         configuredForm
     }
 
     private var configuredForm: some View {
         baseConfiguredForm
+            .fileImporter(
+                isPresented: importerBinding,
+                allowedContentTypes: importerAllowedTypes,
+                allowsMultipleSelection: false
+            ) { result in
+                let mode = callbackImporter
+                defer { callbackImporter = nil }
+                switch mode {
+                case .model:
+                    handleModelImportSelection(result)
+                case .backup:
+                    handleBackupImportSelection(result)
+                case nil:
+                    return
+                }
+            }
             .fileExporter(
                 isPresented: $showBackupExporter,
                 document: backupDocument,
@@ -69,13 +112,6 @@ struct SettingsContent: View {
                 defaultFilename: backupDefaultFilename
             ) { result in
                 handleBackupExportResult(result)
-            }
-            .fileImporter(
-                isPresented: $showBackupImporter,
-                allowedContentTypes: [.json],
-                allowsMultipleSelection: false
-            ) { result in
-                handleBackupImportSelection(result)
             }
             .confirmationDialog(
                 "Import options",
@@ -147,25 +183,9 @@ struct SettingsContent: View {
             .onReceive(NotificationCenter.default.publisher(for: .phathomArchivedItemsDidChange)) { _ in
                 refreshArchivedCount()
             }
-            .fileImporter(
-                isPresented: $showFileImporter,
-                allowedContentTypes: [UTType(filenameExtension: "gguf") ?? .data],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    guard let src = urls.first else { return }
-                    do {
-                        try ModelManager.setSelection(from: src)
-                        testPhase = .idle
-                        showTestResponse = false
-                        refreshSelectionState()
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    } catch {
-                        importerError = error.localizedDescription
-                    }
-                case .failure(let error):
-                    importerError = error.localizedDescription
+            .onChange(of: requestedImporter) { _, mode in
+                if mode != nil {
+                    callbackImporter = mode
                 }
             }
             .alert("Import failed", isPresented: Binding(
@@ -200,7 +220,7 @@ struct SettingsContent: View {
             testPhaseRows
             DisclosureGroup("Change model", isExpanded: $changeModelExpanded) {
                 Button("Select model from Files…") {
-                    showFileImporter = true
+                    requestedImporter = .model
                 }
                 if ModelManager.hasBookmark {
                     Button("Forget selection", role: .destructive) {
@@ -257,7 +277,7 @@ struct SettingsContent: View {
             }
             .disabled(backupBusy)
             Button("Import Library Backup") {
-                showBackupImporter = true
+                requestedImporter = .backup
             }
             .disabled(backupBusy)
         } header: {
@@ -464,7 +484,9 @@ struct SettingsContent: View {
             backupBusy = true
             let access = src.startAccessingSecurityScopedResource()
             defer {
-                if access { src.stopAccessingSecurityScopedResource() }
+                if access {
+                    src.stopAccessingSecurityScopedResource()
+                }
             }
             do {
                 let data = try Data(contentsOf: src)
@@ -491,6 +513,26 @@ struct SettingsContent: View {
                 title: "Import failed",
                 details: makeDiagnostics(for: error)
             )
+        }
+    }
+
+    private func handleModelImportSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let src = urls.first else {
+                return
+            }
+            do {
+                try ModelManager.setSelection(from: src)
+                testPhase = .idle
+                showTestResponse = false
+                refreshSelectionState()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } catch {
+                importerError = error.localizedDescription
+            }
+        case .failure(let error):
+            importerError = error.localizedDescription
         }
     }
 
@@ -563,6 +605,7 @@ struct SettingsContent: View {
             "type=\(String(describing: type(of: error)))",
         ].joined(separator: "\n")
     }
+
 }
 
 private struct BackupJSONDocument: FileDocument {
