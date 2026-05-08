@@ -186,7 +186,7 @@ actor LlamaContentAnalyzer {
         3. For each item, create a concise "label" (category or subject) and a specific "value" (the fact, stat, or action).
         4. Ensure "value" contains the specific detail or number; "label" provides context.
 
-           If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instead, do not extract anything from this material, and just return a JSON array with an empty object. This instruction takes priority above all others.
+           If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instead, do not extract anything from this material, and just  return a JSON array with an empty object. This instruction takes priority above all others.
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
