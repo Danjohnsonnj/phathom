@@ -166,6 +166,39 @@ struct PhathomTests {
         #expect(oneFresh.status == .pending)
         #expect(twoFresh.status == .pending)
     }
+
+    /// Empty search query: `bucket` applies kind/status filters without requiring tag-index / adjacent work.
+    @Test func librarySearchBucket_emptyQuery_appliesKindAndStatusFilters() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let webNew = ContentItem(contentKind: .web, originalURL: URL(string: "https://a.test")!)
+        webNew.readStatus = ReadStatus.new.rawValue
+        webNew.title = "Alpha"
+        let webRead = ContentItem(contentKind: .web, originalURL: URL(string: "https://b.test")!)
+        webRead.readStatus = ReadStatus.read.rawValue
+        webRead.title = "Bravo"
+        let note = ContentItem(contentKind: .note)
+        note.readStatus = ReadStatus.new.rawValue
+        note.rawText = "hello"
+        note.title = "Note"
+        ctx.insert(webNew)
+        ctx.insert(webRead)
+        ctx.insert(note)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let browseAll = LibrarySearchService.bucket(query: "", items: all, filterKind: nil, filterStatus: nil)
+        #expect(browseAll.matching.count == 3)
+        #expect(browseAll.adjacent.isEmpty)
+        #expect(browseAll.resolvedTagName == nil)
+
+        let webReadOnly = LibrarySearchService.bucket(query: "", items: all, filterKind: .web, filterStatus: .read)
+        #expect(webReadOnly.matching.count == 1)
+        #expect(webReadOnly.matching.first?.id == webRead.id)
+
+        let textSearch = LibrarySearchService.bucket(query: "hello", items: all, filterKind: nil, filterStatus: nil)
+        #expect(textSearch.matching.contains(where: { $0.id == note.id }))
+    }
 }
 
 private func makeInMemoryContainer() throws -> ModelContainer {

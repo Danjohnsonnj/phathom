@@ -16,6 +16,7 @@ enum ProcessingRecovery {
             item.failureReason = nil
             item.processingDetail = nil
             try? modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
             item.indexInSpotlight()
             BackgroundPipeline.scheduleAll()
             BackgroundPipeline.scheduleForegroundDrain()
@@ -28,6 +29,7 @@ enum ProcessingRecovery {
             item.processingDetail = "Preparing analysis…"
             item.failureReason = nil
             try? modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
             BackgroundPipeline.scheduleAll()
             BackgroundPipeline.scheduleForegroundDrain()
             return true
@@ -43,6 +45,7 @@ enum ProcessingRecovery {
                 item.processingDetail = "Queued for capture"
             }
             try? modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
             BackgroundPipeline.scheduleAll()
             BackgroundPipeline.scheduleForegroundDrain()
             return true
@@ -84,6 +87,7 @@ enum ProcessingRecovery {
         item.processingStatus = ProcessingStatus.embedding.rawValue
         item.lastProcessedChunk = 0
         try? modelContext.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
         item.indexInSpotlight()
         BackgroundPipeline.scheduleAll()
         BackgroundPipeline.scheduleForegroundDrain()

@@ -40,6 +40,11 @@ private struct PipelineLlmCancelled: Error {}
 enum BackgroundPipeline: Sendable {
     nonisolated(unsafe) private static var containerRef: ModelContainer?
 
+    private nonisolated static func saveAndNotify(_ ctx: ModelContext) {
+        try? ctx.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
+    }
+
     nonisolated static func register(modelContainer: ModelContainer) {
         containerRef = modelContainer
 
@@ -139,7 +144,7 @@ enum BackgroundPipeline: Sendable {
                 item.indexInSpotlight()
             }
         }
-        try? ctx.save()
+        saveAndNotify(ctx)
     }
 
     /// Awaits the same serialized queue as `scheduleForegroundDrain` (tests or tooling may call this directly).
@@ -297,7 +302,7 @@ enum BackgroundPipeline: Sendable {
                 item.processingStatus = ProcessingStatus.failed.rawValue
                 item.processingDetail = nil
                 item.failureReason = "Capture payload missing URL."
-                try? ctx.save()
+                saveAndNotify(ctx)
                 print("[PhathomPipeline] pending_skip item=\(item.id.uuidString) reason=missing_url")
                 continue
             }
@@ -310,14 +315,14 @@ enum BackgroundPipeline: Sendable {
                 item.processingStatus = ProcessingStatus.pending.rawValue
                 item.processingDetail = "Waiting for network…"
                 item.failureReason = nil
-                try? ctx.save()
+                saveAndNotify(ctx)
                 print("[PhathomPipeline] pending_stop item=\(item.id.uuidString) reason=offline")
                 return false
             }
 
             item.processingStatus = ProcessingStatus.scraping.rawValue
             item.processingDetail = "Fetching article…"
-            try? ctx.save()
+            saveAndNotify(ctx)
 
             do {
                 guard let url = item.originalURL else { return false }
@@ -340,14 +345,14 @@ enum BackgroundPipeline: Sendable {
                 }
                 item.processingStatus = ProcessingStatus.embedding.rawValue
                 item.processingDetail = "Preparing analysis…"
-                try? ctx.save()
+                saveAndNotify(ctx)
                 print("[PhathomPipeline] pending_done item=\(item.id.uuidString) next=continue")
                 return true
             } catch WebIngestError.offline {
                 item.processingStatus = ProcessingStatus.pending.rawValue
                 item.processingDetail = "Waiting for network…"
                 item.failureReason = nil
-                try? ctx.save()
+                saveAndNotify(ctx)
                 // Returning false stops `runForegroundDrain`'s ingest loop from immediately re-fetching the same
                 // still-`pending` row (would thrash scraping ↔ pending). `NetworkReachability` + next drain retry.
                 print("[PhathomPipeline] pending_stop item=\(item.id.uuidString) reason=scrape_offline")
@@ -356,7 +361,7 @@ enum BackgroundPipeline: Sendable {
                 item.processingStatus = ProcessingStatus.failed.rawValue
                 item.failureReason = error.localizedDescription
                 item.processingDetail = nil
-                try? ctx.save()
+                saveAndNotify(ctx)
                 print("[PhathomPipeline] pending_done item=\(item.id.uuidString) next=continue result=failed")
                 return true
             }
@@ -393,7 +398,7 @@ enum BackgroundPipeline: Sendable {
             if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 item.mediaDescription = ShareCapture.mediaPlaceholderDescription
             }
-            try? ctx.save()
+            saveAndNotify(ctx)
             item.indexInSpotlight()
             return .finished(taskSuccess: true)
         }
@@ -401,7 +406,7 @@ enum BackgroundPipeline: Sendable {
         guard let raw = item.rawText, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             item.processingStatus = ProcessingStatus.failed.rawValue
             item.failureReason = "No article text to analyze."
-            try? ctx.save()
+            saveAndNotify(ctx)
             return .finished(taskSuccess: false)
         }
 
@@ -412,13 +417,13 @@ enum BackgroundPipeline: Sendable {
                 if cancel() {
                     await session.cancelInFlight()
                     checkpointAfterCancel(item: item)
-                    try? ctx.save()
+                    saveAndNotify(ctx)
                     throw PipelineLlmCancelled()
                 }
 
                 item.processingStatus = ProcessingStatus.summarizing.rawValue
                 item.processingDetail = "Generating summary…"
-                try? ctx.save()
+                saveAndNotify(ctx)
 
                 // All three analysis tasks share a single prefill of the article body via KV cache
                 // prefix reuse. The `onPartial` callback fires after each task's decode completes
@@ -432,12 +437,12 @@ enum BackgroundPipeline: Sendable {
                         PipelineMetrics.logSyncElapsed("summarize", itemID: itemID, start: stageStart)
                         stageStart = Date()
                         if bullets.isEmpty { item.summaryBullets = nil } else { item.encodeSummaryBullets(bullets) }
-                        try? ctx.save()
+                        saveAndNotify(ctx)
 
                         if cancel() { return }
                         item.processingStatus = ProcessingStatus.tagging.rawValue
                         item.processingDetail = "Auto-tagging…"
-                        try? ctx.save()
+                        saveAndNotify(ctx)
 
                     case .tags(let tagNames):
                         PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: stageStart)
@@ -448,11 +453,11 @@ enum BackgroundPipeline: Sendable {
                         upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
                         mergePlatformHashtagTags(item: item, context: ctx)
                         PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
-                        try? ctx.save()
+                        saveAndNotify(ctx)
 
                         if cancel() { return }
                         item.processingDetail = "Extracting key information…"
-                        try? ctx.save()
+                        saveAndNotify(ctx)
 
                     case .extracts(let extracts):
                         PipelineMetrics.logSyncElapsed("extracts_llm", itemID: itemID, start: stageStart)
@@ -463,14 +468,14 @@ enum BackgroundPipeline: Sendable {
                 if cancel() {
                     await session.cancelInFlight()
                     checkpointAfterCancel(item: item)
-                    try? ctx.save()
+                    saveAndNotify(ctx)
                     throw PipelineLlmCancelled()
                 }
 
                 item.processingStatus = ProcessingStatus.completed.rawValue
                 item.processingDetail = nil
                 item.failureReason = nil
-                try? ctx.save()
+                saveAndNotify(ctx)
             }
 
             let verifyDesc = FetchDescriptor<ContentItem>(
@@ -488,7 +493,7 @@ enum BackgroundPipeline: Sendable {
         } catch {
             item.processingStatus = ProcessingStatus.failed.rawValue
             item.failureReason = error.localizedDescription
-            try? ctx.save()
+            saveAndNotify(ctx)
             return .finished(taskSuccess: false)
         }
     }

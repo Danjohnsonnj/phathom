@@ -237,6 +237,7 @@ public enum LibraryBackupService {
                 modelContext.delete(tag)
             }
             try modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
             existingItems = []
         }
 
@@ -255,6 +256,7 @@ public enum LibraryBackupService {
         }
 
         try modelContext.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
         return ImportResult(
             importedCount: imported,
             skippedDuplicateCount: skipped,

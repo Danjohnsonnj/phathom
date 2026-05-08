@@ -32,6 +32,22 @@ enum LibrarySearchService {
         var isEmpty: Bool { matching.isEmpty && adjacent.isEmpty }
     }
 
+    /// Kind/status filter only (no tag index). Used for empty-query browse and as the pool for `buildTagIndex`.
+    private static func itemsFilteredByKindAndStatus(
+        items: [ContentItem],
+        filterKind: ContentKind?,
+        filterStatus: ReadStatus?
+    ) -> [ContentItem] {
+        var pool = items
+        if let filterKind {
+            pool = pool.filter { $0.kind == filterKind }
+        }
+        if let filterStatus {
+            pool = pool.filter { $0.readState == filterStatus }
+        }
+        return pool
+    }
+
     /// Partition `items` for the Library list. Callers pass the already-loaded `@Query` snapshot;
     /// kind / status filtering happens here so adjacency respects the active filter selection.
     static func bucket(
@@ -41,14 +57,19 @@ enum LibrarySearchService {
         filterStatus: ReadStatus? = nil
     ) -> Sections {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else {
+            let pool = itemsFilteredByKindAndStatus(
+                items: items,
+                filterKind: filterKind,
+                filterStatus: filterStatus
+            )
+            return Sections(matching: pool, adjacent: [], resolvedTagName: nil)
+        }
         let (kindFiltered, tagIndex) = buildTagIndex(
             items: items,
             filterKind: filterKind,
             filterStatus: filterStatus
         )
-        guard !normalized.isEmpty else {
-            return Sections(matching: kindFiltered, adjacent: [], resolvedTagName: nil)
-        }
         // Inverted index `tagIndex` is keyed by lowercased tag name. `Tag.init` already lowercases
         // names on insert, so a direct subscript with `normalized` resolves the tag without re-
         // normalizing.
@@ -155,13 +176,11 @@ enum LibrarySearchService {
         filterKind: ContentKind?,
         filterStatus: ReadStatus? = nil
     ) -> (kindFiltered: [ContentItem], tagIndex: [String: [ContentItem]]) {
-        var pool = items
-        if let filterKind {
-            pool = pool.filter { $0.kind == filterKind }
-        }
-        if let filterStatus {
-            pool = pool.filter { $0.readState == filterStatus }
-        }
+        let pool = itemsFilteredByKindAndStatus(
+            items: items,
+            filterKind: filterKind,
+            filterStatus: filterStatus
+        )
         var tagIndex: [String: [ContentItem]] = [:]
         for item in pool {
             for tag in item.tags {

@@ -211,6 +211,7 @@ struct DetailView: View {
         item.titleUserSet = (newTitle != nil)
         if newTitle != priorTitle || item.titleUserSet != priorFlag {
             try? modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
             item.indexInSpotlight()
         }
         titleDraft = newTitle ?? ""
@@ -258,6 +259,7 @@ struct DetailView: View {
             tagEditorErrorMessage = "Failed to save tag changes."
             return
         }
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
         item.indexInSpotlight()
         dismissTagEditor()
     }
@@ -271,6 +273,7 @@ struct DetailView: View {
             tagEditorErrorMessage = "Failed to delete tag."
             return
         }
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
         item.indexInSpotlight()
         dismissTagEditor()
     }
@@ -476,6 +479,7 @@ struct DetailView: View {
         Button {
             ArchiveRetention.restore(item)
             try? modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
             NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
             dismiss()
         } label: {
@@ -495,6 +499,7 @@ struct DetailView: View {
         Button {
             ArchiveRetention.archive(item)
             try? modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
             dismiss()
             let archivedID = item.id
             Task { @MainActor in

@@ -1,64 +1,120 @@
 import PhathomCore
 import SwiftUI
 
-/// Two-dropdown filter row above the Library list. Replaces the older `FilterPills`.
+/// Two filter controls above the Library list. Uses anchored `popover` (not `Menu`) so presentation stays
+/// below each capsule and avoids UIMenu / `_UIReparentingView` issues with `NavigationStack` + `List` + `.searchable`.
 /// "Type" filters by `ContentKind`; "Status" filters by `ReadStatus`. `nil` selection = "All".
 struct LibraryFilterBar: View {
     @Binding var selectedKind: ContentKind?
     @Binding var selectedStatus: ReadStatus?
 
+    @State private var showKindPicker = false
+    @State private var showStatusPicker = false
+
     var body: some View {
         HStack(spacing: 10) {
-            kindMenu
-            statusMenu
+            kindTrigger
+            statusTrigger
             Spacer(minLength: 0)
         }
     }
 
-    private var kindMenu: some View {
-        Menu {
-            Button { selectedKind = nil } label: {
-                kindMenuItem(label: "All", kind: nil)
-            }
-            Button { selectedKind = .web } label: {
-                kindMenuItem(label: "Web", kind: .web)
-            }
-            Button { selectedKind = .media } label: {
-                kindMenuItem(label: "Media", kind: .media)
-            }
-            Button { selectedKind = .note } label: {
-                kindMenuItem(label: "Notes", kind: .note)
-            }
+    private var kindTrigger: some View {
+        Button {
+            showStatusPicker = false
+            showKindPicker = true
         } label: {
             FilterMenuLabel(label: "Type", value: kindLabel, maxValue: "Media")
         }
-        .menuStyle(.button)
         .buttonStyle(.plain)
         .accessibilityLabel("Filter by type")
         .accessibilityValue(kindLabel)
+        .popover(isPresented: $showKindPicker, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            kindPickerPanel
+                .presentationCompactAdaptation(.popover)
+        }
     }
 
-    private var statusMenu: some View {
-        Menu {
-            Button { selectedStatus = nil } label: {
-                statusMenuItem(label: "All", status: nil)
-            }
-            Button { selectedStatus = .new } label: {
-                statusMenuItem(label: "New", status: .new)
-            }
-            Button { selectedStatus = .read } label: {
-                statusMenuItem(label: "Read", status: .read)
-            }
-            Button { selectedStatus = .filed } label: {
-                statusMenuItem(label: "Filed", status: .filed)
-            }
+    private var statusTrigger: some View {
+        Button {
+            showKindPicker = false
+            showStatusPicker = true
         } label: {
             FilterMenuLabel(label: "Status", value: statusLabel, maxValue: "Filed")
         }
-        .menuStyle(.button)
         .buttonStyle(.plain)
         .accessibilityLabel("Filter by status")
         .accessibilityValue(statusLabel)
+        .popover(isPresented: $showStatusPicker, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+            statusPickerPanel
+                .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    private var kindPickerPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            filterPopoverRow(title: "All", selected: selectedKind == nil) {
+                selectedKind = nil
+                showKindPicker = false
+            }
+            filterPopoverRow(title: "Web", selected: selectedKind == .web) {
+                selectedKind = .web
+                showKindPicker = false
+            }
+            filterPopoverRow(title: "Media", selected: selectedKind == .media) {
+                selectedKind = .media
+                showKindPicker = false
+            }
+            filterPopoverRow(title: "Notes", selected: selectedKind == .note) {
+                selectedKind = .note
+                showKindPicker = false
+            }
+        }
+        .frame(minWidth: 200)
+        .padding(.vertical, 6)
+    }
+
+    private var statusPickerPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            filterPopoverRow(title: "All", selected: selectedStatus == nil) {
+                selectedStatus = nil
+                showStatusPicker = false
+            }
+            filterPopoverRow(title: "New", selected: selectedStatus == .new) {
+                selectedStatus = .new
+                showStatusPicker = false
+            }
+            filterPopoverRow(title: "Read", selected: selectedStatus == .read) {
+                selectedStatus = .read
+                showStatusPicker = false
+            }
+            filterPopoverRow(title: "Filed", selected: selectedStatus == .filed) {
+                selectedStatus = .filed
+                showStatusPicker = false
+            }
+        }
+        .frame(minWidth: 200)
+        .padding(.vertical, 6)
+    }
+
+    private func filterPopoverRow(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(AppPalette.textPrimary)
+                Spacer(minLength: 12)
+                if selected {
+                    Image(systemName: "checkmark")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(AppPalette.accent)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var kindLabel: String {
@@ -76,24 +132,6 @@ struct LibraryFilterBar: View {
         case .new: return "New"
         case .read: return "Read"
         case .filed: return "Filed"
-        }
-    }
-
-    @ViewBuilder
-    private func kindMenuItem(label: String, kind: ContentKind?) -> some View {
-        if selectedKind == kind {
-            Label(label, systemImage: "checkmark")
-        } else {
-            Text(label)
-        }
-    }
-
-    @ViewBuilder
-    private func statusMenuItem(label: String, status: ReadStatus?) -> some View {
-        if selectedStatus == status {
-            Label(label, systemImage: "checkmark")
-        } else {
-            Text(label)
         }
     }
 }

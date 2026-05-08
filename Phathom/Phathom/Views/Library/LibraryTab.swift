@@ -30,6 +30,9 @@ struct LibraryTab: View {
     /// query; cleared whenever the query or filter changes so a stale order can never be shown.
     @State private var deepRankedAdjacent: [ContentItem]? = nil
     @State private var isDeepRanking = false
+    /// Bumped when library content may affect search bucketing (`LibraryContentChangeNotifier` + `items.count`).
+    /// Avoids hashing every item on every SwiftUI body evaluation (see `SearchSignature`).
+    @State private var libraryContentRevision: Int = 0
 
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
         _deepLinkItemID = deepLinkItemID
@@ -85,47 +88,50 @@ struct LibraryTab: View {
 
     var body: some View {
         NavigationStack(path: $navPath) {
-            List {
-                librarySection
+            VStack(alignment: .leading, spacing: 0) {
+                libraryChromeAboveList
+                List {
+                    libraryMatchingSection
 
-                if !displayedAdjacent.isEmpty || isDeepRanking {
-                    relatedByTagsSection
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(AppPalette.background)
-            .navigationTitle("Library")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: UUID.self) { id in
-                if let item = items.first(where: { $0.id == id }) {
-                    DetailView(item: item) { selectedID in
-                        if !navPath.isEmpty { navPath.removeLast() }
-                        navPath.append(selectedID)
+                    if !displayedAdjacent.isEmpty || isDeepRanking {
+                        relatedByTagsSection
                     }
-                } else {
-                    Text("This item is not in your library.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppPalette.textSecondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            }
-            .searchable(text: $searchText, prompt: "Search title, tags, source text")
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Phathom")
-                        .font(.headline)
-                        .foregroundStyle(AppPalette.textPrimary)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        SettingsContent()
-                            .navigationTitle("Settings")
-                    } label: {
-                        Image(systemName: isModelHealthyForIndicator ? "gearshape.fill" : "gearshape")
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .background(AppPalette.background)
+                .navigationTitle("Library")
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationDestination(for: UUID.self) { id in
+                    if let item = items.first(where: { $0.id == id }) {
+                        DetailView(item: item) { selectedID in
+                            if !navPath.isEmpty { navPath.removeLast() }
+                            navPath.append(selectedID)
+                        }
+                    } else {
+                        Text("This item is not in your library.")
+                            .font(.subheadline)
+                            .foregroundStyle(AppPalette.textSecondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .accessibilityLabel("Settings")
-                    .accessibilityValue(isModelHealthyForIndicator ? "AI model ready" : "AI model needs attention")
+                }
+                .searchable(text: $searchText, prompt: "Search title, tags, source text")
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Text("Phathom")
+                            .font(.headline)
+                            .foregroundStyle(AppPalette.textPrimary)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            SettingsContent()
+                                .navigationTitle("Settings")
+                        } label: {
+                            Image(systemName: isModelHealthyForIndicator ? "gearshape.fill" : "gearshape")
+                        }
+                        .accessibilityLabel("Settings")
+                        .accessibilityValue(isModelHealthyForIndicator ? "AI model ready" : "AI model needs attention")
+                    }
                 }
             }
         }
@@ -133,7 +139,7 @@ struct LibraryTab: View {
             query: searchText,
             kind: filterKind,
             status: filterStatus,
-            libraryRevision: Self.libraryRevision(for: items)
+            contentRevision: libraryContentRevision
         )) {
             await recomputeSections()
         }
@@ -148,6 +154,12 @@ struct LibraryTab: View {
         }
         .onChange(of: sections.adjacent.map(\.id)) { _, _ in
             deepRankedAdjacent = nil
+        }
+        .onChange(of: items.count) { _, _ in
+            libraryContentRevision &+= 1
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .phathomLibraryContentDidChange)) { _ in
+            libraryContentRevision &+= 1
         }
         .onAppear {
             refreshModelIndicator()
@@ -166,8 +178,39 @@ struct LibraryTab: View {
         }
     }
 
+    /// Title row + Type/Status filters above the `List`. `LibraryFilterBar` uses anchored `popover`, not
+    /// `Menu`, to avoid UIMenu / `_UIReparentingView` console warnings with `NavigationStack` + `List` + `.searchable`.
+    private var libraryChromeAboveList: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center, spacing: 12) {
+                Text("Library")
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(AppPalette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if shouldShowManualKickoff {
+                    Button {
+                        runManualKickoff()
+                    } label: {
+                        Image(systemName: "play.circle.fill")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppPalette.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Start queued and needs attention processing")
+                    .accessibilityHint("Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now")
+                }
+            }
+            LibraryFilterBar(selectedKind: $filterKind, selectedStatus: $filterStatus)
+        }
+        .textCase(nil)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppPalette.background)
+    }
+
     @ViewBuilder
-    private var librarySection: some View {
+    private var libraryMatchingSection: some View {
         Section {
             if sections.matching.isEmpty {
                 Text(emptyLibraryMessage)
@@ -208,30 +251,6 @@ struct LibraryTab: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             }
-        } header: {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack(alignment: .center, spacing: 12) {
-                    Text("Library")
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(AppPalette.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if shouldShowManualKickoff {
-                        Button {
-                            runManualKickoff()
-                        } label: {
-                            Image(systemName: "play.circle.fill")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(AppPalette.accent)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Start queued and needs attention processing")
-                        .accessibilityHint("Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now")
-                    }
-                }
-                LibraryFilterBar(selectedKind: $filterKind, selectedStatus: $filterStatus)
-            }
-            .textCase(nil)
-            .padding(.bottom, 4)
         }
     }
 
@@ -329,9 +348,10 @@ struct LibraryTab: View {
     }
 
     private func recomputeSections() async {
-        // Debounce so rapid keystrokes don't run bucketing for every intermediate value.
-        // Skip the delay for the very first run so the list isn't briefly empty on appear.
-        if sectionsLoaded {
+        // Debounce non-empty search so rapid keystrokes don't run bucketing every intermediate value.
+        // Empty query: no delay (filter toggles stay snappy). First run: no delay so list isn't empty on appear.
+        let queryNonempty = !trimmedQuery.isEmpty
+        if sectionsLoaded, queryNonempty {
             try? await Task.sleep(nanoseconds: 150_000_000)
             if Task.isCancelled { return }
         }
@@ -382,6 +402,7 @@ struct LibraryTab: View {
     private func archiveFromLibrary(item: ContentItem) {
         ArchiveRetention.archive(item)
         try? modelContext.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
         NotificationCenter.default.post(
             name: .phathomDidArchiveItem,
             object: nil,
@@ -412,6 +433,7 @@ struct LibraryTab: View {
         guard item.readState != status else { return }
         item.readStatus = status.rawValue
         try? modelContext.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 
     private func refreshModelIndicator() {
@@ -437,40 +459,15 @@ struct LibraryTab: View {
         }
     }
 
-    /// Fingerprint of searchable fields + tags so bucketing reruns when content changes even if the
-    /// library count stays the same.
-    private static func libraryRevision(for items: [ContentItem]) -> Int {
-        var hasher = Hasher()
-        hasher.combine(items.count)
-        for item in items {
-            hasher.combine(item.id)
-            hasher.combine(item.kind)
-            hasher.combine(item.readStatus)
-            hasher.combine(item.title ?? "")
-            hasher.combine(item.displayTitle)
-            hasher.combine(item.displayHost ?? "")
-            hasher.combine(item.originalURL?.absoluteString ?? "")
-            hasher.combine(item.mediaDescription ?? "")
-            let raw = item.rawText ?? ""
-            hasher.combine(raw.count)
-            if !raw.isEmpty {
-                hasher.combine(String(raw.prefix(4_096)))
-            }
-            for tag in item.tags {
-                hasher.combine(tag.name)
-            }
-        }
-        return hasher.finalize()
-    }
 }
 
-/// Composite key for the bucketing `.task(id:)`: query, kind filter, and a content revision so edits
-/// to titles, bodies, or tags refresh results without requiring a count change.
+/// Composite key for the bucketing `.task(id:)`: query, filters, and `libraryContentRevision`
+/// (bumped via `LibraryContentChangeNotifier` and `items.count` so edits refresh without hashing the library on every body eval).
 private struct SearchSignature: Equatable {
     let query: String
     let kind: ContentKind?
     let status: ReadStatus?
-    let libraryRevision: Int
+    let contentRevision: Int
 }
 
 #Preview("Library") {

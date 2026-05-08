@@ -120,6 +120,7 @@ struct MainTabView: View {
         if let item = try? modelContext.fetch(fd).first {
             ArchiveRetention.restore(item)
             try? modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
         }
         undoArchiveItemID = nil
     }

@@ -36,6 +36,7 @@ public enum ShareCapture {
         item.failureReason = nil
         context.insert(item)
         try context.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
         item.indexInSpotlight()
     }
 
@@ -82,6 +83,7 @@ public enum ShareCapture {
         item.processingDetail = "Queued for capture"
         context.insert(item)
         try context.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 
     private static func insertNoteItem(context: ModelContext, rawMarkdown: String) throws {
@@ -96,5 +98,6 @@ public enum ShareCapture {
         item.processingDetail = "Preparing analysis…"
         context.insert(item)
         try context.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 }

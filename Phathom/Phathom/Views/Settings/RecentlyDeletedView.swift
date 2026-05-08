@@ -58,6 +58,7 @@ struct RecentlyDeletedView: View {
                                 Button("Restore") {
                                     ArchiveRetention.restore(item)
                                     try? modelContext.save()
+                                    LibraryContentChangeNotifier.postLibraryContentDidChange()
                                     NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
                                 }
                                 .tint(.green)
@@ -108,6 +109,7 @@ struct RecentlyDeletedView: View {
                     if let found = try? modelContext.fetch(fd).first {
                         modelContext.delete(found)
                         try? modelContext.save()
+                        LibraryContentChangeNotifier.postLibraryContentDidChange()
                         NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
                     }
                 }
@@ -141,6 +143,7 @@ struct RecentlyDeletedView: View {
             modelContext.delete(item)
         }
         try? modelContext.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
         NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
     }
 }

@@ -227,6 +227,7 @@ struct AddNewTab: View {
 
         do {
             try modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
             title = ""
             urlString = ""
             noteMarkdown = ""

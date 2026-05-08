@@ -23,6 +23,7 @@ enum ArchiveRetention {
             context.delete(item)
         }
         try? context.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 
     static func archive(_ item: ContentItem) {
