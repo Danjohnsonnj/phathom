@@ -18,4 +18,17 @@ public enum MarkdownNoteHelpers {
         }
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    /// Produces single-line plain preview from markdown-ish source text.
+    public static func plainSnippet(from markdown: String) -> String {
+        let lines = markdown
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { plainTitleLine(from: String($0)) }
+            .filter { !$0.isEmpty }
+        let combined = lines.joined(separator: " ")
+        return combined
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }

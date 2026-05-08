@@ -62,7 +62,11 @@ struct DetailView: View {
                             if !isFocused { commitTitleDraft() }
                         }
 
-                    if let snippet = summarySnippet {
+                    if let snippet = summarySnippetMarkdown {
+                        Markdown(snippet)
+                            .markdownTheme(.phathomNote)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if let snippet = summarySnippetPlain {
                         Text(snippet)
                             .font(.subheadline)
                             .foregroundStyle(AppPalette.textSecondary)
@@ -285,13 +289,26 @@ struct DetailView: View {
         item.tags.append(tag)
     }
 
-    private var summarySnippet: String? {
-        if item.kind == .note { return nil }
-        if let md = item.mediaDescription, !md.isEmpty {
+    private var summarySnippetMarkdown: String? {
+        if let source = item.sourceMarkdown,
+           let preview = SummaryLineSanitization.sourceMarkdownPreview(source, maxWords: 50)
+        {
+            return preview
+        }
+        return nil
+    }
+
+    private var summarySnippetPlain: String? {
+        if item.kind == .media, let md = item.mediaDescription, !md.isEmpty {
             let clean = SummaryLineSanitization.sanitizedBullet(md)
             if !clean.isEmpty { return clean }
         }
-        return item.displaySummaryBullets.first.map { "Summary, \($0)" }
+        if let raw = item.rawText,
+           let preview = SummaryLineSanitization.sourcePreview(raw, maxWords: 50)
+        {
+            return preview
+        }
+        return nil
     }
 
     @ViewBuilder
