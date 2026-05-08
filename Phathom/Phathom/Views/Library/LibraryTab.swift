@@ -60,6 +60,22 @@ struct LibraryTab: View {
             && ModelManager.hasReadableSelection
     }
 
+    private var queuedItems: [ContentItem] {
+        items.filter { !$0.isArchived && $0.status == .pending }
+    }
+
+    private var failedItems: [ContentItem] {
+        items.filter { !$0.isArchived && $0.status == .failed }
+    }
+
+    private var manualKickoffItemCount: Int {
+        queuedItems.count + failedItems.count
+    }
+
+    private var shouldShowManualKickoff: Bool {
+        manualKickoffItemCount > 0
+    }
+
     /// Number of skeleton rows shown in "Related by tags" while the expanded flow is running. Falls
     /// back to a small constant so placeholders are visible even when Stage 1 had no adjacent set.
     private var skeletonCount: Int {
@@ -186,10 +202,24 @@ struct LibraryTab: View {
             }
         } header: {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Library")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(AppPalette.textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Library")
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(AppPalette.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if shouldShowManualKickoff {
+                        Button {
+                            runManualKickoff()
+                        } label: {
+                            Image(systemName: "play.circle.fill")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(AppPalette.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Start queued and needs attention processing")
+                        .accessibilityHint("Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now")
+                    }
+                }
                 FilterPills(selected: $filterKind)
             }
             .textCase(nil)
@@ -348,6 +378,16 @@ struct LibraryTab: View {
             hasReadySelection = false
         }
         isModelHealthyForIndicator = hasReadySelection && !ModelManager.didLastLoadFail
+    }
+
+    private func runManualKickoff() {
+        if !queuedItems.isEmpty {
+            BackgroundPipeline.scheduleForegroundDrain()
+            BackgroundPipeline.scheduleIngest()
+        }
+        for item in failedItems {
+            _ = ProcessingRecovery.retryFailedItemIfNeeded(item, modelContext: modelContext)
+        }
     }
 
     /// Fingerprint of searchable fields + tags so bucketing reruns when content changes even if the
