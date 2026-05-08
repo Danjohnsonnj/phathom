@@ -18,6 +18,11 @@ struct DetailView: View {
     @State private var sourceExpanded = false
     @State private var titleDraft: String = ""
     @State private var relatedSheetTag: Tag?
+    @State private var isTagEditMode = false
+    @State private var isTagEditorPresented = false
+    @State private var tagEditorMode: TagEditorMode = .add
+    @State private var tagEditorDraft = ""
+    @State private var tagEditorErrorMessage: String?
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -33,7 +38,7 @@ struct DetailView: View {
     }
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 24) {
                 HeroSection(item: item)
 
@@ -75,20 +80,7 @@ struct DetailView: View {
 
                 summarySection
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Tags")
-                        .font(.headline.bold())
-                        .foregroundStyle(AppPalette.textPrimary)
-                    if item.tags.isEmpty {
-                        Text("No tags")
-                            .font(.subheadline)
-                            .foregroundStyle(AppPalette.textSecondary)
-                    } else {
-                        TagChipsView(tags: item.tags) { tag in
-                            relatedSheetTag = tag
-                        }
-                    }
-                }
+                tagsSection
 
                 if !item.decodedExtracts.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
@@ -110,28 +102,92 @@ struct DetailView: View {
         .background(AppPalette.background)
         .navigationTitle("Phathom")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { detailToolbar }
         .onAppear { syncTitleDraftFromItem() }
         .onChange(of: item.title) { _, _ in
             if !titleFocused { syncTitleDraftFromItem() }
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if let url = shareURL {
-                    ShareLink(item: url) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                } else {
-                    ShareLink(item: item.displayTitle) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
-            }
         }
         .sheet(item: $relatedSheetTag) { tag in
             RelatedItemsSheet(sourceItem: item, tappedTag: tag) { selected in
                 let id = selected.id
                 relatedSheetTag = nil
                 onRelatedItemSelected?(id)
+            }
+        }
+        .sheet(isPresented: $isTagEditorPresented) {
+            TagEditorSheetView(
+                title: tagEditorMode.title,
+                text: $tagEditorDraft,
+                showsDelete: tagEditorMode.isEditingExistingTag,
+                saveLabel: "Save",
+                onSave: { saveTagChanges(for: tagEditorMode) },
+                onDelete: tagEditorMode.isEditingExistingTag ? { deleteTag(for: tagEditorMode) } : nil,
+                onCancel: dismissTagEditor,
+                validationMessage: tagValidationMessage,
+                errorMessage: tagEditorErrorMessage
+            )
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var detailToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            if let url = shareURL {
+                ShareLink(item: url) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            } else {
+                ShareLink(item: item.displayTitle) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            }
+        }
+    }
+
+    private var tagValidationMessage: String? {
+        let trimmed = tagEditorDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if TagNameNormalizer.normalize(tagEditorDraft) == nil {
+            return "Use 2-40 chars: letters, numbers, or hyphens."
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private var tagsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Tags")
+                    .font(.headline.bold())
+                    .foregroundStyle(AppPalette.textPrimary)
+                Spacer()
+                Button(isTagEditMode ? "Done" : "Edit") {
+                    isTagEditMode.toggle()
+                }
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(AppPalette.accent)
+                .accessibilityLabel(isTagEditMode ? "Done editing tags" : "Edit tags")
+            }
+            if item.tags.isEmpty {
+                Text("No tags")
+                    .font(.subheadline)
+                    .foregroundStyle(AppPalette.textSecondary)
+            }
+            if isTagEditMode {
+                TagChipsView(
+                    tags: item.tags,
+                    onTap: { tag in presentEditSheet(for: tag) },
+                    accessibilityHintProvider: { _ in "Edit this tag" },
+                    addActionTitle: "Add new",
+                    onAddAction: presentAddSheet
+                )
+            } else {
+                TagChipsView(
+                    tags: item.tags,
+                    onTap: { tag in relatedSheetTag = tag },
+                    accessibilityHintProvider: { _ in "Show related items" }
+                )
             }
         }
     }
@@ -154,6 +210,79 @@ struct DetailView: View {
             item.indexInSpotlight()
         }
         titleDraft = newTitle ?? ""
+    }
+
+    private func presentEditSheet(for tag: Tag) {
+        tagEditorDraft = tag.name
+        tagEditorErrorMessage = nil
+        tagEditorMode = .edit(originalTagName: tag.name)
+        isTagEditorPresented = true
+    }
+
+    private func presentAddSheet() {
+        tagEditorDraft = ""
+        tagEditorErrorMessage = nil
+        tagEditorMode = .add
+        isTagEditorPresented = true
+    }
+
+    private func dismissTagEditor() {
+        isTagEditorPresented = false
+        tagEditorDraft = ""
+        tagEditorErrorMessage = nil
+    }
+
+    private func saveTagChanges(for sheet: TagEditorMode) {
+        guard let normalized = TagNameNormalizer.normalize(tagEditorDraft) else {
+            tagEditorErrorMessage = "Tag format invalid."
+            return
+        }
+        switch sheet {
+        case .add:
+            attachTagIfNeeded(named: normalized)
+        case let .edit(originalTagName):
+            if normalized == originalTagName {
+                dismissTagEditor()
+                return
+            }
+            item.tags.removeAll(where: { $0.name == originalTagName })
+            attachTagIfNeeded(named: normalized)
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            tagEditorErrorMessage = "Failed to save tag changes."
+            return
+        }
+        item.indexInSpotlight()
+        dismissTagEditor()
+    }
+
+    private func deleteTag(for sheet: TagEditorMode) {
+        guard case let .edit(originalTagName) = sheet else { return }
+        item.tags.removeAll(where: { $0.name == originalTagName })
+        do {
+            try modelContext.save()
+        } catch {
+            tagEditorErrorMessage = "Failed to delete tag."
+            return
+        }
+        item.indexInSpotlight()
+        dismissTagEditor()
+    }
+
+    private func attachTagIfNeeded(named normalizedName: String) {
+        guard !item.tags.contains(where: { $0.name == normalizedName }) else { return }
+        let descriptor = FetchDescriptor<Tag>(
+            predicate: #Predicate<Tag> { $0.name == normalizedName }
+        )
+        let existing = (try? modelContext.fetch(descriptor))?.first
+        let tag = existing ?? {
+            let created = Tag(name: normalizedName)
+            modelContext.insert(created)
+            return created
+        }()
+        item.tags.append(tag)
     }
 
     private var summarySnippet: String? {
@@ -463,6 +592,83 @@ struct DetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppPalette.textSecondary)
             }
+        }
+    }
+}
+
+private enum TagEditorMode {
+    case add
+    case edit(originalTagName: String)
+
+    var title: String {
+        switch self {
+        case .add:
+            return "Add Tag"
+        case .edit:
+            return "Edit Tag"
+        }
+    }
+
+    var isEditingExistingTag: Bool {
+        if case .edit = self { return true }
+        return false
+    }
+}
+
+private struct TagEditorSheetView: View {
+    let title: String
+    @Binding var text: String
+    let showsDelete: Bool
+    let saveLabel: String
+    let onSave: () -> Void
+    let onDelete: (() -> Void)?
+    let onCancel: () -> Void
+    let validationMessage: String?
+    let errorMessage: String?
+
+    private var normalizedDraft: String? {
+        TagNameNormalizer.normalize(text)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                TextField("Tag", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                if let validationMessage {
+                    Text(validationMessage)
+                        .font(.caption)
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack(spacing: 10) {
+                    Button("Cancel", action: onCancel)
+                        .buttonStyle(.bordered)
+
+                    if showsDelete, let onDelete {
+                        Button("Delete", role: .destructive, action: onDelete)
+                            .buttonStyle(.bordered)
+                    }
+
+                    Button(saveLabel, action: onSave)
+                        .buttonStyle(.borderedProminent)
+                        .disabled(normalizedDraft == nil)
+                }
+            }
+            .padding(16)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

@@ -5,6 +5,11 @@ struct TagChipsView: View {
     let tags: [Tag]
     /// When provided, each chip becomes a tap target that calls back with the tapped tag.
     var onTap: ((Tag) -> Void)? = nil
+    /// Optional accessibility hint provider for each chip action.
+    var accessibilityHintProvider: ((Tag) -> String)? = nil
+    /// Optional inline action rendered as a chip (used by detail tag edit mode).
+    var addActionTitle: String? = nil
+    var onAddAction: (() -> Void)? = nil
 
     var body: some View {
         FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
@@ -17,11 +22,30 @@ struct TagChipsView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Tag: \(tag.name)")
-                    .accessibilityHint("Show related items")
+                    .accessibilityHint(accessibilityHintProvider?(tag) ?? "Activate tag action")
                     .accessibilityAddTraits(.isButton)
                 } else {
                     chipLabel(for: tag)
                 }
+            }
+            if let addActionTitle, let onAddAction {
+                Button {
+                    onAddAction()
+                } label: {
+                    Text(addActionTitle)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppPalette.textPrimary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(AppPalette.surfaceNested)
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(addActionTitle)
+                .accessibilityHint("Add tag")
+                .accessibilityAddTraits(.isButton)
             }
         }
     }
