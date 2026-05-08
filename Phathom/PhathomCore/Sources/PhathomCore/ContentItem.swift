@@ -25,6 +25,9 @@ public final class ContentItem {
     public var failureReason: String?
     public var isArchived: Bool = false
     public var archivedAt: Date? = nil
+    /// User-facing triage status (`new` / `read` / `filed`). Stored as raw string so SwiftData can
+    /// apply a lightweight migration on existing rows: missing values materialize as `"new"`.
+    public var readStatus: String = ReadStatus.new.rawValue
     @Relationship(deleteRule: .nullify) public var tags: [Tag] = []
 
     public init(
@@ -59,6 +62,8 @@ public extension ContentItem {
     var kind: ContentKind { ContentKind(rawValue: contentKind) ?? .web }
 
     var status: ProcessingStatus { ProcessingStatus(rawValue: processingStatus) ?? .pending }
+
+    var readState: ReadStatus { ReadStatus(rawValue: readStatus) ?? .new }
 
     /// Tag display names in relationship order (same as `tags.map(\.name)`).
     var tagNames: [String] { tags.map(\.name) }

@@ -33,14 +33,19 @@ enum LibrarySearchService {
     }
 
     /// Partition `items` for the Library list. Callers pass the already-loaded `@Query` snapshot;
-    /// kind filtering happens here so adjacency respects the active filter pill.
+    /// kind / status filtering happens here so adjacency respects the active filter selection.
     static func bucket(
         query: String,
         items: [ContentItem],
-        filterKind: ContentKind?
+        filterKind: ContentKind?,
+        filterStatus: ReadStatus? = nil
     ) -> Sections {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let (kindFiltered, tagIndex) = buildTagIndex(items: items, filterKind: filterKind)
+        let (kindFiltered, tagIndex) = buildTagIndex(
+            items: items,
+            filterKind: filterKind,
+            filterStatus: filterStatus
+        )
         guard !normalized.isEmpty else {
             return Sections(matching: kindFiltered, adjacent: [], resolvedTagName: nil)
         }
@@ -142,25 +147,28 @@ enum LibrarySearchService {
             .map(\.item)
     }
 
-    /// Build the same kind-filtered tag inverted index used inside `bucket`. Exposed so that the
+    /// Build the kind/status-filtered tag inverted index used inside `bucket`. Exposed so that the
     /// `diveDeeper` flow can reuse it without re-running Stage 1 substring matching.
+    /// The returned `kindFiltered` array reflects both the kind and status filters when provided.
     static func buildTagIndex(
         items: [ContentItem],
-        filterKind: ContentKind?
+        filterKind: ContentKind?,
+        filterStatus: ReadStatus? = nil
     ) -> (kindFiltered: [ContentItem], tagIndex: [String: [ContentItem]]) {
-        let kindFiltered: [ContentItem]
+        var pool = items
         if let filterKind {
-            kindFiltered = items.filter { $0.kind == filterKind }
-        } else {
-            kindFiltered = items
+            pool = pool.filter { $0.kind == filterKind }
+        }
+        if let filterStatus {
+            pool = pool.filter { $0.readState == filterStatus }
         }
         var tagIndex: [String: [ContentItem]] = [:]
-        for item in kindFiltered {
+        for item in pool {
             for tag in item.tags {
                 tagIndex[tag.name, default: []].append(item)
             }
         }
-        return (kindFiltered, tagIndex)
+        return (pool, tagIndex)
     }
 
     /// "Dive deeper": semantic + prefix tag expansion via Llama, then `computeAdjacent` over the
@@ -173,12 +181,17 @@ enum LibrarySearchService {
         query: String,
         sections: Sections,
         allItems: [ContentItem],
-        filterKind: ContentKind?
+        filterKind: ContentKind?,
+        filterStatus: ReadStatus? = nil
     ) async -> [ContentItem] {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else { return sections.adjacent }
 
-        let (kindFiltered, tagIndex) = buildTagIndex(items: allItems, filterKind: filterKind)
+        let (kindFiltered, tagIndex) = buildTagIndex(
+            items: allItems,
+            filterKind: filterKind,
+            filterStatus: filterStatus
+        )
         let vocabulary = Array(tagIndex.keys)
         guard !vocabulary.isEmpty else { return sections.adjacent }
 

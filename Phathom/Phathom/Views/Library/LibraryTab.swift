@@ -15,6 +15,7 @@ struct LibraryTab: View {
     private var items: [ContentItem]
 
     @State private var filterKind: ContentKind?
+    @State private var filterStatus: ReadStatus?
     @State private var searchText = ""
     @State private var navPath = NavigationPath()
     @State private var isModelHealthyForIndicator = false
@@ -131,6 +132,7 @@ struct LibraryTab: View {
         .task(id: SearchSignature(
             query: searchText,
             kind: filterKind,
+            status: filterStatus,
             libraryRevision: Self.libraryRevision(for: items)
         )) {
             await recomputeSections()
@@ -139,6 +141,9 @@ struct LibraryTab: View {
             deepRankedAdjacent = nil
         }
         .onChange(of: filterKind) { _, _ in
+            deepRankedAdjacent = nil
+        }
+        .onChange(of: filterStatus) { _, _ in
             deepRankedAdjacent = nil
         }
         .onChange(of: sections.adjacent.map(\.id)) { _, _ in
@@ -183,6 +188,9 @@ struct LibraryTab: View {
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        readStatusSwipeButtons(for: item)
+                    }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button {
                             archiveFromLibrary(item: item)
@@ -220,7 +228,7 @@ struct LibraryTab: View {
                         .accessibilityHint("Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now")
                     }
                 }
-                FilterPills(selected: $filterKind)
+                LibraryFilterBar(selectedKind: $filterKind, selectedStatus: $filterStatus)
             }
             .textCase(nil)
             .padding(.bottom, 4)
@@ -266,6 +274,9 @@ struct LibraryTab: View {
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        readStatusSwipeButtons(for: item)
+                    }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button {
                             archiveFromLibrary(item: item)
@@ -327,7 +338,13 @@ struct LibraryTab: View {
         let snapshot = items
         let query = searchText
         let kind = filterKind
-        let computed = LibrarySearchService.bucket(query: query, items: snapshot, filterKind: kind)
+        let status = filterStatus
+        let computed = LibrarySearchService.bucket(
+            query: query,
+            items: snapshot,
+            filterKind: kind,
+            filterStatus: status
+        )
         if Task.isCancelled { return }
         sections = computed
         sectionsLoaded = true
@@ -337,6 +354,7 @@ struct LibraryTab: View {
         guard ModelManager.hasReadableSelection else { return }
         let querySnapshot = searchText
         let kindSnapshot = filterKind
+        let statusSnapshot = filterStatus
         let sectionsSnapshot = sections
         let allItemsSnapshot = items
 
@@ -345,11 +363,15 @@ struct LibraryTab: View {
             query: querySnapshot,
             sections: sectionsSnapshot,
             allItems: allItemsSnapshot,
-            filterKind: kindSnapshot
+            filterKind: kindSnapshot,
+            filterStatus: statusSnapshot
         )
-        // If the user changed the query or filter while ranking, drop the result rather than apply
-        // it to a different section.
-        guard searchText == querySnapshot, filterKind == kindSnapshot else {
+        // If the user changed the query or any filter while ranking, drop the result rather than
+        // apply it to a different section.
+        guard searchText == querySnapshot,
+              filterKind == kindSnapshot,
+              filterStatus == statusSnapshot
+        else {
             isDeepRanking = false
             return
         }
@@ -365,6 +387,31 @@ struct LibraryTab: View {
             object: nil,
             userInfo: ["itemID": item.id, "switchToLibrary": true]
         )
+    }
+
+    /// Leading-swipe buttons: only the two statuses the item is **not** currently in,
+    /// in the canonical `new -> read -> filed` order. Mirrors iOS Mail's leading-swipe affordance
+    /// while letting the user pick any non-current status in one gesture.
+    @ViewBuilder
+    private func readStatusSwipeButtons(for item: ContentItem) -> some View {
+        let current = item.readState
+        ForEach(ReadStatus.allCases.filter { $0 != current }, id: \.self) { target in
+            Button {
+                setReadStatus(target, for: item)
+            } label: {
+                Label(
+                    ReadStatusPresentation.swipeActionLabel(for: target),
+                    systemImage: ReadStatusPresentation.symbolName(for: target)
+                )
+            }
+            .tint(ReadStatusPresentation.swipeTint(for: target))
+        }
+    }
+
+    private func setReadStatus(_ status: ReadStatus, for item: ContentItem) {
+        guard item.readState != status else { return }
+        item.readStatus = status.rawValue
+        try? modelContext.save()
     }
 
     private func refreshModelIndicator() {
@@ -398,6 +445,7 @@ struct LibraryTab: View {
         for item in items {
             hasher.combine(item.id)
             hasher.combine(item.kind)
+            hasher.combine(item.readStatus)
             hasher.combine(item.title ?? "")
             hasher.combine(item.displayTitle)
             hasher.combine(item.displayHost ?? "")
@@ -421,6 +469,7 @@ struct LibraryTab: View {
 private struct SearchSignature: Equatable {
     let query: String
     let kind: ContentKind?
+    let status: ReadStatus?
     let libraryRevision: Int
 }
 

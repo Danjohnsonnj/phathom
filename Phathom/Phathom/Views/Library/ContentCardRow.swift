@@ -46,10 +46,19 @@ struct ContentCardRow: View {
             )
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(item.displayTitle)
-                    .font(.headline)
-                    .foregroundStyle(AppPalette.textPrimary)
-                    .lineLimit(1)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if item.readState == .new {
+                        Circle()
+                            .fill(AppPalette.accent)
+                            .frame(width: 8, height: 8)
+                            .accessibilityLabel("Unread")
+                            .accessibilityAddTraits(.isStaticText)
+                    }
+                    Text(item.displayTitle)
+                        .font(.headline)
+                        .foregroundStyle(AppPalette.textPrimary)
+                        .lineLimit(1)
+                }
 
 
                 if item.status != .completed {
