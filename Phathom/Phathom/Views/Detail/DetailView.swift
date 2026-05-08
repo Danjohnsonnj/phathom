@@ -82,6 +82,8 @@ struct DetailView: View {
 
                 failedSection
 
+                readingStatusSection
+
                 summarySection
 
                 tagsSection
@@ -317,6 +319,26 @@ struct DetailView: View {
     @ViewBuilder
     private var detailStatusChip: some View {
         ProcessingStatusBadge(status: item.status, onTap: detailChipTapAction)
+    }
+
+    private var readingStatusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Reading status", selection: readStatusBinding) {
+                ForEach(ReadStatus.allCases, id: \.self) { status in
+                    Text(ReadStatusPresentation.label(for: status)).tag(status)
+                }
+            }
+            .pickerStyle(.segmented)
+            .tint(AppPalette.accent)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var readStatusBinding: Binding<ReadStatus> {
+        Binding(
+            get: { item.readState },
+            set: { item.applyReadStatus($0, modelContext: modelContext) }
+        )
     }
 
     private var detailChipTapAction: (() -> Void)? {

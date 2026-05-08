@@ -430,10 +430,7 @@ struct LibraryTab: View {
     }
 
     private func setReadStatus(_ status: ReadStatus, for item: ContentItem) {
-        guard item.readState != status else { return }
-        item.readStatus = status.rawValue
-        try? modelContext.save()
-        LibraryContentChangeNotifier.postLibraryContentDidChange()
+        item.applyReadStatus(status, modelContext: modelContext)
     }
 
     private func refreshModelIndicator() {
