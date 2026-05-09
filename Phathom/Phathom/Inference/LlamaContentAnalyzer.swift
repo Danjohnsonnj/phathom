@@ -27,6 +27,7 @@ actor LlamaContentAnalyzer {
     /// Character caps for fitting (token budget is enforced separately); avoids tokenizing megabyte notes.
     private static let summaryArticleCharCap = 120_000
     private static let tagsArticleCharCap = 60_000
+    private static let tagsFromDerivedArticleCharCap = 12_000
     private static let extractsArticleCharCap = 120_000
 
     init(bridge: LlamaCppBridge = LlamaCppRuntime()) {
@@ -95,11 +96,11 @@ actor LlamaContentAnalyzer {
     }
 
     // MARK: - Article-first prompt builders
-    // The article body appears first so that all three task prompts share an identical prefix
+    // The article body appears first so that all summary/extract prompts share an identical prefix
     // (everything up to and including </ARTICLE>). This enables KV cache prefix reuse via
-    // llama_memory_seq_cp: the article is prefilled once into seq 0, then copied O(1) to seq 1/2/3
-    // before each task's suffix is decoded. The shared prefix must be byte-for-byte identical across
-    // all three builders — do not add whitespace, headers, or role text before <ARTICLE>.
+    // llama_memory_seq_cp: the article is prefilled once into seq 0, then copied O(1) to each task sequence.
+    // The shared prefix must be byte-for-byte identical across all article-based builders — do not add
+    // whitespace, headers, or role text before <ARTICLE>.
 
     nonisolated static func summaryTaskSuffix() -> String {
         """
@@ -159,6 +160,40 @@ actor LlamaContentAnalyzer {
         Example:
         Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
         Tags: ["eu-policy","climate-change","emissions","news"]
+        </CONSTRAINTS>
+
+        <IMPORTANT>
+        Output ONLY a JSON array of lowercase kebab-case tags.
+        </IMPORTANT>
+        """
+    }
+
+    nonisolated static func tagsFromDerivedTaskSuffix() -> String {
+        """
+
+        <TASK>tag</TASK>
+
+        <ROLE>You are an expert analyst specializing in producing topic tags from summarized evidence.</ROLE>
+
+        <CONTEXT>
+        Use only the <DERIVED_ANALYSIS> block below. Do not use external context.
+        </CONTEXT>
+
+        <INSTRUCTIONS>
+        1. Analyze the summary bullets and extracts in the derived block.
+        2. Select 2-5 tags that categorize it based on themes and concrete takeaways.
+        3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
+        4. Assign 1-2 content-type tags that accurately describe the likely format.
+        5. Verify all tags against the CONSTRAINTS before outputting.
+        </INSTRUCTIONS>
+
+        <CONSTRAINTS>
+        - Output ONLY a JSON array of 3-8 strings.
+        - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
+        - Allowed characters: a-z, 0-9, hyphen.
+        - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
+        - Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
+        - No duplicates, no hashtags, no commentary.
         </CONSTRAINTS>
 
         <IMPORTANT>
@@ -243,6 +278,31 @@ actor LlamaContentAnalyzer {
             "<ARTICLE>\n\(body)\n</ARTICLE>" + Self.extractsTaskSuffix()
         }
         return LLMJSONExtractor.decodeExtracts(out) ?? []
+    }
+
+    func generateTagsFromDerived(
+        summaryBullets: [String],
+        extracts: [Extract]
+    ) async throws -> [String] {
+        let encoder = JSONEncoder()
+        let summaryJSON = String(data: (try? encoder.encode(summaryBullets)) ?? Data(), encoding: .utf8) ?? "[]"
+        let extractsJSON = String(data: (try? encoder.encode(extracts)) ?? Data(), encoding: .utf8) ?? "[]"
+        let derived = """
+        <DERIVED_ANALYSIS>
+        SummaryBullets: \(summaryJSON)
+        Extracts: \(extractsJSON)
+        </DERIVED_ANALYSIS>
+        """
+
+        let out = try await collectTemplatedFittingArticleBody(
+            articleText: derived,
+            maxArticleChars: Self.tagsFromDerivedArticleCharCap,
+            maxTokens: 96
+        ) { body in
+            "\(body)\n" + Self.tagsFromDerivedTaskSuffix()
+        }
+        let tags = LLMJSONExtractor.decodeStringArray(out) ?? []
+        return tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
     }
 
     /// Re-rank "adjacent" candidate items (none of which contain the tapped tag) by conceptual relatedness
@@ -382,13 +442,12 @@ actor LlamaContentAnalyzer {
     /// so callers can checkpoint to persistent storage between tasks.
     enum PartialAnalysis {
         case summary([String])
-        case tags([String])
         case extracts([Extract])
     }
 
-    /// Runs summarisation, tagging, and extraction in a single model session using KV cache prefix
+    /// Runs summarisation and extraction in a single model session using KV cache prefix
     /// reuse. The article body is prefilled once; each task's suffix is decoded against that shared
-    /// KV state. `onPartial` fires after each task in order (summary → tags → extracts).
+    /// KV state. `onPartial` fires after each task in order (summary → extracts).
     ///
     /// Falls back to sequential `generate*` calls (with adaptive token fitting) when:
     ///   - the bridge is a stub (`modelNotLoaded`), or
@@ -399,10 +458,8 @@ actor LlamaContentAnalyzer {
         _ articleText: String,
         onPartial: (PartialAnalysis) -> Void
     ) async throws {
-        // Cap at `tagsArticleCharCap` — the most constrained task's char budget — so the shared
-        // prefix is conservative and unlikely to hit the bridge's token budget check. The sequential
-        // fallback (which uses per-task caps and binary-search fitting) handles any remaining overflow.
-        let pool = String(articleText.prefix(Self.tagsArticleCharCap))
+        // Use shared article caps for summary + extracts.
+        let pool = String(articleText.prefix(min(Self.summaryArticleCharCap, Self.extractsArticleCharCap)))
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         // The shared prefix is the article wrapped in <ARTICLE>…</ARTICLE>.
@@ -411,7 +468,6 @@ actor LlamaContentAnalyzer {
 
         let taskDefs: [(suffix: String, maxTokens: Int, temperature: Double)] = [
             (Self.summaryTaskSuffix(), 512,  0.15),
-            (Self.tagsTaskSuffix(),    96,   0.15),
             (Self.extractsTaskSuffix(), 512, 0.15),
         ]
 
@@ -429,10 +485,8 @@ actor LlamaContentAnalyzer {
             // Stub runtime or combined budget too large — fall back to sequential calls with
             // per-task adaptive token fitting.
             let summaryOut  = try await generateSummary(articleText: articleText)
-            let tagsOut     = try await generateTags(articleText: articleText)
             let extractsOut = try await generateExtracts(articleText: articleText)
             onPartial(.summary(summaryOut))
-            onPartial(.tags(tagsOut))
             onPartial(.extracts(extractsOut))
             return
         }
@@ -442,14 +496,7 @@ actor LlamaContentAnalyzer {
             onPartial(.summary(LLMJSONExtractor.decodeStringArray(partials[0]) ?? []))
         }
         if partials.indices.contains(1) {
-            let raw = LLMJSONExtractor.decodeStringArray(partials[1]) ?? []
-            let normalized = raw
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-            onPartial(.tags(normalized))
-        }
-        if partials.indices.contains(2) {
-            onPartial(.extracts(LLMJSONExtractor.decodeExtracts(partials[2]) ?? []))
+            onPartial(.extracts(LLMJSONExtractor.decodeExtracts(partials[1]) ?? []))
         }
     }
 

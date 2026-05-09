@@ -519,7 +519,7 @@ struct DetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint(
-            "Replaces model-derived tags from the article text. Summary and key extracts stay the same. For Instagram and TikTok web captures, caption hashtags are still merged after tagging."
+            "Replaces tags from summary + key extracts. For Instagram and TikTok web captures, caption hashtags are still merged after tagging."
         )
     }
 

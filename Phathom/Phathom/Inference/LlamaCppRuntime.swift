@@ -108,7 +108,7 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         // Physical (kernel-level) batch. 1024 is better than the llama.cpp default for prefill-heavy
         // pipelines (long articles); must be <= n_batch, which is always satisfied here.
         contextParams.n_ubatch = config.physicalBatchSize
-        // Support up to 4 concurrent sequences: seq 0 (shared prefix) + 3 task forks (summary/tags/extracts).
+        // Support up to 4 concurrent sequences: seq 0 (shared prefix) + task forks.
         contextParams.n_seq_max = 4
         // Flash Attention: AUTO lets llama.cpp enable it when both model and backend support it (Metal does
         // for Llama-3). Using AUTO rather than ENABLED so non-Llama-3 GGUFs degrade gracefully.

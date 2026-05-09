@@ -30,7 +30,7 @@ Phathom captures **web** items with [`WebIngestService.scrape`](../../Phathom/Ph
 
 ## Hashtag merge
 
-After `session.tags(article)`, **`mergePlatformHashtagTags`** appends tags from `#` tokens in `rawText` for web items whose `displayHost` contains **`instagram`** or **`tiktok`**. Llama tags and hashtag tags are **union**-deduped.
+After `session.tagsFromDerived(...)`, **`mergePlatformHashtagTags`** appends tags from `#` tokens in `rawText` for web items whose `displayHost` contains **`instagram`** or **`tiktok`**. Llama tags and hashtag tags are still merged by dedupe.
 
 ## Failure modes
 

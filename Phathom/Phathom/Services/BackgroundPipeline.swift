@@ -42,7 +42,9 @@ enum BackgroundPipeline: Sendable {
 
     private nonisolated static func saveAndNotify(_ ctx: ModelContext) {
         try? ctx.save()
-        LibraryContentChangeNotifier.postLibraryContentDidChange()
+        DispatchQueue.main.async {
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
+        }
     }
 
     nonisolated static func register(modelContainer: ModelContainer) {
@@ -432,10 +434,9 @@ enum BackgroundPipeline: Sendable {
                 item.processingDetail = "Generating summary…"
                 saveAndNotify(ctx)
 
-                // All three analysis tasks share a single prefill of the article body via KV cache
+                // Summary and extract tasks share a single prefill of the article body via KV cache
                 // prefix reuse. The `onPartial` callback fires after each task's decode completes
-                // — before the next task's suffix begins — preserving the original checkpointing
-                // granularity (summary saved before tags decode, tags saved before extracts decode).
+                // — before the next task's suffix begins — preserving the checkpointing granularity.
                 var stageStart = Date()
 
                 try await session.analyze(article) { partial in
@@ -447,28 +448,19 @@ enum BackgroundPipeline: Sendable {
                         saveAndNotify(ctx)
 
                         if cancel() { return }
-                        item.processingStatus = ProcessingStatus.tagging.rawValue
-                        item.processingDetail = "Auto-tagging…"
-                        saveAndNotify(ctx)
-
-                    case .tags(let tagNames):
-                        PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: stageStart)
-                        stageStart = Date()
-                        let tagDbStart = Date()
-                        // Replace the item's tag set for this run (do not accumulate).
-                        item.tags.removeAll()
-                        upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
-                        mergePlatformHashtagTags(item: item, context: ctx)
-                        PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
-                        saveAndNotify(ctx)
-
-                        if cancel() { return }
-                        item.processingDetail = "Extracting key information…"
+                        item.processingStatus = ProcessingStatus.extracting.rawValue
+                        item.processingDetail = "Extracting details…"
                         saveAndNotify(ctx)
 
                     case .extracts(let extracts):
                         PipelineMetrics.logSyncElapsed("extracts_llm", itemID: itemID, start: stageStart)
                         if extracts.isEmpty { item.extracts = nil } else { item.encodeExtracts(extracts) }
+                        saveAndNotify(ctx)
+
+                        if cancel() { return }
+                        item.processingStatus = ProcessingStatus.tagging.rawValue
+                        item.processingDetail = "Auto-tagging…"
+                        saveAndNotify(ctx)
                     }
                 }
 
@@ -477,6 +469,31 @@ enum BackgroundPipeline: Sendable {
                     checkpointAfterCancel(item: item)
                     saveAndNotify(ctx)
                     throw PipelineLlmCancelled()
+                }
+
+                // Final cancel check before tagging to avoid starting tagsFromDerived if cancelled
+                if cancel() {
+                    await session.cancelInFlight()
+                    checkpointAfterCancel(item: item)
+                    saveAndNotify(ctx)
+                    throw PipelineLlmCancelled()
+                }
+
+                do {
+                    try await applyDerivedTaggingForPipelineItem(
+                        item: item,
+                        itemID: itemID,
+                        session: session,
+                        context: ctx
+                    )
+                } catch {
+                    print("[PhathomPipeline] derive_tags_failed item=\(itemID.uuidString) error=\(error.localizedDescription)")
+                    item.processingStatus = ProcessingStatus.failed.rawValue
+                    item.failureReason = "Tag generation failed: \(error.localizedDescription)"
+                    item.processingDetail = nil
+                    saveAndNotify(ctx)
+                    // Throw to exit the withSession closure and trigger outer error handling
+                    throw error
                 }
 
                 item.processingStatus = ProcessingStatus.completed.rawValue
@@ -505,7 +522,7 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
-    /// User-initiated tags-only refresh: `session.tags`, replace tags + platform hashtag merge; stays `completed`.
+    /// User-initiated tags-only refresh: derives tags from saved summary+extracts, then merges platform hashtags.
     fileprivate nonisolated static func performRetag(modelContainer: ModelContainer, itemID: UUID) async {
         reviveAbortedPipelineItems(modelContainer: modelContainer)
 
@@ -542,24 +559,21 @@ enum BackgroundPipeline: Sendable {
 
         guard !item.isArchived,
               item.status == .completed,
-              item.kind == .web || item.kind == .note,
-              let raw = item.rawText,
-              !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+              item.kind == .web || item.kind == .note
         else {
             item.processingDetail = nil
             saveAndNotify(ctx)
             return
         }
 
-        let article = String(raw.prefix(12_000))
-
         do {
             try await SharedLlamaInference.shared.withSession(unloadOnExit: true, pipelineItemID: itemID) { session in
-                let tagNames = try await session.tags(article)
-                item.tags.removeAll()
-                upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
-                mergePlatformHashtagTags(item: item, context: ctx)
-                saveAndNotify(ctx)
+                try await applyDerivedTaggingForPipelineItem(
+                    item: item,
+                    itemID: itemID,
+                    session: session,
+                    context: ctx
+                )
             }
 
             let verifyDesc = FetchDescriptor<ContentItem>(
@@ -586,6 +600,32 @@ enum BackgroundPipeline: Sendable {
             }
             print("[PhathomPipeline] retag_failed item=\(itemID.uuidString) error=\(error.localizedDescription)")
         }
+    }
+
+    fileprivate nonisolated static func applyDerivedTaggingForPipelineItem(
+        item: ContentItem,
+        itemID: UUID,
+        session: ModelSession,
+        context: ModelContext
+    ) async throws {
+        let summaryBullets = item.decodedSummaryBullets
+        let extracts = item.decodedExtracts
+        if summaryBullets.isEmpty && extracts.isEmpty {
+            item.processingDetail = nil
+            return
+        }
+
+        let tagsLLMStart = Date()
+        let tagNames = try await session.tagsFromDerived(summaryBullets: summaryBullets, extracts: extracts)
+        PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: tagsLLMStart)
+
+        let tagDbStart = Date()
+        item.tags.removeAll()
+        upsertTagsOnItem(tagNames: tagNames, item: item, context: context)
+        mergePlatformHashtagTags(item: item, context: context)
+        PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
+        saveAndNotify(context)
+        item.processingDetail = nil
     }
 
     nonisolated private static func checkpointAfterCancel(item: ContentItem) {

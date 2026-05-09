@@ -40,10 +40,12 @@ To save tokens, **do not** scan the entire `/Phathom` directory. Use these speci
 - **Check Environment:** Verify `Phathom/vendor/llama/llama.xcframework` exists. If not, run `bash scripts/setup-llama-xcframework.sh`.
 - **Verify GGUF Path:** The app uses security-scoped bookmarks. If testing in Simulator, remember it is **CPU-only**; don't optimize for GPU/ANE performance unless targeting a physical device.
 - **Active Task:** We are currently in **Phase 2 (Pipeline Refinement)**. Phase 3 (RAG/Chat) is a placeholder—do not implement RAG logic unless explicitly directed.
+- **Confirm With User:** Indicate understanding by saying "Read and ready" at the beginning of a new session.
 
 ## PR & Development Checklist
 
 - [ ] When in Plan Mode and beginning a new plan, always ask clarifying questions to the user about product requirements, UI/UX and technical approaches.
+- [ ] When making a plan and there are several reasonablr approachs, **ask the user for their preference** instead of adding both to the plan. Agents building the plan must have clear guidance for implementation.
 - [ ] Ensure all SwiftData changes include a migration plan or a "Clear Library" debug option.
 - [ ] Update `docs/decisions.md` if changing the inference lifecycle.
 - [ ] Verify that new ingest paths support `sourceMarkdown` fallback.

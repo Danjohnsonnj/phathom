@@ -11,6 +11,7 @@ public enum ProcessingStatus: String, Codable, CaseIterable, Sendable {
     case scraping
     case embedding
     case summarizing
+    case extracting
     case tagging
     case completed
     case failed

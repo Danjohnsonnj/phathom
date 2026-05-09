@@ -13,6 +13,8 @@ enum ProcessingStatusPresentation {
             return "Preparing analysis"
         case .summarizing:
             return "Generating summary"
+        case .extracting:
+            return "Extracting details"
         case .tagging:
             return "Creating tags"
         case .completed:

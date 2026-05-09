@@ -7,6 +7,7 @@ public extension Notification.Name {
 }
 
 public enum LibraryContentChangeNotifier {
+    @MainActor
     public static func postLibraryContentDidChange() {
         NotificationCenter.default.post(name: .phathomLibraryContentDidChange, object: nil)
     }
