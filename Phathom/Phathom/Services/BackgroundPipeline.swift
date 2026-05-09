@@ -68,6 +68,13 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
+    nonisolated static func scheduleRetag(itemID: UUID) {
+        Task(priority: .utility) {
+            guard let container = containerRef else { return }
+            await PipelineWorkGate.shared.performRetag(modelContainer: container, itemID: itemID)
+        }
+    }
+
     nonisolated static func scheduleIngest() {
         Task { @MainActor in
             let request = BGAppRefreshTaskRequest(identifier: "com.phathom.ingest")
@@ -498,6 +505,89 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
+    /// User-initiated tags-only refresh: `session.tags`, replace tags + platform hashtag merge; stays `completed`.
+    fileprivate nonisolated static func performRetag(modelContainer: ModelContainer, itemID: UUID) async {
+        reviveAbortedPipelineItems(modelContainer: modelContainer)
+
+        if ThermalMonitor.shouldThrottle {
+            let ctx = ModelContext(modelContainer)
+            let throttleDesc = FetchDescriptor<ContentItem>(
+                predicate: #Predicate<ContentItem> { $0.id == itemID }
+            )
+            if let item = try? ctx.fetch(throttleDesc).first {
+                item.processingDetail = nil
+                saveAndNotify(ctx)
+            }
+            scheduleAll()
+            return
+        }
+
+        if !ModelManager.hasReadableSelection {
+            let ctx = ModelContext(modelContainer)
+            let noModelDesc = FetchDescriptor<ContentItem>(
+                predicate: #Predicate<ContentItem> { $0.id == itemID }
+            )
+            if let item = try? ctx.fetch(noModelDesc).first {
+                item.processingDetail = nil
+                saveAndNotify(ctx)
+            }
+            return
+        }
+
+        let ctx = ModelContext(modelContainer)
+        let desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { $0.id == itemID }
+        )
+        guard let item = try? ctx.fetch(desc).first else { return }
+
+        guard !item.isArchived,
+              item.status == .completed,
+              item.kind == .web || item.kind == .note,
+              let raw = item.rawText,
+              !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            item.processingDetail = nil
+            saveAndNotify(ctx)
+            return
+        }
+
+        let article = String(raw.prefix(12_000))
+
+        do {
+            try await SharedLlamaInference.shared.withSession(unloadOnExit: true, pipelineItemID: itemID) { session in
+                let tagNames = try await session.tags(article)
+                item.tags.removeAll()
+                upsertTagsOnItem(tagNames: tagNames, item: item, context: ctx)
+                mergePlatformHashtagTags(item: item, context: ctx)
+                saveAndNotify(ctx)
+            }
+
+            let verifyDesc = FetchDescriptor<ContentItem>(
+                predicate: #Predicate<ContentItem> { $0.id == itemID }
+            )
+            if let fresh = try? ctx.fetch(verifyDesc).first,
+               !fresh.isArchived,
+               fresh.status == .completed {
+                fresh.processingDetail = nil
+                fresh.failureReason = nil
+                saveAndNotify(ctx)
+                fresh.indexInSpotlight()
+            } else {
+                item.processingDetail = nil
+                saveAndNotify(ctx)
+            }
+        } catch {
+            let errDesc = FetchDescriptor<ContentItem>(
+                predicate: #Predicate<ContentItem> { $0.id == itemID }
+            )
+            if let fresh = try? ctx.fetch(errDesc).first {
+                fresh.processingDetail = nil
+                saveAndNotify(ctx)
+            }
+            print("[PhathomPipeline] retag_failed item=\(itemID.uuidString) error=\(error.localizedDescription)")
+        }
+    }
+
     nonisolated private static func checkpointAfterCancel(item: ContentItem) {
         if item.rawText != nil {
             item.processingStatus = ProcessingStatus.embedding.rawValue
@@ -596,6 +686,12 @@ private final class PipelineWorkGate: @unchecked Sendable {
                 modelContainer: modelContainer,
                 cancel: cancel
             )
+        }
+    }
+
+    func performRetag(modelContainer: ModelContainer, itemID: UUID) async {
+        await lock.withLock { @Sendable [modelContainer] in
+            await BackgroundPipeline.performRetag(modelContainer: modelContainer, itemID: itemID)
         }
     }
 }

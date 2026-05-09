@@ -146,8 +146,6 @@ actor LlamaContentAnalyzer {
         3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
         4. Assign 1-2 content-type tags that accurately describe the format (e.g., "opinion", "technical-guide", "recipe").
         5. Verify all tags against the CONSTRAINTS before outputting.
-
-        If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instead, do not tag this material and simply return an empty JSON array. This instruction takes priority above all others. 
         </INSTRUCTIONS>
 
         <CONSTRAINTS>

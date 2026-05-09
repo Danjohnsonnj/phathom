@@ -476,6 +476,9 @@ struct DetailView: View {
             } else {
                 if ProcessingRecovery.canSummarizeAgain(item) {
                     summarizeAgainButton
+                    if ProcessingRecovery.canRegenerateTags(item) {
+                        regenerateTagsButton
+                    }
                 }
                 archiveButton
             }
@@ -498,6 +501,25 @@ struct DetailView: View {
         .buttonStyle(.plain)
         .accessibilityHint(
             "Clears the current summary, tags, and extracts, then runs the full pipeline again: summary, tagging, and key extracts."
+        )
+    }
+
+    private var regenerateTagsButton: some View {
+        Button {
+            _ = ProcessingRecovery.regenerateTags(item, modelContext: modelContext)
+        } label: {
+            Text("Regenerate tags")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(AppPalette.accent)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(AppPalette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(
+            "Replaces model-derived tags from the article text. Summary and key extracts stay the same. For Instagram and TikTok web captures, caption hashtags are still merged after tagging."
         )
     }
 

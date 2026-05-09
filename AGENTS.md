@@ -43,6 +43,7 @@ To save tokens, **do not** scan the entire `/Phathom` directory. Use these speci
 
 ## PR & Development Checklist
 
+- [ ] When in Plan Mode and beginning a new plan, always ask clarifying questions to the user about product requirements, UI/UX and technical approaches.
 - [ ] Ensure all SwiftData changes include a migration plan or a "Clear Library" debug option.
 - [ ] Update `docs/decisions.md` if changing the inference lifecycle.
 - [ ] Verify that new ingest paths support `sourceMarkdown` fallback.

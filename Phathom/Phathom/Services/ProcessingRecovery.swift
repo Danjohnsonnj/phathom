@@ -75,6 +75,25 @@ enum ProcessingRecovery {
         }
     }
 
+    /// Same eligibility as `canSummarizeAgain`, but blocks while `processingDetail` is set (e.g. retag in flight).
+    @MainActor
+    static func canRegenerateTags(_ item: ContentItem) -> Bool {
+        guard item.processingDetail == nil else { return false }
+        return canSummarizeAgain(item)
+    }
+
+    /// Re-runs LLM tagging only (replaces model-derived tags; platform hashtag merge unchanged). Summary and extracts stay.
+    @MainActor
+    @discardableResult
+    static func regenerateTags(_ item: ContentItem, modelContext: ModelContext) -> Bool {
+        guard canRegenerateTags(item) else { return false }
+        item.processingDetail = "Regenerating tags…"
+        try? modelContext.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
+        BackgroundPipeline.scheduleRetag(itemID: item.id)
+        return true
+    }
+
     /// Clears AI-derived fields and re-queues the item for the full analyze pass: new summary bullets, new tags
     /// (LLM plus platform hashtag merge), and new extracts — same `processNextEmbeddingItem` path as after scrape.
     @MainActor
