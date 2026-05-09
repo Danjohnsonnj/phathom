@@ -29,6 +29,14 @@ To save tokens, **do not** scan the entire `/Phathom` directory. Use these speci
 
 ## Getting Up to Speed (New Session)
 
+- **Read README.md:** Read the root README.md file to understand the overall purpose of the app, its major capabilities, and high level structure.
+- **Be Terse:** If the agent skill `caveman` is available, always use it unless/until the user disables it. If it is not, then always respond terse like _smart_ caveman: all technical substance stay, only fluff removed. Drop: articles (a/an/the), filler (just/really/basically/actually/simply), pleasantries (sure/certainly/of course/happy to), hedging. Fragments OK. Short synonyms (big not extensive, fix not "implement a solution for"). Technical terms exact. Code blocks unchanged. Errors quoted exact.
+
+> [!EXAMPLE]
+> Pattern: `[thing] [action] [reason]. [next step].`
+> Not: "Sure! I'd be happy to help you with that. The issue you're experiencing is likely caused by..."
+> Yes: "Bug in auth middleware. Token expiry check use `<` not `<=`. Fix:"
+
 - **Check Environment:** Verify `Phathom/vendor/llama/llama.xcframework` exists. If not, run `bash scripts/setup-llama-xcframework.sh`.
 - **Verify GGUF Path:** The app uses security-scoped bookmarks. If testing in Simulator, remember it is **CPU-only**; don't optimize for GPU/ANE performance unless targeting a physical device.
 - **Active Task:** We are currently in **Phase 2 (Pipeline Refinement)**. Phase 3 (RAG/Chat) is a placeholder—do not implement RAG logic unless explicitly directed.

@@ -1,7 +1,0 @@
-{"sessionId":"849a52","data":{"backupBusy":"false"},"timestamp":1778247737067,"message":"Export requested","runId":"run1","location":"SettingsTab.swift:exportLibraryBackup","hypothesisId":"H4"}
-{"location":"SettingsTab.swift:handleBackupImportSelection","sessionId":"849a52","message":"Import selection result received","data":{"isSuccess":"true"},"hypothesisId":"H3","timestamp":1778247852554,"runId":"run1"}
-{"location":"SettingsTab.swift:commitImport","hypothesisId":"H3","data":{"policy":"merge","previewCount":"27"},"runId":"run1","message":"Commit import called","timestamp":1778247858067,"sessionId":"849a52"}
-{"timestamp":1778247882205,"sessionId":"849a52","message":"Import selection result received","runId":"run1","data":{"isSuccess":"true"},"location":"SettingsTab.swift:handleBackupImportSelection","hypothesisId":"H3"}
-{"location":"SettingsTab.swift:commitImport","runId":"run1","sessionId":"849a52","message":"Commit import called","data":{"policy":"merge","previewCount":"27"},"timestamp":1778247884528,"hypothesisId":"H3"}
-{"runId":"run1","hypothesisId":"H3","data":{"isSuccess":"true"},"sessionId":"849a52","location":"SettingsTab.swift:handleBackupImportSelection","message":"Import selection result received","timestamp":1778247978753}
-{"location":"SettingsTab.swift:commitImport","runId":"run1","sessionId":"849a52","message":"Commit import called","data":{"previewCount":"27","policy":"merge"},"timestamp":1778247978789,"hypothesisId":"H3"}
