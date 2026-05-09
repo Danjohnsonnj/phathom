@@ -103,6 +103,11 @@ struct DetailView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
+        .onTapGesture {
+            if titleFocused {
+                titleFocused = false // Dismiss the keyboard
+            }
+        }
         }
         .id(item.id)
         .background(AppPalette.background)
