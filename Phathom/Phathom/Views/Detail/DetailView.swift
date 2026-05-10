@@ -23,6 +23,7 @@ struct DetailView: View {
     @State private var tagEditorMode: TagEditorMode = .add
     @State private var tagEditorDraft = ""
     @State private var tagEditorErrorMessage: String?
+    @State private var delaySummarizeDisable = false
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -32,6 +33,7 @@ struct DetailView: View {
         .hour(.defaultDigits(amPM: .abbreviated))
         .minute()
         .locale(.init(identifier: "en_US_POSIX"))
+    private static let summarizeDisableSettleDelayNs: UInt64 = 750_000_000
 
     private var shareURL: URL? {
         item.originalURL
@@ -474,31 +476,68 @@ struct DetailView: View {
             if item.isArchived {
                 restoreToLibraryButton
             } else {
-                if ProcessingRecovery.canSummarizeAgain(item) {
+                if summarizeAgainButtonVisible {
                     summarizeAgainButton
-                    if ProcessingRecovery.canRegenerateTags(item) {
-                        regenerateTagsButton
-                    }
+                }
+                if regenerateTagsButtonVisible {
+                    regenerateTagsButton
                 }
                 archiveButton
             }
         }
+        .transaction { transaction in
+            transaction.animation = nil
+        }
+    }
+
+    private var summarizeAgainButtonVisible: Bool {
+        guard !item.isArchived else { return false }
+        switch item.kind {
+        case .media:
+            return false
+        case .web, .note:
+            guard let raw = item.rawText else { return false }
+            return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private var summarizeAgainButtonDisabled: Bool {
+        let disableNow = !ProcessingRecovery.canSummarizeAgain(item)
+        if delaySummarizeDisable, disableNow {
+            return false
+        }
+        return disableNow
+    }
+
+    private var regenerateTagsButtonVisible: Bool {
+        summarizeAgainButtonVisible
+    }
+
+    private var regenerateTagsButtonDisabled: Bool {
+        !ProcessingRecovery.canRegenerateTags(item)
     }
 
     private var summarizeAgainButton: some View {
         Button {
-            _ = ProcessingRecovery.summarizeAgain(item, modelContext: modelContext)
+            guard ProcessingRecovery.summarizeAgain(item, modelContext: modelContext) else { return }
+            delaySummarizeDisable = true
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: Self.summarizeDisableSettleDelayNs)
+                delaySummarizeDisable = false
+            }
         } label: {
             Text("Summarize again")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppPalette.accent)
+                .foregroundStyle(summarizeAgainButtonDisabled ? AppPalette.textSecondary : AppPalette.accent)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(AppPalette.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .opacity(summarizeAgainButtonDisabled ? 0.6 : 1.0)
         }
         .buttonStyle(.plain)
+        .disabled(summarizeAgainButtonDisabled)
         .accessibilityHint(
             "Clears the current summary, tags, and extracts, then runs the full pipeline again: summary, tagging, and key extracts."
         )
@@ -510,14 +549,16 @@ struct DetailView: View {
         } label: {
             Text("Regenerate tags")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppPalette.accent)
+                .foregroundStyle(regenerateTagsButtonDisabled ? AppPalette.textSecondary : AppPalette.accent)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(AppPalette.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .opacity(regenerateTagsButtonDisabled ? 0.6 : 1.0)
         }
         .buttonStyle(.plain)
+        .disabled(regenerateTagsButtonDisabled)
         .accessibilityHint(
             "Replaces tags from summary + key extracts. For Instagram and TikTok web captures, caption hashtags are still merged after tagging."
         )
