@@ -86,7 +86,7 @@ When you believe the work is done:
 
 ### Build and simulator destinations (agents)
 
-For `xcodebuild` and simulator-based tests, use an **iPhone 16 or newer** simulator (for example `-destination 'platform=iOS Simulator,name=iPhone 16'`, **iPhone 16 Pro**, or **iPhone 17**). Current Xcode installs may not ship older device types; if the build fails with “Unable to find a device matching…”, run `xcodebuild -scheme Phathom -showdestinations` and pick a listed iPhone simulator that is **iPhone 16 or newer**.
+Use **iPhone 16 Pro or newer** (simulator or device), matching [phase-2-pipeline.md](phase-2-pipeline.md) § “Build and simulator destinations”. Prefer **`bash scripts/build-phathom.sh all`** for CLI verification.
 
 ---
 

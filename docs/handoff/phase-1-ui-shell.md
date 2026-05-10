@@ -75,7 +75,7 @@ You need to change something in the guardrails' "must escalate" list (schema, de
 
 When you believe the work is done:
 1. Verify every acceptance criteria checkbox can be checked.
-2. Confirm the app builds without warnings or errors targeting an **iPhone 16 or newer** Simulator (e.g. iPhone 16 Pro, iPhone 17). For CLI builds, use `-destination 'platform=iOS Simulator,name=…'`; if Xcode reports no matching device, run `xcodebuild -scheme Phathom -showdestinations` and pick a listed iPhone **16 or newer**.
+2. Confirm the app builds without warnings or errors for **iPhone 16 Pro or newer** (simulator or device). Prefer **`bash scripts/build-phathom.sh all`** or `-destination 'platform=iOS Simulator,name=iPhone 16 Pro'`; see [phase-2-pipeline.md](phase-2-pipeline.md) § “Build and simulator destinations”.
 3. Confirm SwiftUI Previews render for the library and detail screens.
 4. State which acceptance criteria are met and which (if any) are not, with reasons.
 5. List any decisions you made under Steps 1-2 of the decision framework (technical workarounds or ambiguity defaults) so the user can review them.
@@ -654,7 +654,7 @@ struct PhathomApp: App {
 
 Phase 1 is complete when ALL of the following are true:
 
-- [ ] The app compiles and runs in Simulator (**iPhone 16 or newer**, e.g. iPhone 16 Pro or iPhone 17) without errors
+- [ ] The app compiles and runs in Simulator (**iPhone 16 Pro or newer**, e.g. iPhone 16 Pro or iPhone 17 Pro) without errors
 - [ ] `Item.swift` and the template `ContentView.swift` are deleted
 - [ ] All four SwiftData models (`ContentItem`, `Tag`, `ChatThread`, `ChatMessage`) are registered in the `ModelContainer`
 - [ ] The tab bar shows 4 tabs: Library (selected by default), Chat, Add new, Settings

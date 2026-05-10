@@ -32,14 +32,20 @@ Deeper architecture and file map: [`docs/handoff/phase-2-pipeline.md`](docs/hand
 
 - **Xcode** and **iOS SDK** matching the deployment target set in **`Phathom/Phathom.xcodeproj`** (open the project to see the current value).
 - A **physical device** is recommended for realistic Llama performance (Neural Engine / GPU path). The **simulator** runs Llama **CPU-only** and is mainly useful for UI and light testing.
-- Minimum device requirement: iPhone 16 Pro or better.
+- **Supported run targets:** **iPhone 16 Pro or newer** (simulator or physical). Use an **iPhone 16 Pro** (or newer Pro-line) simulator in Xcode, or deploy to a real **iPhone 16 Pro or newer** for Metal-backed inference.
 
 ## Building the app
 
 1. Clone the repository.
 2. Open **`Phathom/Phathom.xcodeproj`** in Xcode.
-3. Select the **Phathom** scheme and a suitable **iPhone** simulator or device.
+3. Select the **Phathom** scheme. Set the run destination to an **iPhone 16 Pro or newer** simulator, or to a connected **iPhone 16 Pro or newer** device.
 4. Build and run (**⌘R**).
+
+**Command-line checks** (same targets the project expects):
+
+```bash
+bash scripts/build-phathom.sh all   # Simulator (preferred Pro-line sim) + generic iOS device build
+```
 
 The repo expects a vendored framework at:
 

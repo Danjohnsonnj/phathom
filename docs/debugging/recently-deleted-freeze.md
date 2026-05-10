@@ -93,7 +93,7 @@ The Xcode MCP cannot launch or control **Instruments**, the **debugger Pause** b
 **Goal:** Capture a stack trace of the frozen main thread so the agent (or you) can see exactly where execution is stuck.
 
 1. Open **`Phathom.xcodeproj`** in Xcode by double-clicking it in Finder, or from Xcode via **File > Open** and navigating to the file.
-2. Near the top center of the Xcode window, you will see a **scheme and destination bar** (e.g. "Phathom > iPhone 17"). Click the destination portion (right side) and choose a simulator such as **iPhone 17**. If the scheme portion (left side) does not say "Phathom", click it and select **Phathom**.
+2. Near the top center of the Xcode window, you will see a **scheme and destination bar** (e.g. "Phathom > iPhone 16 Pro"). Click the destination portion (right side) and choose an **iPhone 16 Pro or newer** simulator (for example **iPhone 16 Pro** or **iPhone 17 Pro**). If the scheme portion (left side) does not say "Phathom", click it and select **Phathom**.
 3. Press the **Run** button — it is the right-pointing triangle (▶) in the top-left toolbar area. You can also press **Cmd+R**.
 4. Wait until the progress spinner in Xcode's top-center status area finishes and the Simulator app appears showing the Phathom Library screen.
 5. In the **Simulator**, navigate to the freeze: tap the **gear icon** in the Library toolbar to open Settings, then tap **Recently Deleted**.

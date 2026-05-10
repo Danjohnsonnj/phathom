@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Copies a pre-built llama.xcframework into Phathom (e.g. after building via intrai-llama's setup script).
+# Upstream packaging is arm64 iOS Simulator + arm64 device; Phathom excludes x86_64 simulator at the project level.
+# After refreshing the framework, verify builds: bash scripts/build-phathom.sh all
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

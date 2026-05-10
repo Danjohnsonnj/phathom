@@ -85,7 +85,13 @@ When you believe the work is done:
 
 ### Build and simulator destinations (agents)
 
-For `xcodebuild` and simulator-based tests, use an **iPhone 16 or newer** simulator (for example `-destination 'platform=iOS Simulator,name=iPhone 16'`, **iPhone 16 Pro**, or **iPhone 17**). Current Xcode installs may not ship older device types; if the build fails with “Unable to find a device matching…”, run `xcodebuild -scheme Phathom -showdestinations` and pick a listed iPhone simulator that is **iPhone 16 or newer**.
+Phathom is validated for **iPhone 16 Pro or newer** (simulator and physical device). Prefer **`iPhone 16 Pro`** or **`iPhone 16 Pro Max`** in the Xcode scheme bar; for newer SDKs, **iPhone 17 Pro** / **iPhone 18 Pro** simulators are acceptable.
+
+- **Canonical CLI:** `bash scripts/build-phathom.sh all` — builds for the first available simulator from a Pro-first name list, then **`generic/platform=iOS`** for the device slice.
+- **Manual `xcodebuild`:** `-destination 'platform=iOS Simulator,name=iPhone 16 Pro'` (or another listed Pro-line / newer simulator). For device compilation without a USB-attached phone, use `-destination 'generic/platform=iOS'`.
+- If the build reports “Unable to find a device matching…”, run `xcodebuild -project Phathom/Phathom.xcodeproj -scheme Phathom -showdestinations` and pick a listed **iPhone 16 Pro or newer** simulator.
+
+The Xcode project excludes **x86_64** for the simulator SDK so builds align with the **arm64-only** `llama.xcframework` simulator slice.
 
 ---
 
@@ -153,7 +159,7 @@ Index completed items into system Spotlight search with deep links back into the
 **Build and vendor the framework:**
 
 1. Maintain a local clone of upstream **llama.cpp** (same workflow as sibling projects).
-2. Produce **`llama.xcframework`** with **iOS device** and **iOS Simulator** slices (arm64), **Metal** enabled for device; simulator typically **CPU-only** (`n_gpu_layers = 0`) for stable CI/simulator runs.
+2. Produce **`llama.xcframework`** with **iOS device** and **iOS Simulator** slices (**arm64 only** for simulator; no x86_64 sim slice), **Metal** enabled for device; simulator typically **CPU-only** (`n_gpu_layers = 0`) for stable CI/simulator runs.
 3. Vendored framework path in-repo: **`Phathom/vendor/llama/llama.xcframework`** (static `.a` slices + headers). Refresh via **`scripts/setup-llama-xcframework.sh`** (copies from a local intrai-llama build) or build from **llama.cpp** the same way as **intrai-llama**’s `scripts/setup-llama-xcframework.sh`.
 
 **Xcode app target:**

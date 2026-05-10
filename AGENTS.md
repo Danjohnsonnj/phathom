@@ -38,6 +38,7 @@ To save tokens, **do not** scan the entire `/Phathom` directory. Use these speci
 > Yes: "Bug in auth middleware. Token expiry check use `<` not `<=`. Fix:"
 
 - **Check Environment:** Verify `Phathom/vendor/llama/llama.xcframework` exists. If not, run `bash scripts/setup-llama-xcframework.sh`.
+- **Build targets:** Use **iPhone 16 Pro or newer** simulator or device in Xcode. For CLI verification, run `bash scripts/build-phathom.sh all` (simulator uses the first available device from a Pro-first list; device build uses `generic/platform=iOS`). The project sets **`EXCLUDED_ARCHS[sdk=iphonesimulator*]=x86_64`** so simulator builds match the arm64-only `llama.xcframework` slices.
 - **Verify GGUF Path:** The app uses security-scoped bookmarks. If testing in Simulator, remember it is **CPU-only**; don't optimize for GPU/ANE performance unless targeting a physical device.
 - **Active Task:** We are currently in **Phase 2 (Pipeline Refinement)**. Phase 3 (RAG/Chat) is a placeholder—do not implement RAG logic unless explicitly directed.
 - **Confirm With User:** Indicate understanding by saying "Read and ready" at the beginning of a new session.
