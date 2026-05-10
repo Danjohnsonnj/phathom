@@ -238,7 +238,7 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
 
     func generateWithSharedPrefix(
         prefix: String,
-        tasks: [(suffix: String, maxTokens: Int, temperature: Double)],
+        tasks: [SharedPrefixTask],
         onPartial: (String) -> Void
     ) throws {
         guard let ctx = context, let mdl = model else { throw LlamaInferenceError.modelNotLoaded }
@@ -371,14 +371,17 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
             }
             defer { llama_sampler_free(smpl) }
 
-            let temp = max(0.0, min(2.0, task.temperature))
-            if temp < 0.0001 {
-                llama_sampler_chain_add(smpl, llama_sampler_init_greedy())
-            } else {
-                llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40))
-                llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.95, 1))
-                llama_sampler_chain_add(smpl, llama_sampler_init_temp(Float(temp)))
-                llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED))
+            do {
+                try Self.addSamplingStepsToChain(
+                    chain: smpl,
+                    model: mdl,
+                    temperature: task.temperature,
+                    grammar: task.grammar,
+                    grammarRoot: task.grammarRoot
+                )
+            } catch {
+                llama_memory_seq_rm(mem, taskSeqId, -1, -1)
+                throw error
             }
 
             // Generate output tokens. We sample from -1 (last decoded position) after the suffix
@@ -475,6 +478,55 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         "<|im_start|>user\n\(userText)<|im_end|>\n<|im_start|>assistant\n"
     }
 
+    /// Sampler order: top_k → top_p → temp → optional grammar → dist.
+    /// Greedy decoding is used only when temperature is ~0 **and** no grammar is set; grammar forces a minimal positive temperature so constrained decoding participates (bumped value is `0.01`).
+    private static func addSamplingStepsToChain(
+        chain: UnsafeMutablePointer<llama_sampler>,
+        model: OpaquePointer,
+        temperature: Double,
+        grammar: String?,
+        grammarRoot: String
+    ) throws {
+        let vocab = llama_model_get_vocab(model)
+
+        let tempClamped = max(0.0, min(2.0, temperature))
+        let grammarTrimmed = grammar?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let hasGrammar = !grammarTrimmed.isEmpty
+        let useGreedy = tempClamped < 0.0001 && !hasGrammar
+
+        if useGreedy {
+            llama_sampler_chain_add(chain, llama_sampler_init_greedy())
+            return
+        }
+
+        let effectiveTemp: Float
+        if tempClamped < 0.0001, hasGrammar {
+            effectiveTemp = 0.01
+        } else {
+            effectiveTemp = Float(tempClamped)
+        }
+
+        llama_sampler_chain_add(chain, llama_sampler_init_top_k(40))
+        llama_sampler_chain_add(chain, llama_sampler_init_top_p(0.95, 1))
+        llama_sampler_chain_add(chain, llama_sampler_init_temp(effectiveTemp))
+
+        if hasGrammar {
+            let rootRaw = grammarRoot.trimmingCharacters(in: .whitespacesAndNewlines)
+            let root = rootRaw.isEmpty ? GBNFGrammars.rootRuleName : rootRaw
+            let grammarSampler = grammarTrimmed.withCString { gPtr in
+                root.withCString { rPtr in
+                    llama_sampler_init_grammar(vocab, gPtr, rPtr)
+                }
+            }
+            guard let grammarSampler else {
+                throw LlamaInferenceError.generationFailed("GBNF grammar parse failed.")
+            }
+            llama_sampler_chain_add(chain, grammarSampler)
+        }
+
+        llama_sampler_chain_add(chain, llama_sampler_init_dist(LLAMA_DEFAULT_SEED))
+    }
+
     private func startTokenizingPrompt(_ formatted: String, options: GenerationOptions) throws {
         guard let ctx = context, let mdl = model else {
             throw LlamaInferenceError.modelNotLoaded
@@ -525,14 +577,20 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
             decSingleToken = nil
             throw LlamaInferenceError.generationFailed("Failed to create sampler.")
         }
-        let temp = max(0.0, min(2.0, options.temperature))
-        if temp < 0.0001 {
-            llama_sampler_chain_add(smpl, llama_sampler_init_greedy())
-        } else {
-            llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40))
-            llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.95, 1))
-            llama_sampler_chain_add(smpl, llama_sampler_init_temp(Float(temp)))
-            llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED))
+        do {
+            try Self.addSamplingStepsToChain(
+                chain: smpl,
+                model: mdl,
+                temperature: options.temperature,
+                grammar: options.grammar,
+                grammarRoot: options.grammarRoot
+            )
+        } catch {
+            llama_sampler_free(smpl)
+            buf.deallocate()
+            decSingleToken?.deallocate()
+            decSingleToken = nil
+            throw error
         }
         generationSampler = smpl
 
@@ -628,7 +686,7 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
 
     func generateWithSharedPrefix(
         prefix: String,
-        tasks: [(suffix: String, maxTokens: Int, temperature: Double)],
+        tasks: [SharedPrefixTask],
         onPartial: (String) -> Void
     ) throws {
         _ = prefix

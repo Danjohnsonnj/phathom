@@ -49,6 +49,8 @@ actor LlamaContentAnalyzer {
         maxArticleChars: Int,
         maxTokens: Int,
         temperature: Double = 0.15,
+        grammar: String? = nil,
+        grammarRoot: String = GBNFGrammars.rootRuleName,
         buildUser: (String) -> String
     ) async throws -> String {
         let pool = String(articleText.prefix(maxArticleChars)).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -62,7 +64,13 @@ actor LlamaContentAnalyzer {
 
         let fullUser = buildUser(pool)
         if try bridge.countTemplatedUserPromptTokens(fullUser) <= limit {
-            return try await collectTemplated(user: fullUser, maxTokens: maxTokens, temperature: temperature)
+            return try await collectTemplated(
+                user: fullUser,
+                maxTokens: maxTokens,
+                temperature: temperature,
+                grammar: grammar,
+                grammarRoot: grammarRoot
+            )
         }
 
         var lo = 0
@@ -79,7 +87,13 @@ actor LlamaContentAnalyzer {
                 hi = mid - 1
             }
         }
-        return try await collectTemplated(user: bestUser, maxTokens: maxTokens, temperature: temperature)
+        return try await collectTemplated(
+            user: bestUser,
+            maxTokens: maxTokens,
+            temperature: temperature,
+            grammar: grammar,
+            grammarRoot: grammarRoot
+        )
     }
 
     func loadModel(path: String) throws {
@@ -125,12 +139,8 @@ actor LlamaContentAnalyzer {
         <CONSTRAINTS>
         - The summary must be no more than 250 words.
         - Avoid jargon where possible, or explain it briefly if essential.
-        - Output ONLY a JSON array of strings, no other text.
+        - Reply with a single JSON array of strings (no surrounding prose).
         </CONSTRAINTS>
-
-        <IMPORTANT>
-        Output ONLY a JSON array of strings, no other text.
-        </IMPORTANT>
         """
     }
 
@@ -150,7 +160,7 @@ actor LlamaContentAnalyzer {
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
-        - Output ONLY a JSON array of 3-8 strings.
+        - Reply with a single JSON array of 3-8 strings.
         - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
         - Allowed characters: a-z, 0-9, hyphen.
         - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
@@ -161,10 +171,6 @@ actor LlamaContentAnalyzer {
         Article: "EU lawmakers approved new climate emissions rules on Tuesday..."
         Tags: ["eu-policy","climate-change","emissions","news"]
         </CONSTRAINTS>
-
-        <IMPORTANT>
-        Output ONLY a JSON array of lowercase kebab-case tags.
-        </IMPORTANT>
         """
     }
 
@@ -188,17 +194,13 @@ actor LlamaContentAnalyzer {
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
-        - Output ONLY a JSON array of 3-8 strings.
+        - Reply with a single JSON array of 3-8 strings.
         - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
         - Allowed characters: a-z, 0-9, hyphen.
         - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
         - Include 1-2 content-type tags (e.g. "recipe", "news", "social-media", "opinion", "guide").
         - No duplicates, no hashtags, no commentary.
         </CONSTRAINTS>
-
-        <IMPORTANT>
-        Output ONLY a JSON array of lowercase kebab-case tags.
-        </IMPORTANT>
         """
     }
 
@@ -219,12 +221,12 @@ actor LlamaContentAnalyzer {
         3. For each item, create a concise "label" (category or subject) and a specific "value" (the fact, stat, or action).
         4. Ensure "value" contains the specific detail or number; "label" provides context.
 
-           If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instead, do not extract anything from this material, and just  return a JSON array with an empty object. This instruction takes priority above all others.
+           If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instead, reply with an empty JSON array `[]`. This instruction takes priority above all others.
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
-        - Output ONLY a valid JSON array of objects.
-        - Each object MUST contain exactly two keys: "label" and "value".
+        - Reply with a single JSON array only (no surrounding prose).
+        - Each object MUST contain exactly two keys: "label" and "value" (in that order in the JSON).
         - Do not include any markdown formatting, preamble, or postscript.
         - Values must be strings.
         </CONSTRAINTS>
@@ -237,10 +239,6 @@ actor LlamaContentAnalyzer {
           {"label": "Management Action", "value": "Implement a 10-minute daily synchronization meeting."}
         ]
         </EXAMPLE>
-
-        <IMPORTANT>
-        Return ONLY the JSON array. Do not include any other text or explanation.
-        </IMPORTANT>
         """
     }
 
@@ -250,7 +248,8 @@ actor LlamaContentAnalyzer {
         let out = try await collectTemplatedFittingArticleBody(
             articleText: articleText,
             maxArticleChars: Self.summaryArticleCharCap,
-            maxTokens: 512
+            maxTokens: 512,
+            grammar: GBNFGrammars.jsonStringArray
         ) { body in
             "<ARTICLE>\n\(body)\n</ARTICLE>" + Self.summaryTaskSuffix()
         }
@@ -261,7 +260,8 @@ actor LlamaContentAnalyzer {
         let out = try await collectTemplatedFittingArticleBody(
             articleText: articleText,
             maxArticleChars: Self.tagsArticleCharCap,
-            maxTokens: 96
+            maxTokens: 96,
+            grammar: GBNFGrammars.jsonStringArray
         ) { body in
             "<ARTICLE>\n\(body)\n</ARTICLE>" + Self.tagsTaskSuffix()
         }
@@ -273,7 +273,8 @@ actor LlamaContentAnalyzer {
         let out = try await collectTemplatedFittingArticleBody(
             articleText: articleText,
             maxArticleChars: Self.extractsArticleCharCap,
-            maxTokens: 512
+            maxTokens: 512,
+            grammar: GBNFGrammars.jsonExtractArray
         ) { body in
             "<ARTICLE>\n\(body)\n</ARTICLE>" + Self.extractsTaskSuffix()
         }
@@ -297,7 +298,8 @@ actor LlamaContentAnalyzer {
         let out = try await collectTemplatedFittingArticleBody(
             articleText: derived,
             maxArticleChars: Self.tagsFromDerivedArticleCharCap,
-            maxTokens: 96
+            maxTokens: 96,
+            grammar: GBNFGrammars.jsonStringArray
         ) { body in
             "\(body)\n" + Self.tagsFromDerivedTaskSuffix()
         }
@@ -346,17 +348,19 @@ actor LlamaContentAnalyzer {
         Candidates: [\(candidatesJSON)]
         </INPUT>
         <CONSTRAINTS>
-        - Output ONLY a flat JSON array of strings (the "id" values).
+        - Reply with a single JSON array of strings (each string is a candidate "id" UUID).
         - The array must include every candidate ID provided in the input exactly once.
         - Order the IDs from most related to least related.
         - No markdown formatting (no ```json blocks), no preamble, no explanation.
         </CONSTRAINTS>
-        <IMPORTANT>
-        Your response must be a raw JSON array. Any text outside of the array will break the integration.
-        </IMPORTANT>
         </PROMPT>
         """
-        let out = try await collectTemplated(user: user, maxTokens: 192, temperature: 0)
+        let out = try await collectTemplated(
+            user: user,
+            maxTokens: 192,
+            temperature: 0,
+            grammar: GBNFGrammars.jsonUUIDStringArray
+        )
         let ranked = LLMJSONExtractor.decodeStringArray(out) ?? []
         let inputIDs = candidates.map(\.id)
         let inputIDSet = Set(inputIDs)
@@ -407,17 +411,19 @@ actor LlamaContentAnalyzer {
         Vocabulary: [\(vocabularyJSON)]
         </INPUT>
         <CONSTRAINTS>
-        - Output ONLY a JSON array of strings.
+        - Reply with a single JSON array of strings.
         - Every string MUST appear verbatim in the Vocabulary.
         - Include at most 8 tags, ordered most related first.
         - No markdown formatting, no preamble, no explanation.
         </CONSTRAINTS>
-        <IMPORTANT>
-        Your response must be a raw JSON array. Any text outside of the array will break the integration.
-        </IMPORTANT>
         </PROMPT>
         """
-        let out = try await collectTemplated(user: user, maxTokens: 96, temperature: 0)
+        let out = try await collectTemplated(
+            user: user,
+            maxTokens: 96,
+            temperature: 0,
+            grammar: GBNFGrammars.jsonStringArray
+        )
         let raw = LLMJSONExtractor.decodeStringArray(out) ?? []
         // Filter against `vocabulary` (the truncated set sent to the model), not the full input.
         // Using the full list would incorrectly admit names the model never saw.
@@ -466,9 +472,19 @@ actor LlamaContentAnalyzer {
         // Each task suffix begins immediately after the closing tag.
         let sharedPrefix = "<ARTICLE>\n\(pool)\n</ARTICLE>"
 
-        let taskDefs: [(suffix: String, maxTokens: Int, temperature: Double)] = [
-            (Self.summaryTaskSuffix(), 512,  0.15),
-            (Self.extractsTaskSuffix(), 512, 0.15),
+        let taskDefs: [SharedPrefixTask] = [
+            SharedPrefixTask(
+                suffix: Self.summaryTaskSuffix(),
+                maxTokens: 512,
+                temperature: 0.15,
+                grammar: GBNFGrammars.jsonStringArray
+            ),
+            SharedPrefixTask(
+                suffix: Self.extractsTaskSuffix(),
+                maxTokens: 512,
+                temperature: 0.15,
+                grammar: GBNFGrammars.jsonExtractArray
+            ),
         ]
 
         var partials: [String] = []
@@ -509,11 +525,18 @@ actor LlamaContentAnalyzer {
     private func collectTemplated(
         user: String,
         maxTokens: Int,
-        temperature: Double = 0.15
+        temperature: Double = 0.15,
+        grammar: String? = nil,
+        grammarRoot: String = GBNFGrammars.rootRuleName
     ) async throws -> String {
         try bridge.startTemplatedUserPrompt(
             user,
-            options: GenerationOptions(maxTokens: maxTokens, temperature: temperature)
+            options: GenerationOptions(
+                maxTokens: maxTokens,
+                temperature: temperature,
+                grammar: grammar,
+                grammarRoot: grammarRoot
+            )
         )
         var acc = ""
         while true {

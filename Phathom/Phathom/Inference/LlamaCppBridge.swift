@@ -27,7 +27,7 @@ nonisolated protocol LlamaCppBridge: Sendable {
     /// prefix + one active task at a time.
     func generateWithSharedPrefix(
         prefix: String,
-        tasks: [(suffix: String, maxTokens: Int, temperature: Double)],
+        tasks: [SharedPrefixTask],
         onPartial: (String) -> Void
     ) throws
 }
