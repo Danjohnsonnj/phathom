@@ -17,7 +17,7 @@ User selects multiple library rows (including rows under **Related by tags**), t
 - **Select** (toolbar leading on Library): enters multi-select; **Done** exits and clears selection.
 - **List** shows system selection affordance while active (`EditMode` + `List(selection:)`).
 - **Bulk bar** (`safeAreaInset` bottom): visible only when Select mode is on **and** at least one row is selected. Shows count, **Mark as…** menu (three read statuses), **Archive** button.
-- Tapping a row in Select mode toggles membership in the selection set; when Select mode is off, row opens **Detail** via `NavigationLink` as today.
+- Tapping a row in Select mode toggles membership in the selection set; when Select mode is off, row opens **Detail** via `Button` that appends the item id to `NavigationPath`, with `navigationDestination(for: UUID.self)` on the `NavigationStack` content (not on `List`). Browse mode uses a plain `List` without `selection:`; Select mode uses `List(selection: $selectedItemIDs)`.
 - Leading/trailing **swipe actions** are hidden while Select mode is on (avoids conflicting gestures).
 
 ---
@@ -83,7 +83,8 @@ User selects multiple library rows (including rows under **Related by tags**), t
 
 ## Risks
 
-- `NavigationLink` vs selection: mitigated by plain row when `EditMode.active`.
+- **Navigation + selection + searchable:** `List(selection:)` (even with `.constant(Set())`) plus `NavigationLink` in the same list broke row taps on some SDK combos. **Shipped mitigation:** (1) `navigationDestination(for:)` on the `VStack` inside `NavigationStack`, not chained off `List`; (2) two `List` branches — no `selection:` when `editMode == .inactive`, `List(selection: $selectedItemIDs)` when active; (3) inactive rows use `Button { navPath.append(id) }` instead of `NavigationLink(value:)`. Revisit only if Apple fixes underlying interaction.
+- **Plain row when selecting:** Select mode still shows `ContentCardRow` without link/button so `List(selection:)` owns taps.
 - Duplicate `ContentItem` in matching + adjacent: possible edge case for `ForEach` ids; smoke test; dedupe in `LibrarySearchService` if needed later.
 
 ---

@@ -88,70 +88,83 @@ struct LibraryTab: View {
         max(displayedAdjacent.count, sections.adjacent.count, 3)
     }
 
+    /// Shared list content for both Select-mode `List(selection:)` and plain `List` when browsing.
+    @ViewBuilder
+    private var libraryListSections: some View {
+        libraryMatchingSection
+        if !displayedAdjacent.isEmpty || isDeepRanking {
+            relatedByTagsSection
+        }
+    }
+
     var body: some View {
         NavigationStack(path: $navPath) {
             VStack(alignment: .leading, spacing: 0) {
                 libraryChromeAboveList
-                List(selection: $selectedItemIDs) {
-                    libraryMatchingSection
-
-                    if !displayedAdjacent.isEmpty || isDeepRanking {
-                        relatedByTagsSection
+                Group {
+                    if editMode == .active {
+                        List(selection: $selectedItemIDs) {
+                            libraryListSections
+                        }
+                    } else {
+                        List {
+                            libraryListSections
+                        }
                     }
                 }
                 .environment(\.editMode, $editMode)
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .background(AppPalette.background)
-                .navigationTitle("Library")
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationDestination(for: UUID.self) { id in
-                    if let item = items.first(where: { $0.id == id }) {
-                        DetailView(item: item) { selectedID in
-                            if !navPath.isEmpty { navPath.removeLast() }
-                            navPath.append(selectedID)
-                        }
-                    } else {
-                        Text("This item is not in your library.")
-                            .font(.subheadline)
-                            .foregroundStyle(AppPalette.textSecondary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }
                 .searchable(text: $searchText, prompt: "Search title, tags, source text")
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     libraryBulkActionsBar
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        if editMode == .active {
-                            Button("Done") {
-                                editMode = .inactive
-                                selectedItemIDs = []
-                            }
-                            .accessibilityLabel("Done selecting library items")
-                        } else {
-                            Button("Select") {
-                                editMode = .active
-                            }
-                            .accessibilityLabel("Select library items")
+            }
+            .navigationDestination(for: UUID.self) { id in
+                if let item = items.first(where: { $0.id == id }) {
+                    DetailView(item: item) { selectedID in
+                        if !navPath.isEmpty { navPath.removeLast() }
+                        navPath.append(selectedID)
+                    }
+                } else {
+                    Text("This item is not in your library.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .navigationTitle("Library")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if editMode == .active {
+                        Button("Done") {
+                            editMode = .inactive
+                            selectedItemIDs = []
                         }
-                    }
-                    ToolbarItem(placement: .principal) {
-                        Text("Phathom")
-                            .font(.headline)
-                            .foregroundStyle(AppPalette.textPrimary)
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink {
-                            SettingsContent()
-                                .navigationTitle("Settings")
-                        } label: {
-                            Image(systemName: isModelHealthyForIndicator ? "gearshape.fill" : "gearshape")
+                        .accessibilityLabel("Done selecting library items")
+                    } else {
+                        Button("Select") {
+                            editMode = .active
                         }
-                        .accessibilityLabel("Settings")
-                        .accessibilityValue(isModelHealthyForIndicator ? "AI model ready" : "AI model needs attention")
+                        .accessibilityLabel("Select library items")
                     }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Phathom")
+                        .font(.headline)
+                        .foregroundStyle(AppPalette.textPrimary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        SettingsContent()
+                            .navigationTitle("Settings")
+                    } label: {
+                        Image(systemName: isModelHealthyForIndicator ? "gearshape.fill" : "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
+                    .accessibilityValue(isModelHealthyForIndicator ? "AI model ready" : "AI model needs attention")
                 }
             }
         }
@@ -470,12 +483,12 @@ struct LibraryTab: View {
     @ViewBuilder
     private func libraryItemRow(item: ContentItem) -> some View {
         if editMode == .inactive {
-            NavigationLink(value: item.id) {
+            Button {
+                navPath.append(item.id)
+            } label: {
                 ContentCardRow(item: item)
             }
             .buttonStyle(.plain)
-            .navigationLinkIndicatorVisibility(.hidden)
-            .tag(item.id)
             .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
