@@ -2,6 +2,11 @@ import PhathomCore
 import SwiftData
 import SwiftUI
 
+private enum LibraryFilterDefaultsKey {
+    static let kind = "library.filter.kind"
+    static let status = "library.filter.status"
+}
+
 struct LibraryTab: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
@@ -14,8 +19,20 @@ struct LibraryTab: View {
     )
     private var items: [ContentItem]
 
-    @State private var filterKind: ContentKind?
-    @State private var filterStatus: ReadStatus?
+    @AppStorage(LibraryFilterDefaultsKey.kind) private var filterKindRaw: String = ""
+    @AppStorage(LibraryFilterDefaultsKey.status) private var filterStatusRaw: String = ""
+
+    private var filterKind: ContentKind? { ContentKind(rawValue: filterKindRaw) }
+    private var filterStatus: ReadStatus? { ReadStatus(rawValue: filterStatusRaw) }
+
+    private var filterKindBinding: Binding<ContentKind?> {
+        Binding(get: { filterKind }, set: { filterKindRaw = $0?.rawValue ?? "" })
+    }
+
+    private var filterStatusBinding: Binding<ReadStatus?> {
+        Binding(get: { filterStatus }, set: { filterStatusRaw = $0?.rawValue ?? "" })
+    }
+
     @State private var searchText = ""
     @State private var navPath = NavigationPath()
     @State private var isModelHealthyForIndicator = false
@@ -298,7 +315,7 @@ struct LibraryTab: View {
                     .accessibilityHint("Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now")
                 }
             }
-            LibraryFilterBar(selectedKind: $filterKind, selectedStatus: $filterStatus)
+            LibraryFilterBar(selectedKind: filterKindBinding, selectedStatus: filterStatusBinding)
         }
         .textCase(nil)
         .padding(.horizontal, 16)
