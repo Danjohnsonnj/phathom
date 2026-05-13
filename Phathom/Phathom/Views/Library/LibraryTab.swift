@@ -33,6 +33,8 @@ struct LibraryTab: View {
     /// Bumped when library content may affect search bucketing (`LibraryContentChangeNotifier` + `items.count`).
     /// Avoids hashing every item on every SwiftUI body evaluation (see `SearchSignature`).
     @State private var libraryContentRevision: Int = 0
+    @State private var editMode: EditMode = .inactive
+    @State private var selectedItemIDs = Set<UUID>()
 
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
         _deepLinkItemID = deepLinkItemID
@@ -90,13 +92,14 @@ struct LibraryTab: View {
         NavigationStack(path: $navPath) {
             VStack(alignment: .leading, spacing: 0) {
                 libraryChromeAboveList
-                List {
+                List(selection: $selectedItemIDs) {
                     libraryMatchingSection
 
                     if !displayedAdjacent.isEmpty || isDeepRanking {
                         relatedByTagsSection
                     }
                 }
+                .environment(\.editMode, $editMode)
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .background(AppPalette.background)
@@ -116,7 +119,24 @@ struct LibraryTab: View {
                     }
                 }
                 .searchable(text: $searchText, prompt: "Search title, tags, source text")
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    libraryBulkActionsBar
+                }
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        if editMode == .active {
+                            Button("Done") {
+                                editMode = .inactive
+                                selectedItemIDs = []
+                            }
+                            .accessibilityLabel("Done selecting library items")
+                        } else {
+                            Button("Select") {
+                                editMode = .active
+                            }
+                            .accessibilityLabel("Select library items")
+                        }
+                    }
                     ToolbarItem(placement: .principal) {
                         Text("Phathom")
                             .font(.headline)
@@ -176,6 +196,71 @@ struct LibraryTab: View {
             navPath.append(id)
             deepLinkItemID = nil
         }
+        .onChange(of: editMode) { _, newValue in
+            if newValue == .inactive {
+                selectedItemIDs = []
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var libraryBulkActionsBar: some View {
+        if editMode == .active, !selectedItemIDs.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("\(selectedItemIDs.count) selected")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppPalette.textPrimary)
+                    .accessibilityAddTraits(.updatesFrequently)
+
+                HStack(spacing: 12) {
+                    Menu {
+                        ForEach(ReadStatus.allCases, id: \.self) { status in
+                            Button {
+                                bulkSetReadStatus(status)
+                            } label: {
+                                Label(
+                                    ReadStatusPresentation.swipeActionLabel(for: status),
+                                    systemImage: ReadStatusPresentation.symbolName(for: status)
+                                )
+                            }
+                        }
+                    } label: {
+                        Label("Mark as…", systemImage: "square.and.pencil")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(AppPalette.surfaceNested)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Change reading status for selected items")
+
+                    Button {
+                        bulkArchiveSelection()
+                    } label: {
+                        Label("Archive", systemImage: "archivebox")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(AppPalette.surfaceNested)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .tint(.orange)
+                    .accessibilityHint("Archive selected items to Recently Deleted")
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(AppPalette.surface)
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(AppPalette.textTertiary.opacity(0.35), lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        }
     }
 
     /// Title row + Type/Status filters above the `List`. `LibraryFilterBar` uses anchored `popover`, not
@@ -223,25 +308,7 @@ struct LibraryTab: View {
                     .listRowSeparator(.hidden)
             } else {
                 ForEach(sections.matching, id: \.id) { item in
-                    NavigationLink(value: item.id) {
-                        ContentCardRow(item: item)
-                    }
-                    .buttonStyle(.plain)
-                    .navigationLinkIndicatorVisibility(.hidden)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                        readStatusSwipeButtons(for: item)
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button {
-                            archiveFromLibrary(item: item)
-                        } label: {
-                            Label("Archive", systemImage: "archivebox")
-                        }
-                        .tint(.orange)
-                    }
+                    libraryItemRow(item: item)
                 }
             }
 
@@ -285,25 +352,7 @@ struct LibraryTab: View {
                 }
             } else {
                 ForEach(displayedAdjacent, id: \.id) { item in
-                    NavigationLink(value: item.id) {
-                        ContentCardRow(item: item)
-                    }
-                    .buttonStyle(.plain)
-                    .navigationLinkIndicatorVisibility(.hidden)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                        readStatusSwipeButtons(for: item)
-                    }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button {
-                            archiveFromLibrary(item: item)
-                        } label: {
-                            Label("Archive", systemImage: "archivebox")
-                        }
-                        .tint(.orange)
-                    }
+                    libraryItemRow(item: item)
                 }
             }
         } header: {
@@ -399,15 +448,73 @@ struct LibraryTab: View {
         isDeepRanking = false
     }
 
-    private func archiveFromLibrary(item: ContentItem) {
-        ArchiveRetention.archive(item)
+    private func archiveItems(_ toArchive: [ContentItem]) {
+        guard !toArchive.isEmpty else { return }
+        let ids = toArchive.map(\.id)
+        for item in toArchive {
+            ArchiveRetention.archive(item)
+        }
         try? modelContext.save()
         LibraryContentChangeNotifier.postLibraryContentDidChange()
         NotificationCenter.default.post(
             name: .phathomDidArchiveItem,
             object: nil,
-            userInfo: ["itemID": item.id, "switchToLibrary": true]
+            userInfo: PhathomArchiveNotification.userInfo(itemIDs: ids)
         )
+    }
+
+    private func archiveFromLibrary(item: ContentItem) {
+        archiveItems([item])
+    }
+
+    @ViewBuilder
+    private func libraryItemRow(item: ContentItem) -> some View {
+        if editMode == .inactive {
+            NavigationLink(value: item.id) {
+                ContentCardRow(item: item)
+            }
+            .buttonStyle(.plain)
+            .navigationLinkIndicatorVisibility(.hidden)
+            .tag(item.id)
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                readStatusSwipeButtons(for: item)
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button {
+                    archiveFromLibrary(item: item)
+                } label: {
+                    Label("Archive", systemImage: "archivebox")
+                }
+                .tint(.orange)
+            }
+        } else {
+            ContentCardRow(item: item)
+                .tag(item.id)
+                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+        }
+    }
+
+    private func resolvedSelectedItems() -> [ContentItem] {
+        selectedItemIDs.compactMap { id in items.first { $0.id == id } }
+    }
+
+    private func bulkSetReadStatus(_ status: ReadStatus) {
+        let resolved = resolvedSelectedItems()
+        guard !resolved.isEmpty else { return }
+        ContentItem.applyReadStatus(status, to: resolved, modelContext: modelContext)
+        selectedItemIDs = []
+    }
+
+    private func bulkArchiveSelection() {
+        let resolved = resolvedSelectedItems()
+        guard !resolved.isEmpty else { return }
+        archiveItems(resolved)
+        selectedItemIDs = []
     }
 
     /// Leading-swipe buttons: only the two statuses the item is **not** currently in,

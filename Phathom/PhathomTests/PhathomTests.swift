@@ -199,6 +199,25 @@ struct PhathomTests {
         let textSearch = LibrarySearchService.bucket(query: "hello", items: all, filterKind: nil, filterStatus: nil)
         #expect(textSearch.matching.contains(where: { $0.id == note.id }))
     }
+
+    @Test func bulkApplyReadStatus_updatesAllSelected() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let a = ContentItem(contentKind: .web, originalURL: URL(string: "https://bulk-a.test")!)
+        a.readStatus = ReadStatus.new.rawValue
+        let b = ContentItem(contentKind: .web, originalURL: URL(string: "https://bulk-b.test")!)
+        b.readStatus = ReadStatus.new.rawValue
+        ctx.insert(a)
+        ctx.insert(b)
+        try ctx.save()
+        let aID = a.id
+        let bID = b.id
+        ContentItem.applyReadStatus(.filed, to: [a, b], modelContext: ctx)
+        let fa = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == aID })
+        let fb = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == bID })
+        #expect(try ctx.fetch(fa).first?.readState == .filed)
+        #expect(try ctx.fetch(fb).first?.readState == .filed)
+    }
 }
 
 private func makeInMemoryContainer() throws -> ModelContainer {

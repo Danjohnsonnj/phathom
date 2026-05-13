@@ -10,11 +10,19 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     @State private var libraryDeepLinkID: UUID?
 
-    @State private var undoArchiveItemID: UUID?
+    @State private var undoArchiveBatch: [UUID]?
     @State private var undoArchiveTask: Task<Void, Never>?
 
     init() {
         AppAppearance.configureIfNeeded()
+    }
+
+    private var undoArchiveSnackbarMessage: String {
+        let n = undoArchiveBatch?.count ?? 0
+        if n <= 1 {
+            return "Archived. You can restore it from Recently Deleted within 2 days."
+        }
+        return "Archived \(n) items. You can restore them from Recently Deleted within 2 days."
     }
 
     var body: some View {
@@ -66,18 +74,18 @@ struct MainTabView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .phathomDidArchiveItem)) { note in
-            guard let id = note.userInfo?["itemID"] as? UUID else { return }
+            guard let ids = PhathomArchiveNotification.itemIDs(from: note.userInfo), !ids.isEmpty else { return }
             // Undo snackbar is inset only on Library (`selectedTab == 0`). Today only Library / detail-back archive posts this; `switchToLibrary` gates future non-Library posters.
-            let switchToLibrary = note.userInfo?["switchToLibrary"] as? Bool ?? true
+            let switchToLibrary = note.userInfo?[PhathomArchiveNotification.switchToLibraryKey] as? Bool ?? true
             if switchToLibrary, selectedTab != 0 {
                 selectedTab = 0
             }
-            startArchiveUndo(for: id)
+            startArchiveUndo(for: ids)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if selectedTab == 0, undoArchiveItemID != nil {
+            if selectedTab == 0, let batch = undoArchiveBatch, !batch.isEmpty {
                 HStack(alignment: .center, spacing: 12) {
-                    Text("Archived. You can restore it from Recently Deleted within 2 days.")
+                    Text(undoArchiveSnackbarMessage)
                         .font(.footnote)
                         .foregroundStyle(AppPalette.textPrimary)
                         .multilineTextAlignment(.leading)
@@ -103,26 +111,29 @@ struct MainTabView: View {
         }
     }
 
-    private func startArchiveUndo(for id: UUID) {
-        undoArchiveItemID = id
+    private func startArchiveUndo(for ids: [UUID]) {
+        undoArchiveBatch = ids
         undoArchiveTask?.cancel()
         undoArchiveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
-            undoArchiveItemID = nil
+            undoArchiveBatch = nil
         }
     }
 
     private func performUndoArchive() {
         undoArchiveTask?.cancel()
-        guard let id = undoArchiveItemID else { return }
-        let fd = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == id })
-        if let item = try? modelContext.fetch(fd).first {
-            ArchiveRetention.restore(item)
-            try? modelContext.save()
-            LibraryContentChangeNotifier.postLibraryContentDidChange()
+        guard let batch = undoArchiveBatch, !batch.isEmpty else { return }
+        for id in batch {
+            let rowID = id
+            let fd = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == rowID })
+            if let item = try? modelContext.fetch(fd).first {
+                ArchiveRetention.restore(item)
+            }
         }
-        undoArchiveItemID = nil
+        try? modelContext.save()
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
+        undoArchiveBatch = nil
     }
 }
 

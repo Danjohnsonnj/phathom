@@ -597,7 +597,7 @@ struct DetailView: View {
                 NotificationCenter.default.post(
                     name: .phathomDidArchiveItem,
                     object: nil,
-                    userInfo: ["itemID": archivedID, "switchToLibrary": true]
+                    userInfo: PhathomArchiveNotification.userInfo(itemIDs: [archivedID])
                 )
             }
         } label: {
