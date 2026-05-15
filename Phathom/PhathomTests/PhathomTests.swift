@@ -221,12 +221,7 @@ struct PhathomTests {
 }
 
 private func makeInMemoryContainer() throws -> ModelContainer {
-    let schema = Schema([
-        ContentItem.self,
-        PhathomCore.Tag.self,
-        ChatThread.self,
-        ChatMessage.self,
-    ])
+    let schema = PhathomModelContainer.currentSchema
     let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
     return try ModelContainer(for: schema, configurations: [config])
 }

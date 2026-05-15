@@ -602,6 +602,10 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
+    /// Applies Llama-derived tags from summary + extracts (and optional user highlights).
+    ///
+    /// **Threading:** Call only from the pipeline’s `ModelContext` isolation (same as other `item` mutations
+    /// in this file). `item` and `context` must refer to the same store; highlights are read synchronously here.
     fileprivate nonisolated static func applyDerivedTaggingForPipelineItem(
         item: ContentItem,
         itemID: UUID,
@@ -616,7 +620,13 @@ enum BackgroundPipeline: Sendable {
         }
 
         let tagsLLMStart = Date()
-        let tagNames = try await session.tagsFromDerived(summaryBullets: summaryBullets, extracts: extracts)
+        let highlightInputs = item.highlightsSortedByPlainTextOffset
+            .map { DerivedTagHighlight.forTaggingPrompt(quote: $0.quotedText, note: $0.userNote) }
+        let tagNames = try await session.tagsFromDerived(
+            summaryBullets: summaryBullets,
+            extracts: extracts,
+            highlights: highlightInputs
+        )
         PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: tagsLLMStart)
 
         let tagDbStart = Date()

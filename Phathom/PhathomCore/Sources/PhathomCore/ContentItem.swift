@@ -29,6 +29,7 @@ public final class ContentItem {
     /// apply a lightweight migration on existing rows: missing values materialize as `"new"`.
     public var readStatus: String = ReadStatus.new.rawValue
     @Relationship(deleteRule: .nullify) public var tags: [Tag] = []
+    @Relationship(deleteRule: .cascade) public var highlights: [Highlight] = []
 
     public init(
         id: UUID = UUID(),
@@ -67,6 +68,20 @@ public extension ContentItem {
 
     /// Tag display names in relationship order (same as `tags.map(\.name)`).
     var tagNames: [String] { tags.map(\.name) }
+
+    /// Plain text derived from `sourceMarkdown` using the same rules as highlight anchoring.
+    var strippedSourceText: String? {
+        guard let md = sourceMarkdown else { return nil }
+        let trimmed = md.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let plain = MarkdownStripper.stripMarkdownToPlain(trimmed)
+        return plain.isEmpty ? nil : plain
+    }
+
+    /// Highlights sorted by UTF-16 anchor order for stable UI and `HighlightableSourceTextView` hit-testing.
+    var highlightsSortedByPlainTextOffset: [Highlight] {
+        highlights.sorted { $0.plainTextOffset < $1.plainTextOffset }
+    }
 
     var displayTitle: String {
         if let t = title?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty {

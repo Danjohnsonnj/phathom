@@ -24,6 +24,7 @@ struct DetailView: View {
     @State private var tagEditorDraft = ""
     @State private var tagEditorErrorMessage: String?
     @State private var delaySummarizeDisable = false
+    @State private var noteEditHighlight: Highlight?
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -79,6 +80,10 @@ struct DetailView: View {
                         .foregroundStyle(AppPalette.textTertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if titleFocused { titleFocused = false }
+                }
 
                 noteRenderedSection
 
@@ -99,17 +104,16 @@ struct DetailView: View {
                     }
                 }
 
+                HighlightsNotesSection(highlights: item.highlightsSortedByPlainTextOffset) { tapped in
+                    noteEditHighlight = tapped
+                }
+
                 actionButtons
 
                 sourceSection
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
-        .onTapGesture {
-            if titleFocused {
-                titleFocused = false // Dismiss the keyboard
-            }
-        }
         }
         .id(item.id)
         .background(AppPalette.background)
@@ -139,6 +143,14 @@ struct DetailView: View {
                 validationMessage: tagValidationMessage,
                 errorMessage: tagEditorErrorMessage
             )
+        }
+        .sheet(item: $noteEditHighlight) { highlight in
+            HighlightNoteEditSheet(
+                highlight: highlight,
+                modelContext: modelContext,
+                onDismiss: { noteEditHighlight = nil }
+            )
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -626,44 +638,88 @@ struct DetailView: View {
         return ceil(font.lineHeight * 8)
     }
 
+    private func createHighlightFromSelection(range: NSRange, fragment: String) {
+        guard item.kind == .web, let base = item.strippedSourceText, !base.isEmpty else { return }
+        let maxLen = (base as NSString).length
+        guard range.location >= 0, range.length > 0, NSMaxRange(range) <= maxLen else { return }
+        let h = Highlight(plainTextOffset: range.location, plainTextLength: range.length, quotedText: fragment)
+        modelContext.insert(h)
+        item.highlights.append(h)
+        guard DetailModelSave.save(modelContext, operation: "createHighlight") == nil else { return }
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
+        noteEditHighlight = h
+    }
+
+    private func resizeHighlightModel(_ highlight: Highlight, range: NSRange, fragment: String) {
+        guard let base = item.strippedSourceText, !base.isEmpty else { return }
+        let maxLen = (base as NSString).length
+        guard range.location >= 0, range.length > 0, NSMaxRange(range) <= maxLen else { return }
+        highlight.plainTextOffset = range.location
+        highlight.plainTextLength = range.length
+        highlight.quotedText = fragment
+        _ = DetailModelSave.save(modelContext, operation: "resizeHighlight")
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
+    }
+
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Source Content")
-                .font(.headline.bold())
-                .foregroundStyle(AppPalette.textPrimary)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    sourceExpanded.toggle()
+                }
+            } label: {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Source Content")
+                        .font(.headline.bold())
+                        .foregroundStyle(AppPalette.textPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppPalette.textTertiary)
+                        .rotationEffect(.degrees(sourceExpanded ? 180 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(sourceExpanded ? "Source content, expanded" : "Source content, collapsed preview")
+            .accessibilityHint("Double tap to expand or collapse the full source text.")
 
             if let md = sourceMarkdownForDisplay {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        sourceExpanded.toggle()
-                    }
-                } label: {
-                    HStack(alignment: .top, spacing: 8) {
-                        Group {
-                            if sourceExpanded {
-                                Markdown(md)
-                                    .markdownTheme(.phathomNote)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .textSelection(.enabled)
-                            } else {
-                                Markdown(md)
-                                    .markdownTheme(.phathomNote)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .frame(maxHeight: collapsedSourceMarkdownMaxHeight, alignment: .top)
-                                    .clipped()
-                            }
+                if sourceExpanded, item.kind == .web, let plain = item.strippedSourceText, !plain.isEmpty {
+                    HighlightableSourceTextView(
+                        plainText: plain,
+                        highlights: item.highlightsSortedByPlainTextOffset,
+                        onCreateHighlight: { range, fragment in
+                            createHighlightFromSelection(range: range, fragment: fragment)
+                        },
+                        onTapHighlight: { noteEditHighlight = $0 },
+                        onResizeHighlight: { h, range, fragment in
+                            resizeHighlightModel(h, range: range, fragment: fragment)
                         }
-                        .accessibilityHidden(true)
-                        Image(systemName: "chevron.down")
-                            .font(.caption.weight(.semibold))
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else if sourceExpanded, item.kind == .web, (item.strippedSourceText ?? "").isEmpty, !item.highlights.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Plain-text view unavailable; highlights use a saved map. Markdown shown below.")
+                            .font(.caption)
                             .foregroundStyle(AppPalette.textTertiary)
-                            .rotationEffect(.degrees(sourceExpanded ? 180 : 0))
-                            .accessibilityHidden(true)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Markdown(md)
+                            .markdownTheme(.phathomNote)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
                     }
+                } else if sourceExpanded {
+                    Markdown(md)
+                        .markdownTheme(.phathomNote)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                } else {
+                    Markdown(md)
+                        .markdownTheme(.phathomNote)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxHeight: collapsedSourceMarkdownMaxHeight, alignment: .top)
+                        .clipped()
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(sourceExpanded ? "Source content, expanded" : "Source content, collapsed preview")
-                .accessibilityHint("Double tap to expand or collapse the full source text.")
             } else if let raw = item.rawText, !raw.isEmpty {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -704,6 +760,135 @@ struct DetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppPalette.textSecondary)
             }
+        }
+    }
+}
+
+private enum DetailModelSave {
+    @discardableResult
+    static func save(_ context: ModelContext, operation: String) -> String? {
+        do {
+            try context.save()
+            return nil
+        } catch {
+            #if DEBUG
+            assertionFailure("[DetailModelSave] \(operation): \(error)")
+            #endif
+            print("[DetailModelSave] \(operation) failed: \(error.localizedDescription)")
+            return error.localizedDescription
+        }
+    }
+}
+
+private struct HighlightNoteEditSheet: View {
+    @Bindable var highlight: Highlight
+    var modelContext: ModelContext
+    var onDismiss: () -> Void
+
+    @State private var noteDraft: String = ""
+    @State private var persistenceError: String?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(highlight.quotedText)
+                        .font(.subheadline)
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppPalette.surface)
+                        .overlay(alignment: .leading) {
+                            Rectangle()
+                                .fill(AppPalette.accent)
+                                .frame(width: 4)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    TextEditor(text: $noteDraft)
+                        .frame(minHeight: 140)
+                        .padding(10)
+                        .scrollContentBackground(.hidden)
+                        .background(AppPalette.surfaceNested)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .foregroundStyle(AppPalette.textPrimary)
+
+                    if let persistenceError {
+                        Text(persistenceError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    Button {
+                        persistenceError = nil
+                        let t = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                        highlight.userNote = t.isEmpty ? nil : String(t.prefix(10_000))
+                        if let err = DetailModelSave.save(modelContext, operation: "saveHighlightNote") {
+                            persistenceError = err
+                        } else {
+                            LibraryContentChangeNotifier.postLibraryContentDidChange()
+                            onDismiss()
+                        }
+                    } label: {
+                        Text("Save")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppPalette.floralWhite)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(AppPalette.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        persistenceError = nil
+                        highlight.userNote = nil
+                        if let err = DetailModelSave.save(modelContext, operation: "deleteHighlightNote") {
+                            persistenceError = err
+                        } else {
+                            LibraryContentChangeNotifier.postLibraryContentDidChange()
+                            onDismiss()
+                        }
+                    } label: {
+                        Text("Delete note")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(AppPalette.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(AppPalette.surfaceNested)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(role: .destructive) {
+                        persistenceError = nil
+                        modelContext.delete(highlight)
+                        if let err = DetailModelSave.save(modelContext, operation: "removeHighlight") {
+                            persistenceError = err
+                        } else {
+                            LibraryContentChangeNotifier.postLibraryContentDidChange()
+                            onDismiss()
+                        }
+                    } label: {
+                        Text("Remove highlight")
+                            .font(.subheadline.weight(.medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(16)
+            }
+            .background(AppPalette.background)
+            .navigationTitle("Highlight")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { onDismiss() }
+                }
+            }
+            .onAppear { noteDraft = highlight.userNote ?? "" }
         }
     }
 }

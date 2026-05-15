@@ -17,8 +17,16 @@ struct ModelSession: Sendable {
         try await inference.sessionGenerateTags(text)
     }
 
-    func tagsFromDerived(summaryBullets: [String], extracts: [Extract]) async throws -> [String] {
-        try await inference.sessionGenerateTagsFromDerived(summaryBullets: summaryBullets, extracts: extracts)
+    func tagsFromDerived(
+        summaryBullets: [String],
+        extracts: [Extract],
+        highlights: [DerivedTagHighlight]
+    ) async throws -> [String] {
+        try await inference.sessionGenerateTagsFromDerived(
+            summaryBullets: summaryBullets,
+            extracts: extracts,
+            highlights: highlights
+        )
     }
 
     func extracts(_ text: String) async throws -> [Extract] {
@@ -176,9 +184,14 @@ actor SharedLlamaInference {
 
     fileprivate func sessionGenerateTagsFromDerived(
         summaryBullets: [String],
-        extracts: [Extract]
+        extracts: [Extract],
+        highlights: [DerivedTagHighlight]
     ) async throws -> [String] {
-        try await analyzer.generateTagsFromDerived(summaryBullets: summaryBullets, extracts: extracts)
+        try await analyzer.generateTagsFromDerived(
+            summaryBullets: summaryBullets,
+            extracts: extracts,
+            highlights: highlights
+        )
     }
 
     fileprivate func sessionGenerateExtracts(_ articleText: String) async throws -> [Extract] {

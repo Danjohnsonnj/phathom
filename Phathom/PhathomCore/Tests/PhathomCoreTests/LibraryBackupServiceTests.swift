@@ -151,12 +151,7 @@ final class LibraryBackupServiceTests: XCTestCase {
     }
 
     private func makeInMemoryContainer() throws -> ModelContainer {
-        let schema = Schema([
-            ContentItem.self,
-            Tag.self,
-            ChatThread.self,
-            ChatMessage.self,
-        ])
+        let schema = PhathomModelContainer.currentSchema
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
