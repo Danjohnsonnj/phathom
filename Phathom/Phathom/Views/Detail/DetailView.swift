@@ -661,6 +661,19 @@ struct DetailView: View {
         LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 
+    /// Plain + decoration runs for web source; must match `ContentItem.strippedSourceText` index space.
+    private func markdownBuiltForSource(md: String, strippedPlain: String) -> (plain: String, runs: [MarkdownDecorationRun]) {
+        let trimmed = md.trimmingCharacters(in: .whitespacesAndNewlines)
+        let built = MarkdownPlainDecoration.build(from: trimmed)
+        #if DEBUG
+        precondition(
+            built.plain == strippedPlain,
+            "MarkdownPlainDecoration plain must match ContentItem.strippedSourceText (check MarkdownStripper pipeline)."
+        )
+        #endif
+        return (built.plain, built.runs)
+    }
+
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
@@ -684,19 +697,24 @@ struct DetailView: View {
             .accessibilityHint("Double tap to expand or collapse the full source text.")
 
             if let md = sourceMarkdownForDisplay {
-                if sourceExpanded, item.kind == .web, let plain = item.strippedSourceText, !plain.isEmpty {
-                    HighlightableSourceTextView(
-                        plainText: plain,
-                        highlights: item.highlightsSortedByPlainTextOffset,
-                        onCreateHighlight: { range, fragment in
-                            createHighlightFromSelection(range: range, fragment: fragment)
-                        },
-                        onTapHighlight: { noteEditHighlight = $0 },
-                        onResizeHighlight: { h, range, fragment in
-                            resizeHighlightModel(h, range: range, fragment: fragment)
-                        }
-                    )
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if item.kind == .web, let plain = item.strippedSourceText, !plain.isEmpty {
+                    let built = markdownBuiltForSource(md: md, strippedPlain: plain)
+                    Group {
+                        HighlightableSourceTextView(
+                            plainText: built.plain,
+                            decorationRuns: built.runs,
+                            highlights: item.highlightsSortedByPlainTextOffset,
+                            onCreateHighlight: { range, fragment in
+                                createHighlightFromSelection(range: range, fragment: fragment)
+                            },
+                            onTapHighlight: { noteEditHighlight = $0 },
+                            onResizeHighlight: { h, range, fragment in
+                                resizeHighlightModel(h, range: range, fragment: fragment)
+                            }
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .modifier(SourceContentClipModifier(expanded: sourceExpanded, maxHeight: collapsedSourceMarkdownMaxHeight))
                 } else if sourceExpanded, item.kind == .web, (item.strippedSourceText ?? "").isEmpty, !item.highlights.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Plain-text view unavailable; highlights use a saved map. Markdown shown below.")
@@ -760,6 +778,21 @@ struct DetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppPalette.textSecondary)
             }
+        }
+    }
+}
+
+private struct SourceContentClipModifier: ViewModifier {
+    var expanded: Bool
+    var maxHeight: CGFloat
+
+    func body(content: Content) -> some View {
+        if expanded {
+            content
+        } else {
+            content
+                .frame(maxHeight: maxHeight, alignment: .top)
+                .clipped()
         }
     }
 }

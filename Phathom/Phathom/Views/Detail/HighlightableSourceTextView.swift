@@ -2,9 +2,10 @@ import PhathomCore
 import SwiftUI
 import UIKit
 
-/// Renders stripped plain text with highlight spans. **`highlights` must be sorted by `plainTextOffset`** (e.g. `ContentItem.highlightsSortedByPlainTextOffset`).
+/// Renders stripped plain text with optional markdown decoration runs and highlight spans. **`highlights` must be sorted by `plainTextOffset`** (e.g. `ContentItem.highlightsSortedByPlainTextOffset`). Plain string must match `MarkdownPlainDecoration.build` / `ContentItem.strippedSourceText` index space.
 struct HighlightableSourceTextView: UIViewRepresentable {
     var plainText: String
+    var decorationRuns: [MarkdownDecorationRun]
     var highlights: [Highlight]
     var onCreateHighlight: (NSRange, String) -> Void
     var onTapHighlight: (Highlight) -> Void
@@ -49,12 +50,13 @@ struct HighlightableSourceTextView: UIViewRepresentable {
 
     func updateUIView(_ uiView: HighlightTextView, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.updateContentFingerprintIfNeeded(plainText: plainText, highlights: highlights)
+        context.coordinator.updateContentFingerprintIfNeeded(plainText: plainText, decorationRuns: decorationRuns, highlights: highlights)
         let raw = uiView.textContainer.size.width > 1 ? uiView.textContainer.size.width : uiView.bounds.width
         let w = max(1, raw > 1 ? raw : 320)
         context.coordinator.applyLayoutIfNeeded(
             uiView: uiView,
             plainText: plainText,
+            decorationRuns: decorationRuns,
             highlights: highlights,
             containerWidth: CGFloat(w)
         )
@@ -62,11 +64,12 @@ struct HighlightableSourceTextView: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: HighlightTextView, context: Context) -> CGSize? {
         context.coordinator.parent = self
-        context.coordinator.updateContentFingerprintIfNeeded(plainText: plainText, highlights: highlights)
+        context.coordinator.updateContentFingerprintIfNeeded(plainText: plainText, decorationRuns: decorationRuns, highlights: highlights)
         let w = max(1, proposal.width ?? 320)
         context.coordinator.applyLayoutIfNeeded(
             uiView: uiView,
             plainText: plainText,
+            decorationRuns: decorationRuns,
             highlights: highlights,
             containerWidth: w
         )
@@ -81,6 +84,7 @@ struct HighlightableSourceTextView: UIViewRepresentable {
     private static func applyContent(
         to uiView: HighlightTextView,
         plainText: String,
+        decorationRuns: [MarkdownDecorationRun],
         highlights: [Highlight],
         containerWidth: CGFloat
     ) {
@@ -88,6 +92,7 @@ struct HighlightableSourceTextView: UIViewRepresentable {
         uiView.textContainer.size = CGSize(width: w, height: .greatestFiniteMagnitude)
         uiView.attributedText = buildAttributedString(
             plainText: plainText,
+            decorationRuns: decorationRuns,
             highlights: highlights,
             traitCollection: uiView.traitCollection
         )
@@ -96,18 +101,26 @@ struct HighlightableSourceTextView: UIViewRepresentable {
 
     private static func buildAttributedString(
         plainText: String,
+        decorationRuns: [MarkdownDecorationRun],
         highlights: [Highlight],
         traitCollection: UITraitCollection
     ) -> NSAttributedString {
         let baseFont = UIFont.preferredFont(forTextStyle: .body)
-        let baseColor = UIColor.label
-        let mas = NSMutableAttributedString(
-            string: plainText,
-            attributes: [
-                .font: baseFont,
-                .foregroundColor: baseColor,
-            ]
-        )
+        let para = NSMutableParagraphStyle()
+        para.lineSpacing = max(2, round(baseFont.lineHeight * 0.25))
+
+        let baseAttrs: [NSAttributedString.Key: Any] = [
+            .font: baseFont,
+            .foregroundColor: UIColor.label,
+            .paragraphStyle: para,
+        ]
+        let mas = NSMutableAttributedString(string: plainText, attributes: baseAttrs)
+
+        let sortedDecor = decorationRuns.sorted { $0.utf16Range.location < $1.utf16Range.location }
+        for run in sortedDecor {
+            applyDecoration(run, to: mas, baseFont: baseFont)
+        }
+
         let fullLen = (plainText as NSString).length
         let (hiBg, hiFg) = highlightSpanColors(traitCollection: traitCollection)
         for h in highlights {
@@ -127,6 +140,40 @@ struct HighlightableSourceTextView: UIViewRepresentable {
             )
         }
         return mas
+    }
+
+    private static func applyDecoration(_ run: MarkdownDecorationRun, to mas: NSMutableAttributedString, baseFont: UIFont) {
+        let r = run.utf16Range
+        let len = (mas.string as NSString).length
+        guard r.location >= 0, NSMaxRange(r) <= len, r.length > 0 else { return }
+
+        if run.traits.contains(.inlineCode) {
+            let mono = UIFont.monospacedSystemFont(ofSize: baseFont.pointSize * 0.85, weight: .regular)
+            let bg = UIColor(red: 53 / 255, green: 51 / 255, blue: 48 / 255, alpha: 0.55)
+            mas.addAttributes([.font: mono, .backgroundColor: bg], range: r)
+            return
+        }
+
+        var sym: UIFontDescriptor.SymbolicTraits = []
+        if run.traits.contains(.bold) { sym.insert(.traitBold) }
+        if run.traits.contains(.italic) { sym.insert(.traitItalic) }
+
+        var font = baseFont
+        if !sym.isEmpty, let d = baseFont.fontDescriptor.withSymbolicTraits(sym) {
+            font = UIFont(descriptor: d, size: baseFont.pointSize)
+        }
+
+        var attrs: [NSAttributedString.Key: Any] = [.font: font]
+        if run.traits.contains(.link), let url = run.linkURL {
+            attrs[.link] = url
+            attrs[.foregroundColor] = accentLinkColor()
+        }
+
+        mas.addAttributes(attrs, range: r)
+    }
+
+    private static func accentLinkColor() -> UIColor {
+        UIColor(red: 235 / 255, green: 94 / 255, blue: 40 / 255, alpha: 1)
     }
 
     /// Higher contrast when Increase Contrast is on; keeps orange family for brand continuity.
@@ -172,8 +219,8 @@ struct HighlightableSourceTextView: UIViewRepresentable {
             contentEpoch &+= 1
         }
 
-        func updateContentFingerprintIfNeeded(plainText: String, highlights: [Highlight]) {
-            let fp = Self.makeContentFingerprint(plainText: plainText, highlights: highlights)
+        func updateContentFingerprintIfNeeded(plainText: String, decorationRuns: [MarkdownDecorationRun], highlights: [Highlight]) {
+            let fp = Self.makeContentFingerprint(plainText: plainText, decorationRuns: decorationRuns, highlights: highlights)
             guard fp != contentFingerprint else { return }
             contentFingerprint = fp
             contentEpoch &+= 1
@@ -185,32 +232,46 @@ struct HighlightableSourceTextView: UIViewRepresentable {
         func applyLayoutIfNeeded(
             uiView: HighlightTextView,
             plainText: String,
+            decorationRuns: [MarkdownDecorationRun],
             highlights: [Highlight],
             containerWidth: CGFloat
         ) {
-            let sig = Self.makeLayoutSignature(plainText: plainText, highlights: highlights, width: containerWidth)
+            let sig = Self.makeLayoutSignature(plainText: plainText, decorationRuns: decorationRuns, highlights: highlights, width: containerWidth)
             guard sig != appliedLayoutSignature else { return }
             appliedLayoutSignature = sig
             HighlightableSourceTextView.applyContent(
                 to: uiView,
                 plainText: plainText,
+                decorationRuns: decorationRuns,
                 highlights: highlights,
                 containerWidth: containerWidth
             )
         }
 
-        private static func makeContentFingerprint(plainText: String, highlights: [Highlight]) -> String {
+        private static func makeContentFingerprint(plainText: String, decorationRuns: [MarkdownDecorationRun], highlights: [Highlight]) -> String {
+            let runSig = decorationRuns.map {
+                "\($0.utf16Range.location)-\($0.utf16Range.length)-\($0.traits.rawValue)-\($0.linkURL?.absoluteString ?? "")"
+            }.joined(separator: ";")
             let ids = highlights.map { h in
                 "\(h.id.uuidString)|\(h.plainTextOffset)|\(h.plainTextLength)|\(h.quotedText.count)"
             }.joined(separator: ";")
-            return "\(plainText.utf8.count)|\(ids)"
+            return "\(plainText.utf8.count)|\(runSig)|\(ids)"
         }
 
-        private static func makeLayoutSignature(plainText: String, highlights: [Highlight], width: CGFloat) -> String {
-            "\(makeContentFingerprint(plainText: plainText, highlights: highlights))|\(Int((width * 1_000).rounded()))"
+        private static func makeLayoutSignature(plainText: String, decorationRuns: [MarkdownDecorationRun], highlights: [Highlight], width: CGFloat) -> String {
+            "\(makeContentFingerprint(plainText: plainText, decorationRuns: decorationRuns, highlights: highlights))|\(Int((width * 1_000).rounded()))"
         }
 
         func textViewShouldBeginEditing(_ textView: UITextView) -> Bool { false }
+
+        func textView(
+            _ textView: UITextView,
+            shouldInteractWith URL: URL,
+            in characterRange: NSRange,
+            interaction: UITextItemInteraction
+        ) -> Bool {
+            true
+        }
 
         @objc func longPressed(_ gr: UILongPressGestureRecognizer) {
             switch gr.state {

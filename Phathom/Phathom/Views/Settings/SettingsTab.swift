@@ -206,9 +206,24 @@ struct SettingsContent: View {
             modelSection
             librarySection
             backupSection
+            #if DEBUG
+            developerSection
+            #endif
             aboutSection
         }
     }
+
+    #if DEBUG
+    private var developerSection: some View {
+        Section("Developer") {
+            NavigationLink {
+                SourceContentSpikeView()
+            } label: {
+                Text("Source content spike (WK)")
+            }
+        }
+    }
+    #endif
 
     private var modelSection: some View {
         Section {
