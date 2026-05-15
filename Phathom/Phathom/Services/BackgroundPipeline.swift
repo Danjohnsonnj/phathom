@@ -341,7 +341,9 @@ enum BackgroundPipeline: Sendable {
                 }
                 item.rawText = result.text
                 if let rawMd = result.sourceMarkdown {
-                    let trimmed = rawMd.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let trimmed = rawMd
+                        .replacingOccurrences(of: "\r\n", with: "\n")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
                     item.sourceMarkdown = trimmed.isEmpty ? nil : trimmed
                 } else {
                     item.sourceMarkdown = nil

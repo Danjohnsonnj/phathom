@@ -6,7 +6,7 @@ Spike gate for [real_markdown_highlights plan](../../.cursor/plans/real_markdown
 
 **Normative JS (proven):** [`SourceContentSpikeScript.swift`](../../Phathom/Phathom/Spike/SourceContentSpikeScript.swift) — production `HighlightableMarkdownWebView` SHALL port this file (or extract to `PhathomCore` / bundled resource) with only naming/CSS tweaks.
 
-**Related code:** [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift), [`BackgroundPipeline.swift`](../../Phathom/Phathom/Services/BackgroundPipeline.swift), [`HTMLMarkdownConverter.swift`](../../Phathom/Phathom/Services/HTMLMarkdownConverter.swift), [`DetailMarkdownTheme.swift`](../../Phathom/Phathom/Helpers/DetailMarkdownTheme.swift), [`HighlightableSourceTextView.swift`](../../Phathom/Phathom/Views/Detail/HighlightableSourceTextView.swift) (throwaway branch path).
+**Related code:** [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift), [`BackgroundPipeline.swift`](../../Phathom/Phathom/Services/BackgroundPipeline.swift), [`HTMLMarkdownConverter.swift`](../../Phathom/Phathom/Services/HTMLMarkdownConverter.swift), [`DetailMarkdownTheme.swift`](../../Phathom/Phathom/Helpers/DetailMarkdownTheme.swift), [`HighlightableMarkdownWebView.swift`](../../Phathom/Phathom/Views/Detail/HighlightableMarkdownWebView.swift) (production path).
 
 ---
 
@@ -29,8 +29,8 @@ Prove five risky areas **before** `Highlight` / `ContentItem` schema changes:
 | Anchor space | UTF-16 offsets into **stored** `sourceMarkdown` (not stripper plain, not HTML text nodes alone). |
 | Canonical string | Trim once at ingest; rewrite `item.sourceMarkdown` to trimmed value before indexer. |
 | Resize | **Out** — create highlight + tap sheet only; no `onResizeHighlight` on web path. |
-| Legacy rows (no HTML) | `Markdown` + `.textSelection`; **no** create; **no** runtime indexer on Detail open. |
-| Backup | Unchanged (`LibraryBackupService` v1); re-ingest rebuilds HTML. |
+| Legacy rows (no HTML) | `Markdown` + `.textSelection`; **no** create. Detail **does** run `ensureSourceContentHTMLIfNeeded()` eagerly on `.onAppear` and `sourceMarkdown` change — legacy items get indexed at view time. |
+| Backup | `LibraryBackupService` **v2** required — highlights are exported/imported as `HighlightRecord` arrays per item. v1 files import cleanly (highlights default to `[]`). |
 | Existing highlights | Wiped on upgrade when schema lands. |
 
 ---
@@ -210,7 +210,7 @@ mark.phathom-highlight {
 
 ### Context
 
-Today: `HighlightTextView.editMenu(for:suggestedActions:)` adds **Highlight** (`HighlightableSourceTextView.swift` ~359–376). Repo has **no** existing `WKWebView`.
+Today: production uses **`HighlightableMarkdownWebView`** — `UIEditMenuInteraction` + cached selection payload adds **Highlight** (`HighlightableMarkdownWebView.swift`).
 
 ### Chosen path: `UIEditMenuInteraction` + cached selection (proven in spike)
 
@@ -362,7 +362,7 @@ A fresh agent must update or remove **every** consumer below when the schema cha
 | `DetailView.swift` ~664–675 | `markdownBuiltForSource` + `MarkdownPlainDecoration` | Remove — replaced by web view. |
 | `BackgroundPipeline.swift` ~623 | `item.highlightsSortedByPlainTextOffset` in tag prompt builder | Update to renamed property. |
 | `HighlightsNotesSection.swift` ~4 | Docstring references `plainTextOffset` sort | Update docstring. |
-| `HighlightableSourceTextView.swift` | Entire file — throwaway branch path | Delete after `HighlightableMarkdownWebView` wired. |
+| `HighlightableSourceTextView.swift` (removed) | Entire file — legacy UITextView experiment | **Deleted** — production uses `HighlightableMarkdownWebView`. |
 | `StoreMigrationSmokeTests.swift` ~31 | `Highlight(plainTextOffset: 0, plainTextLength: 1, quotedText: "x")` | Update init to new params; update test name for V3→V4 if schema version bumps. |
 | `MarkdownStripper.swift` ~5 | `algorithmVersion` docstring references `Highlight.markdownStripperVersion` | Remove cross-reference (field deleted). Keep `algorithmVersion` for `strippedSourceText` only. |
 
@@ -408,7 +408,7 @@ A fresh agent must update or remove **every** consumer below when the schema cha
 1. Schema + highlight wipe + `sourceContentHTML` fields.
 2. `SourceContentIndexer` + golden tests + pipeline hook (trim then index).
 3. `HighlightableMarkdownWebView` — port `SourceContentSpikeScript` + spike CSS → production theme.
-4. Detail wire-up; remove `HighlightableSourceTextView` web path.
+4. Detail wire-up; ~~remove `HighlightableSourceTextView`~~ **done** — `HighlightableMarkdownWebView` is production.
 5. `docs/decisions.md` + supersede 2026-05-14 rows.
 
 ---
@@ -417,5 +417,3 @@ A fresh agent must update or remove **every** consumer below when the schema cha
 
 - Markdown in user notes.
 - Web highlight resize.
-- Runtime HTML indexing on Detail open.
-- Library backup format bump.

@@ -149,6 +149,22 @@ final class SourceContentIndexerTests: XCTestCase {
         try assertSpanText(html: result.html, markdown: md, expected: "tick")
     }
 
+    // MARK: - CRLF line endings
+
+    func testCRLFLineEndingsRoundTrip() throws {
+        let md = "# Heading\r\n\r\nBody text here."
+        let result = try XCTUnwrap(SourceContentIndexer.index(markdown: md))
+
+        XCTAssertTrue(result.html.contains("<h1>"))
+        XCTAssertTrue(result.html.contains("<p>"))
+
+        // Indexer normalizes CRLF→LF internally; offsets are into normalized string
+        let normalized = md.replacingOccurrences(of: "\r\n", with: "\n")
+        try assertAllSpansValid(html: result.html, markdown: normalized)
+        try assertSpanText(html: result.html, markdown: normalized, expected: "Heading")
+        try assertSpanText(html: result.html, markdown: normalized, expected: "Body text here.")
+    }
+
     // MARK: - Helpers
 
     private func assertAllSpansValid(html: String, markdown: String, file: StaticString = #file, line: UInt = #line) throws {

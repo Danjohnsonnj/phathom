@@ -17,8 +17,11 @@ public enum SourceContentIndexer {
         let trimmed = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        let document = Document(parsing: trimmed, options: [.parseBlockDirectives, .parseSymbolLinks])
-        var visitor = HTMLVisitor(source: trimmed)
+        // Normalize CRLF → LF for consistent offset calculation with swift-markdown parser
+        let normalized = trimmed.replacingOccurrences(of: "\r\n", with: "\n")
+
+        let document = Document(parsing: normalized, options: [.parseBlockDirectives, .parseSymbolLinks])
+        var visitor = HTMLVisitor(source: normalized)
         visitor.visit(document)
         return Result(html: visitor.html, version: currentVersion)
     }

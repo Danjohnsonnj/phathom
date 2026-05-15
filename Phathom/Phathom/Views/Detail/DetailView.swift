@@ -242,7 +242,7 @@ struct DetailView: View {
         item.title = newTitle
         item.titleUserSet = (newTitle != nil)
         if newTitle != priorTitle || item.titleUserSet != priorFlag {
-            try? modelContext.save()
+            DetailModelSave.save(modelContext, operation: "commitTitleDraft")
             LibraryContentChangeNotifier.postLibraryContentDidChange()
             item.indexInSpotlight()
         }
@@ -591,7 +591,7 @@ struct DetailView: View {
     private var restoreToLibraryButton: some View {
         Button {
             ArchiveRetention.restore(item)
-            try? modelContext.save()
+            DetailModelSave.save(modelContext, operation: "restoreToLibrary")
             LibraryContentChangeNotifier.postLibraryContentDidChange()
             NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
             dismiss()
@@ -611,7 +611,7 @@ struct DetailView: View {
     private var archiveButton: some View {
         Button {
             ArchiveRetention.archive(item)
-            try? modelContext.save()
+            DetailModelSave.save(modelContext, operation: "archiveItem")
             LibraryContentChangeNotifier.postLibraryContentDidChange()
             dismiss()
             let archivedID = item.id
@@ -665,7 +665,12 @@ struct DetailView: View {
         let htmlMissing = (item.sourceContentHTML ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let versionStale = item.sourceContentIndexVersion < SourceContentIndexer.currentVersion
         guard htmlMissing || versionStale else { return }
-        guard let indexed = SourceContentIndexer.index(markdown: md) else { return }
+        let normalized = md
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return }
+        item.sourceMarkdown = normalized
+        guard let indexed = SourceContentIndexer.index(markdown: normalized) else { return }
         item.sourceContentHTML = indexed.html
         item.sourceContentIndexVersion = indexed.version
         guard DetailModelSave.save(modelContext, operation: "ensureSourceContentHTML") == nil else { return }

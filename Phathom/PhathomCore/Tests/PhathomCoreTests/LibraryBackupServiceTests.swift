@@ -150,6 +150,177 @@ final class LibraryBackupServiceTests: XCTestCase {
         XCTAssertEqual(all.first?.tagNames, ["restore"])
     }
 
+    func testHighlightExportImportRoundTrip() throws {
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+
+        let item = makeItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 100), archived: false)
+        let mdBody = String(repeating: "x", count: 60)
+        item.sourceMarkdown = mdBody
+        context.insert(item)
+
+        let highlight = Highlight(
+            sourceMarkdownOffset: 10,
+            sourceMarkdownLength: 25,
+            quotedText: String(repeating: "x", count: 25),
+            userNote: "my note"
+        )
+        highlight.item = item
+        context.insert(highlight)
+        try context.save()
+
+        let data = try LibraryBackupService.exportData(from: context, appBuild: "test")
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let envelope = try decoder.decode(LibraryBackupService.ExportEnvelope.self, from: data)
+        XCTAssertEqual(envelope.formatVersion, 2)
+        XCTAssertEqual(envelope.items.count, 1)
+        XCTAssertEqual(envelope.items.first?.highlights.count, 1)
+
+        let hr = try XCTUnwrap(envelope.items.first?.highlights.first)
+        XCTAssertEqual(hr.sourceMarkdownOffset, 10)
+        XCTAssertEqual(hr.sourceMarkdownLength, 25)
+        XCTAssertEqual(hr.quotedText, String(repeating: "x", count: 25))
+        XCTAssertEqual(hr.userNote, "my note")
+
+        let importContainer = try makeInMemoryContainer()
+        let importContext = ModelContext(importContainer)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: importContext)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let imported = try importContext.fetch(FetchDescriptor<ContentItem>())
+        XCTAssertEqual(imported.count, 1)
+
+        let importedHighlights = try importContext.fetch(FetchDescriptor<Highlight>())
+        XCTAssertEqual(importedHighlights.count, 1)
+
+        let ih = try XCTUnwrap(importedHighlights.first)
+        XCTAssertEqual(ih.sourceMarkdownOffset, 10)
+        XCTAssertEqual(ih.sourceMarkdownLength, 25)
+        XCTAssertEqual(ih.quotedText, String(repeating: "x", count: 25))
+        XCTAssertEqual(ih.userNote, "my note")
+        XCTAssertEqual(ih.item?.id, item.id)
+    }
+
+    func testV1FormatImportsWithEmptyHighlights() throws {
+        let v1Record = LibraryBackupService.ItemRecord(
+            id: UUID(),
+            createdAt: Date(timeIntervalSince1970: 10),
+            title: "v1 item",
+            titleUserSet: false,
+            originalURL: URL(string: "https://example.com"),
+            displayHost: "example.com",
+            contentKind: ContentKind.web.rawValue,
+            rawText: "text",
+            sourceMarkdown: nil,
+            thumbnailData: nil,
+            thumbnailColorHex: nil,
+            mediaDescription: nil,
+            summaryBullets: nil,
+            extracts: nil,
+            processingStatus: ProcessingStatus.completed.rawValue,
+            processingDetail: nil,
+            lastProcessedChunk: 0,
+            failureReason: nil,
+            isArchived: false,
+            archivedAt: nil,
+            tags: []
+        )
+        let envelope = LibraryBackupService.ExportEnvelope(
+            formatVersion: 1,
+            appBuild: "test",
+            items: [v1Record]
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(envelope)
+
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: context)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let highlights = try context.fetch(FetchDescriptor<Highlight>())
+        XCTAssertTrue(highlights.isEmpty)
+    }
+
+    func testV1JSONWithoutHighlightsKeyImports() throws {
+        let itemID = "00000000-0000-4000-8000-000000000001"
+        let json = """
+        {
+          "appBuild": "raw-v1",
+          "exportedAt": "2020-05-15T12:00:00.000Z",
+          "formatVersion": 1,
+          "items": [
+            {
+              "id": "\(itemID)",
+              "createdAt": "1970-01-01T00:00:10.000Z",
+              "title": "v1 raw",
+              "titleUserSet": false,
+              "originalURL": "https://example.com/raw",
+              "displayHost": "example.com",
+              "contentKind": "web",
+              "rawText": "body",
+              "sourceMarkdown": null,
+              "thumbnailData": null,
+              "thumbnailColorHex": null,
+              "mediaDescription": null,
+              "summaryBullets": null,
+              "extracts": null,
+              "processingStatus": "pending",
+              "processingDetail": null,
+              "lastProcessedChunk": 0,
+              "failureReason": null,
+              "isArchived": false,
+              "archivedAt": null,
+              "tags": []
+            }
+          ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: context)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let imported = try context.fetch(FetchDescriptor<ContentItem>())
+        XCTAssertEqual(imported.count, 1)
+        XCTAssertEqual(imported.first?.id.uuidString.lowercased(), itemID)
+
+        let highlights = try context.fetch(FetchDescriptor<Highlight>())
+        XCTAssertTrue(highlights.isEmpty)
+    }
+
+    func testFutureFormatVersionThrows() throws {
+        let json = """
+        {
+          "formatVersion": 3,
+          "exportedAt": "2020-05-15T12:00:00.000Z",
+          "appBuild": null,
+          "items": []
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+
+        XCTAssertThrowsError(try LibraryBackupService.importData(data, policy: .replace, into: context)) { error in
+            guard let backupError = error as? LibraryBackupService.BackupError else {
+                XCTFail("expected BackupError, got \(error)")
+                return
+            }
+            guard case .unsupportedFormatVersion(let v) = backupError else {
+                XCTFail("expected unsupportedFormatVersion, got \(backupError)")
+                return
+            }
+            XCTAssertEqual(v, 3)
+        }
+    }
+
     private func makeInMemoryContainer() throws -> ModelContainer {
         let schema = PhathomModelContainer.currentSchema
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)

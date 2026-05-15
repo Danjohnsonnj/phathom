@@ -1,3 +1,4 @@
+import CryptoKit
 import PhathomCore
 import SwiftUI
 import WebKit
@@ -94,7 +95,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         context.coordinator.onTapHighlight = onTapHighlight
 
         let highlightKey = Coordinator.highlightKey(for: highlights)
-        let bodyKey = "\(sourceHTML.hashValue)_\(collapsed)"
+        let bodyKey = "\(Self.stableFingerprint(sourceHTML))_\(collapsed)"
 
         let bodyChanged = context.coordinator.loadedBodyKey != bodyKey
         if bodyChanged {
@@ -118,6 +119,19 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             context.coordinator.consumedHighlightApplyToken = highlightApplyToken
             context.coordinator.applyCachedHighlightIfPossible()
         }
+    }
+
+    static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "phathomSelection")
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "phathomHighlightTap")
+        coordinator.webView = nil
+        coordinator.lastSelectionPayload = nil
+        coordinator.highlightOverlayGeneration += 1
+    }
+
+    private static func stableFingerprint(_ string: String) -> String {
+        let digest = SHA256.hash(data: Data(string.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     private static func wrapDocument(body: String, collapsed: Bool) -> String {

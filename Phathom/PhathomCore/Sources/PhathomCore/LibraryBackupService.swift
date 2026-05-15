@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 public enum LibraryBackupService {
-    public static let currentFormatVersion = 1
+    public static let currentFormatVersion = 2
 
     public enum ImportPolicy: Sendable {
         case replace
@@ -28,6 +28,31 @@ public enum LibraryBackupService {
         }
     }
 
+    public struct HighlightRecord: Codable, Sendable {
+        public var id: UUID
+        public var createdAt: Date
+        public var sourceMarkdownOffset: Int
+        public var sourceMarkdownLength: Int
+        public var quotedText: String
+        public var userNote: String?
+
+        public init(
+            id: UUID,
+            createdAt: Date,
+            sourceMarkdownOffset: Int,
+            sourceMarkdownLength: Int,
+            quotedText: String,
+            userNote: String? = nil
+        ) {
+            self.id = id
+            self.createdAt = createdAt
+            self.sourceMarkdownOffset = sourceMarkdownOffset
+            self.sourceMarkdownLength = sourceMarkdownLength
+            self.quotedText = quotedText
+            self.userNote = userNote
+        }
+    }
+
     public struct ItemRecord: Codable, Sendable {
         public var id: UUID
         public var createdAt: Date
@@ -50,6 +75,7 @@ public enum LibraryBackupService {
         public var isArchived: Bool
         public var archivedAt: Date?
         public var tags: [String]
+        public var highlights: [HighlightRecord]
 
         public init(
             id: UUID,
@@ -72,7 +98,8 @@ public enum LibraryBackupService {
             failureReason: String?,
             isArchived: Bool,
             archivedAt: Date?,
-            tags: [String]
+            tags: [String],
+            highlights: [HighlightRecord] = []
         ) {
             self.id = id
             self.createdAt = createdAt
@@ -95,6 +122,33 @@ public enum LibraryBackupService {
             self.isArchived = isArchived
             self.archivedAt = archivedAt
             self.tags = tags
+            self.highlights = highlights
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            createdAt = try container.decode(Date.self, forKey: .createdAt)
+            title = try container.decodeIfPresent(String.self, forKey: .title)
+            titleUserSet = try container.decode(Bool.self, forKey: .titleUserSet)
+            originalURL = try container.decodeIfPresent(URL.self, forKey: .originalURL)
+            displayHost = try container.decodeIfPresent(String.self, forKey: .displayHost)
+            contentKind = try container.decode(String.self, forKey: .contentKind)
+            rawText = try container.decodeIfPresent(String.self, forKey: .rawText)
+            sourceMarkdown = try container.decodeIfPresent(String.self, forKey: .sourceMarkdown)
+            thumbnailData = try container.decodeIfPresent(Data.self, forKey: .thumbnailData)
+            thumbnailColorHex = try container.decodeIfPresent(String.self, forKey: .thumbnailColorHex)
+            mediaDescription = try container.decodeIfPresent(String.self, forKey: .mediaDescription)
+            summaryBullets = try container.decodeIfPresent(String.self, forKey: .summaryBullets)
+            extracts = try container.decodeIfPresent(String.self, forKey: .extracts)
+            processingStatus = try container.decode(String.self, forKey: .processingStatus)
+            processingDetail = try container.decodeIfPresent(String.self, forKey: .processingDetail)
+            lastProcessedChunk = try container.decode(Int.self, forKey: .lastProcessedChunk)
+            failureReason = try container.decodeIfPresent(String.self, forKey: .failureReason)
+            isArchived = try container.decode(Bool.self, forKey: .isArchived)
+            archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
+            tags = try container.decode([String].self, forKey: .tags)
+            highlights = try container.decodeIfPresent([HighlightRecord].self, forKey: .highlights) ?? []
         }
     }
 
@@ -150,7 +204,7 @@ public enum LibraryBackupService {
             case .emptyData:
                 return "code=empty_data"
             case .unsupportedFormatVersion(let version):
-                return "code=unsupported_format_version formatVersion=\(version) supported=\(LibraryBackupService.currentFormatVersion)"
+                return "code=unsupported_format_version formatVersion=\(version) maxSupported=\(LibraryBackupService.currentFormatVersion)"
             case .invalidItem(let index, let reason):
                 return "code=invalid_item index=\(index) reason=\(reason)"
             case .duplicateItemIDs(let id):
@@ -172,7 +226,17 @@ public enum LibraryBackupService {
         )
         let items = try modelContext.fetch(descriptor)
         let records = items.map { item in
-            ItemRecord(
+            let hlRecords = item.highlights.map { h in
+                HighlightRecord(
+                    id: h.id,
+                    createdAt: h.createdAt,
+                    sourceMarkdownOffset: h.sourceMarkdownOffset,
+                    sourceMarkdownLength: h.sourceMarkdownLength,
+                    quotedText: h.quotedText,
+                    userNote: h.userNote
+                )
+            }
+            return ItemRecord(
                 id: item.id,
                 createdAt: item.createdAt,
                 title: item.title,
@@ -193,7 +257,8 @@ public enum LibraryBackupService {
                 failureReason: item.failureReason,
                 isArchived: item.isArchived,
                 archivedAt: item.archivedAt,
-                tags: item.tags.map(\.name)
+                tags: item.tags.map(\.name),
+                highlights: hlRecords
             )
         }
 
@@ -282,7 +347,7 @@ public enum LibraryBackupService {
             throw BackupError.decodeFailure(error.localizedDescription)
         }
 
-        guard envelope.formatVersion == currentFormatVersion else {
+        guard envelope.formatVersion <= currentFormatVersion else {
             throw BackupError.unsupportedFormatVersion(envelope.formatVersion)
         }
 
@@ -312,6 +377,15 @@ public enum LibraryBackupService {
             index[tag.name] = tag
         }
         return index
+    }
+
+    private static func shouldImportHighlight(_ hr: HighlightRecord, sourceMarkdown: String?) -> Bool {
+        guard let md = sourceMarkdown, !md.isEmpty else { return false }
+        guard hr.sourceMarkdownOffset >= 0, hr.sourceMarkdownLength > 0 else { return false }
+        let end = hr.sourceMarkdownOffset + hr.sourceMarkdownLength
+        guard end <= md.utf16.count else { return false }
+        guard !hr.quotedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return true
     }
 
     private static func makeContentItem(
@@ -354,6 +428,26 @@ public enum LibraryBackupService {
             tagIndex[normalized] = newTag
             return newTag
         }
+
+        for hr in record.highlights {
+            guard shouldImportHighlight(hr, sourceMarkdown: item.sourceMarkdown) else {
+                #if DEBUG
+                print("[LibraryBackupService] skipped invalid highlight import id=\(hr.id)")
+                #endif
+                continue
+            }
+            let highlight = Highlight(
+                sourceMarkdownOffset: hr.sourceMarkdownOffset,
+                sourceMarkdownLength: hr.sourceMarkdownLength,
+                quotedText: hr.quotedText,
+                userNote: hr.userNote
+            )
+            highlight.id = hr.id
+            highlight.createdAt = hr.createdAt
+            highlight.item = item
+            modelContext.insert(highlight)
+        }
+
         return item
     }
 }
