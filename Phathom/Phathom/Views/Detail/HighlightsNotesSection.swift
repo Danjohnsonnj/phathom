@@ -18,11 +18,18 @@ struct HighlightsNotesSection: View {
                     .foregroundStyle(AppPalette.textPrimary)
 
                 if highlights.isEmpty {
-                    Text("No highlights yet. Expand Source Content, select article text, then tap Highlight selection.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppPalette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("No highlights")
+                            .font(.subheadline)
+                            .foregroundStyle(AppPalette.textSecondary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppPalette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
                 } else {
                     VStack(alignment: .leading, spacing: 14) {
                         ForEach(highlights) { highlight in

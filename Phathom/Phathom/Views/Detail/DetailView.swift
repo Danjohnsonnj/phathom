@@ -106,8 +106,6 @@ struct DetailView: View {
                     }
                 }
 
-                sourceSection
-
                 HighlightsNotesSection(
                     highlights: item.highlightsSortedByOffset,
                     showsEmptyPlaceholder: item.kind == .web
@@ -116,6 +114,8 @@ struct DetailView: View {
                 }
 
                 actionButtons
+
+                sourceSection
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
@@ -677,32 +677,6 @@ struct DetailView: View {
         LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 
-    @ViewBuilder
-    private var webSourceHighlightControls: some View {
-        Button {
-            sourceWebHighlightApplyToken &+= 1
-        } label: {
-            Label("Highlight selection", systemImage: "highlighter")
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(AppPalette.accent)
-        .disabled(!sourceWebSelectionActive)
-        .opacity(sourceWebSelectionActive ? 1 : 0.5)
-        .accessibilityHint(
-            sourceWebSelectionActive
-                ? "Creates a highlight from the current selection and opens the note editor."
-                : "Select text in the source article first."
-        )
-
-        Text("The web menu only shows Apple’s actions (Copy, Look Up, …). After you select text, tap Highlight selection.")
-            .font(.caption)
-            .foregroundStyle(AppPalette.textTertiary)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
@@ -727,9 +701,6 @@ struct DetailView: View {
 
             if let html = item.sourceContentHTML, !html.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    if sourceExpanded {
-                        webSourceHighlightControls
-                    }
                     HighlightableMarkdownWebView(
                         selectionActive: $sourceWebSelectionActive,
                         highlightApplyToken: $sourceWebHighlightApplyToken,
@@ -742,9 +713,6 @@ struct DetailView: View {
                         onTapHighlight: { noteEditHighlight = $0 }
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    if !sourceExpanded {
-                        webSourceHighlightControls
-                    }
                 }
             } else if let md = sourceMarkdownForDisplay {
                 if sourceExpanded {
