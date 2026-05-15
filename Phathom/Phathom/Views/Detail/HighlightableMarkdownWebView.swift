@@ -2,7 +2,40 @@ import PhathomCore
 import SwiftUI
 import WebKit
 
+/// WKWebView reports `.zero` intrinsic size; SwiftUI would otherwise give it no height.
+private final class IntrinsicHeightWebView: WKWebView {
+    private var measuredHeight: CGFloat = 120
+
+    /// Fired when user chooses **Highlight** from `buildMenu` injection (WebKit selection menu) if iOS includes that path.
+    var onHighlightMenuAction: (() -> Void)?
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: measuredHeight)
+    }
+
+    func applyMeasuredHeight(_ height: CGFloat) {
+        let clamped = max(44, height)
+        guard abs(clamped - measuredHeight) > 0.5 else { return }
+        measuredHeight = clamped
+        invalidateIntrinsicContentSize()
+    }
+
+    override func buildMenu(with builder: UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        let action = UIAction(title: "Highlight", image: UIImage(systemName: "highlighter")) { [weak self] _ in
+            self?.onHighlightMenuAction?()
+        }
+        let highlightMenu = UIMenu(options: .displayInline, children: [action])
+        if builder.menu(for: .standardEdit) != nil {
+            builder.insertChild(highlightMenu, atEndOfMenu: .standardEdit)
+        }
+    }
+}
+
 struct HighlightableMarkdownWebView: UIViewRepresentable {
+    @Binding var selectionActive: Bool
+    @Binding var highlightApplyToken: Int
+
     var sourceHTML: String
     var highlights: [Highlight]
     var collapsed: Bool
@@ -11,6 +44,8 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
+            selectionActive: $selectionActive,
+            highlightApplyToken: $highlightApplyToken,
             highlights: highlights,
             onCreateHighlight: onCreateHighlight,
             onTapHighlight: onTapHighlight
@@ -31,12 +66,17 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         controller.add(context.coordinator, name: "phathomHighlightTap")
         config.userContentController = controller
 
-        let webView = WKWebView(frame: .zero, configuration: config)
+        let webView = IntrinsicHeightWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
         webView.scrollView.isScrollEnabled = false
         webView.navigationDelegate = context.coordinator
+
+        let coord = context.coordinator
+        webView.onHighlightMenuAction = { [weak coord] in
+            coord?.applyCachedHighlightIfPossible()
+        }
 
         let editMenu = UIEditMenuInteraction(delegate: context.coordinator)
         webView.addInteraction(editMenu)
@@ -46,21 +86,38 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
+        context.coordinator.selectionActive = $selectionActive
+        context.coordinator.highlightApplyTokenBinding = $highlightApplyToken
+        context.coordinator.collapsed = collapsed
         context.coordinator.highlights = highlights
         context.coordinator.onCreateHighlight = onCreateHighlight
         context.coordinator.onTapHighlight = onTapHighlight
 
-        let highlightKey = highlights.map { "\($0.id.uuidString)-\($0.sourceMarkdownOffset)-\($0.sourceMarkdownLength)" }.joined()
-        let fingerprint = sourceHTML.hashValue ^ collapsed.hashValue ^ highlightKey.hashValue
+        let highlightKey = Coordinator.highlightKey(for: highlights)
+        let bodyKey = "\(sourceHTML.hashValue)_\(collapsed)"
 
-        guard context.coordinator.loadedFingerprint != fingerprint else { return }
-        context.coordinator.loadedFingerprint = fingerprint
-        context.coordinator.pendingHighlights = highlights.map {
-            (start: $0.sourceMarkdownOffset, end: $0.sourceMarkdownOffset + $0.sourceMarkdownLength, id: $0.id.uuidString)
+        let bodyChanged = context.coordinator.loadedBodyKey != bodyKey
+        if bodyChanged {
+            context.coordinator.loadedBodyKey = bodyKey
+            context.coordinator.appliedHighlightKey = nil
+            context.coordinator.pendingHighlightOverlayKey = nil
+            context.coordinator.highlightOverlayGeneration += 1
+            _selectionActive.wrappedValue = false
+            context.coordinator.lastSelectionPayload = nil
+            context.coordinator.consumedHighlightApplyToken = highlightApplyToken
+
+            let fullHTML = Self.wrapDocument(body: sourceHTML, collapsed: collapsed)
+            webView.loadHTMLString(fullHTML, baseURL: nil)
+        } else if context.coordinator.appliedHighlightKey != highlightKey,
+                  context.coordinator.pendingHighlightOverlayKey != highlightKey,
+                  !webView.isLoading {
+            context.coordinator.applyHighlightOverlay(webView: webView, highlightKey: highlightKey)
         }
 
-        let fullHTML = Self.wrapDocument(body: sourceHTML, collapsed: collapsed)
-        webView.loadHTMLString(fullHTML, baseURL: nil)
+        if highlightApplyToken != context.coordinator.consumedHighlightApplyToken {
+            context.coordinator.consumedHighlightApplyToken = highlightApplyToken
+            context.coordinator.applyCachedHighlightIfPossible()
+        }
     }
 
     private static func wrapDocument(body: String, collapsed: Bool) -> String {
@@ -82,23 +139,42 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, UIEditMenuInteractionDelegate {
+        var selectionActive: Binding<Bool>
+        var highlightApplyTokenBinding: Binding<Int>
+
+        var collapsed: Bool = false
         var highlights: [Highlight]
         var onCreateHighlight: (Int, Int, String) -> Void
         var onTapHighlight: (Highlight) -> Void
 
         weak var webView: WKWebView?
-        var loadedFingerprint: Int?
-        var pendingHighlights: [(start: Int, end: Int, id: String)] = []
-        private var lastSelectionPayload: SelectionPayload?
+        /// Fingerprint for wrapped HTML body + collapsed flag; reload WKWebView only when this changes.
+        var loadedBodyKey: String?
+        /// Matches `highlightKey` last applied in JS (inject path or `didFinish`).
+        var appliedHighlightKey: String?
+        /// Prevents duplicate `evaluateJavaScript` while an overlay is still committing.
+        var pendingHighlightOverlayKey: String?
+        /// Invalidates stale `evaluateJavaScript` completions when a newer overlay starts (or body reloads).
+        var highlightOverlayGeneration: Int = 0
+        var consumedHighlightApplyToken: Int = 0
+        var lastSelectionPayload: SelectionPayload?
 
         init(
+            selectionActive: Binding<Bool>,
+            highlightApplyToken: Binding<Int>,
             highlights: [Highlight],
             onCreateHighlight: @escaping (Int, Int, String) -> Void,
             onTapHighlight: @escaping (Highlight) -> Void
         ) {
+            self.selectionActive = selectionActive
+            self.highlightApplyTokenBinding = highlightApplyToken
             self.highlights = highlights
             self.onCreateHighlight = onCreateHighlight
             self.onTapHighlight = onTapHighlight
+        }
+
+        static func highlightKey(for highlights: [Highlight]) -> String {
+            highlights.map { "\($0.id.uuidString)-\($0.sourceMarkdownOffset)-\($0.sourceMarkdownLength)" }.joined(separator: "|")
         }
 
         struct SelectionPayload {
@@ -110,37 +186,140 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             switch message.name {
             case "phathomSelection":
-                if let raw = message.body as? String,
-                   let data = raw.data(using: .utf8),
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let start = json["start"] as? Int,
-                   let end = json["end"] as? Int,
-                   let text = json["text"] as? String {
-                    lastSelectionPayload = SelectionPayload(start: start, end: end, text: text)
-                } else {
-                    lastSelectionPayload = nil
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.processSelectionMessageBody(message.body)
                 }
             case "phathomHighlightTap":
-                if let idString = message.body as? String,
-                   let uuid = UUID(uuidString: idString),
-                   let highlight = highlights.first(where: { $0.id == uuid }) {
-                    onTapHighlight(highlight)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    if let idString = message.body as? String,
+                       let uuid = UUID(uuidString: idString),
+                       let highlight = highlights.first(where: { $0.id == uuid }) {
+                        onTapHighlight(highlight)
+                    }
                 }
             default:
                 break
             }
         }
 
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard !pendingHighlights.isEmpty else { return }
-            let ranges: [[String: Any]] = pendingHighlights.map {
-                ["start": $0.start, "end": $0.end, "id": $0.id]
+        private func processSelectionMessageBody(_ body: Any?) {
+            if body is NSNull || body == nil {
+                lastSelectionPayload = nil
+                selectionActive.wrappedValue = false
+                return
+            }
+            guard let raw = body as? String,
+                  let data = raw.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                lastSelectionPayload = nil
+                selectionActive.wrappedValue = false
+                return
+            }
+            guard let start = Self.intValue(json["start"]),
+                  let end = Self.intValue(json["end"]),
+                  end > start,
+                  let text = json["text"] as? String,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                lastSelectionPayload = nil
+                selectionActive.wrappedValue = false
+                return
+            }
+            lastSelectionPayload = SelectionPayload(start: start, end: end, text: text)
+            selectionActive.wrappedValue = true
+        }
+
+        private static func intValue(_ any: Any?) -> Int? {
+            switch any {
+            case let i as Int: return i
+            case let n as NSNumber: return n.intValue
+            case let d as Double: return Int(d)
+            default: return nil
+            }
+        }
+
+        func applyCachedHighlightIfPossible() {
+            guard let p = lastSelectionPayload, !p.text.isEmpty, p.end > p.start else { return }
+            let length = p.end - p.start
+            onCreateHighlight(p.start, length, p.text)
+        }
+
+        func applyHighlightOverlay(webView: WKWebView, highlightKey: String) {
+            highlightOverlayGeneration += 1
+            let generation = highlightOverlayGeneration
+            pendingHighlightOverlayKey = highlightKey
+            let ranges: [[String: Any]] = highlights.map {
+                ["start": $0.sourceMarkdownOffset, "end": $0.sourceMarkdownOffset + $0.sourceMarkdownLength, "id": $0.id.uuidString]
             }
             guard let data = try? JSONSerialization.data(withJSONObject: ranges),
-                  let json = String(data: data, encoding: .utf8) else { return }
+                  let json = String(data: data, encoding: .utf8)
+            else {
+                if generation == highlightOverlayGeneration {
+                    appliedHighlightKey = highlightKey
+                    pendingHighlightOverlayKey = nil
+                }
+                scheduleRemeasure(webView: webView)
+                return
+            }
             let js = "phathomClearHighlights(); phathomApplyHighlights(\(json));"
-            webView.evaluateJavaScript(js)
-            pendingHighlights = []
+            webView.evaluateJavaScript(js) { [weak self] _, _ in
+                guard let self else { return }
+                guard generation == self.highlightOverlayGeneration else { return }
+                self.appliedHighlightKey = highlightKey
+                self.pendingHighlightOverlayKey = nil
+                self.scheduleRemeasure(webView: webView)
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            let key = Self.highlightKey(for: highlights)
+            applyHighlightOverlay(webView: webView, highlightKey: key)
+        }
+
+        private func scheduleRemeasure(webView: WKWebView) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.remeasureContent(webView: webView)
+            }
+        }
+
+        /// Collapsed: `clientHeight` respects `max-height` on `body`. Expanded: full document scroll height.
+        private func remeasureContent(webView: WKWebView) {
+            guard let w = webView as? IntrinsicHeightWebView else { return }
+            let js: String
+            if collapsed {
+                js = """
+                (function() {
+                  var b = document.body;
+                  return Math.ceil(Math.max(b ? b.clientHeight : 0, 1));
+                })();
+                """
+            } else {
+                js = """
+                (function() {
+                  var b = document.body;
+                  var e = document.documentElement;
+                  return Math.ceil(Math.max(
+                    b ? b.scrollHeight : 0,
+                    b ? b.offsetHeight : 0,
+                    e ? e.scrollHeight : 0,
+                    1
+                  ));
+                })();
+                """
+            }
+            webView.evaluateJavaScript(js) { result, _ in
+                let height: CGFloat? = {
+                    if let x = result as? CGFloat { return x }
+                    if let x = result as? Double { return CGFloat(x) }
+                    if let x = result as? NSNumber { return CGFloat(truncating: x) }
+                    return nil
+                }()
+                guard let height else { return }
+                DispatchQueue.main.async {
+                    w.applyMeasuredHeight(height)
+                }
+            }
         }
 
         func editMenuInteraction(
@@ -192,8 +371,14 @@ private enum HighlightableMarkdownWebViewScript {
         ? range.commonAncestorContainer
         : range.commonAncestorContainer.parentElement;
       if (!root) return [];
-      const all = root.querySelectorAll ? Array.from(root.querySelectorAll('[data-md-start]')) : [];
       const hits = [];
+      // querySelectorAll returns descendants only; common ancestor may be a leaf [data-md-start] span.
+      if (root.nodeType === 1 && root.hasAttribute && root.hasAttribute('data-md-start')) {
+        try {
+          if (range.intersectsNode(root)) hits.push(root);
+        } catch (_) {}
+      }
+      const all = root.querySelectorAll ? Array.from(root.querySelectorAll('[data-md-start]')) : [];
       for (const el of all) {
         try {
           if (range.intersectsNode(el)) hits.push(el);

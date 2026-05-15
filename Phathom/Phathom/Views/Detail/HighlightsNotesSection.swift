@@ -4,10 +4,12 @@ import SwiftUI
 /// Expects `highlights` sorted by offset (pass `ContentItem.highlightsSortedByOffset`).
 struct HighlightsNotesSection: View {
     var highlights: [Highlight]
+    /// When true and there are no highlights, still show the header plus an empty-state hint (web detail UX).
+    var showsEmptyPlaceholder: Bool = false
     var onTapHighlight: (Highlight) -> Void
 
     var body: some View {
-        if highlights.isEmpty {
+        if highlights.isEmpty, !showsEmptyPlaceholder {
             EmptyView()
         } else {
             VStack(alignment: .leading, spacing: 12) {
@@ -15,9 +17,17 @@ struct HighlightsNotesSection: View {
                     .font(.headline.bold())
                     .foregroundStyle(AppPalette.textPrimary)
 
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(highlights) { highlight in
-                        highlightCard(highlight)
+                if highlights.isEmpty {
+                    Text("No highlights yet. Expand Source Content, select article text, then tap Highlight selection.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(highlights) { highlight in
+                            highlightCard(highlight)
+                        }
                     }
                 }
             }

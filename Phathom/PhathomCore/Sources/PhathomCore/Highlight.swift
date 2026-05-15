@@ -6,9 +6,11 @@ public final class Highlight {
     @Attribute(.unique) public var id: UUID = UUID()
     public var createdAt: Date = Date()
     /// UTF-16 start offset into canonical stored `ContentItem.sourceMarkdown`.
-    public var sourceMarkdownOffset: Int
+    /// Default `0` lets Core Data lightweight migration backfill existing rows before one-shot highlight wipe runs.
+    public var sourceMarkdownOffset: Int = 0
     /// UTF-16 length in canonical stored `sourceMarkdown`.
-    public var sourceMarkdownLength: Int
+    /// Default `0` lets Core Data lightweight migration backfill existing rows before one-shot highlight wipe runs.
+    public var sourceMarkdownLength: Int = 0
     /// Verbatim snapshot for Highlights list and note sheet.
     public var quotedText: String
     public var userNote: String?

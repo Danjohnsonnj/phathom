@@ -25,6 +25,8 @@ struct DetailView: View {
     @State private var tagEditorErrorMessage: String?
     @State private var delaySummarizeDisable = false
     @State private var noteEditHighlight: Highlight?
+    @State private var sourceWebSelectionActive = false
+    @State private var sourceWebHighlightApplyToken = 0
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -104,13 +106,16 @@ struct DetailView: View {
                     }
                 }
 
-                HighlightsNotesSection(highlights: item.highlightsSortedByOffset) { tapped in
+                sourceSection
+
+                HighlightsNotesSection(
+                    highlights: item.highlightsSortedByOffset,
+                    showsEmptyPlaceholder: item.kind == .web
+                ) { tapped in
                     noteEditHighlight = tapped
                 }
 
                 actionButtons
-
-                sourceSection
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
@@ -120,9 +125,15 @@ struct DetailView: View {
         .navigationTitle("Phathom")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { detailToolbar }
-        .onAppear { syncTitleDraftFromItem() }
+        .onAppear {
+            syncTitleDraftFromItem()
+            ensureSourceContentHTMLIfNeeded()
+        }
         .onChange(of: item.title) { _, _ in
             if !titleFocused { syncTitleDraftFromItem() }
+        }
+        .onChange(of: item.sourceMarkdown) { _, _ in
+            ensureSourceContentHTMLIfNeeded()
         }
         .sheet(item: $relatedSheetTag) { tag in
             RelatedItemsSheet(sourceItem: item, tappedTag: tag) { selected in
@@ -647,6 +658,46 @@ struct DetailView: View {
         noteEditHighlight = h
     }
 
+    /// Backfills or refreshes `sourceContentHTML` when markdown exists but HTML is missing or indexer version is stale.
+    private func ensureSourceContentHTMLIfNeeded() {
+        guard item.kind == .web else { return }
+        guard let md = item.sourceMarkdown else { return }
+        let htmlMissing = (item.sourceContentHTML ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let versionStale = item.sourceContentIndexVersion < SourceContentIndexer.currentVersion
+        guard htmlMissing || versionStale else { return }
+        guard let indexed = SourceContentIndexer.index(markdown: md) else { return }
+        item.sourceContentHTML = indexed.html
+        item.sourceContentIndexVersion = indexed.version
+        guard DetailModelSave.save(modelContext, operation: "ensureSourceContentHTML") == nil else { return }
+        LibraryContentChangeNotifier.postLibraryContentDidChange()
+    }
+
+    @ViewBuilder
+    private var webSourceHighlightControls: some View {
+        Button {
+            sourceWebHighlightApplyToken &+= 1
+        } label: {
+            Label("Highlight selection", systemImage: "highlighter")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(AppPalette.accent)
+        .disabled(!sourceWebSelectionActive)
+        .opacity(sourceWebSelectionActive ? 1 : 0.5)
+        .accessibilityHint(
+            sourceWebSelectionActive
+                ? "Creates a highlight from the current selection and opens the note editor."
+                : "Select text in the source article first."
+        )
+
+        Text("The web menu only shows Apple’s actions (Copy, Look Up, …). After you select text, tap Highlight selection.")
+            .font(.caption)
+            .foregroundStyle(AppPalette.textTertiary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     private var sourceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
@@ -670,16 +721,26 @@ struct DetailView: View {
             .accessibilityHint("Double tap to expand or collapse the full source text.")
 
             if let html = item.sourceContentHTML, !html.isEmpty {
-                HighlightableMarkdownWebView(
-                    sourceHTML: html,
-                    highlights: item.highlightsSortedByOffset,
-                    collapsed: !sourceExpanded,
-                    onCreateHighlight: { offset, length, quotedText in
-                        createHighlightFromWebView(offset: offset, length: length, quotedText: quotedText)
-                    },
-                    onTapHighlight: { noteEditHighlight = $0 }
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 8) {
+                    if sourceExpanded {
+                        webSourceHighlightControls
+                    }
+                    HighlightableMarkdownWebView(
+                        selectionActive: $sourceWebSelectionActive,
+                        highlightApplyToken: $sourceWebHighlightApplyToken,
+                        sourceHTML: html,
+                        highlights: item.highlightsSortedByOffset,
+                        collapsed: !sourceExpanded,
+                        onCreateHighlight: { offset, length, quotedText in
+                            createHighlightFromWebView(offset: offset, length: length, quotedText: quotedText)
+                        },
+                        onTapHighlight: { noteEditHighlight = $0 }
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if !sourceExpanded {
+                        webSourceHighlightControls
+                    }
+                }
             } else if let md = sourceMarkdownForDisplay {
                 if sourceExpanded {
                     Markdown(md)
