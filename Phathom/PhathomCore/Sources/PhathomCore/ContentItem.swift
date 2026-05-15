@@ -31,6 +31,11 @@ public final class ContentItem {
     @Relationship(deleteRule: .nullify) public var tags: [Tag] = []
     @Relationship(deleteRule: .cascade) public var highlights: [Highlight] = []
 
+    /// Themed HTML for WKWebView source display; generated at ingest by `SourceContentIndexer`.
+    public var sourceContentHTML: String?
+    /// Bump when indexer HTML/offset rules change; used to detect stale HTML.
+    public var sourceContentIndexVersion: Int = 0
+
     public init(
         id: UUID = UUID(),
         createdAt: Date = Date(),
@@ -78,9 +83,9 @@ public extension ContentItem {
         return plain.isEmpty ? nil : plain
     }
 
-    /// Highlights sorted by UTF-16 anchor order for stable UI and `HighlightableSourceTextView` hit-testing.
-    var highlightsSortedByPlainTextOffset: [Highlight] {
-        highlights.sorted { $0.plainTextOffset < $1.plainTextOffset }
+    /// Highlights sorted by UTF-16 anchor order in `sourceMarkdown` for stable UI.
+    var highlightsSortedByOffset: [Highlight] {
+        highlights.sorted { $0.sourceMarkdownOffset < $1.sourceMarkdownOffset }
     }
 
     var displayTitle: String {

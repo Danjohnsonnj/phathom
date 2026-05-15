@@ -340,7 +340,16 @@ enum BackgroundPipeline: Sendable {
                     try await WebIngestService.scrape(url: url)
                 }
                 item.rawText = result.text
-                item.sourceMarkdown = result.sourceMarkdown
+                if let rawMd = result.sourceMarkdown {
+                    let trimmed = rawMd.trimmingCharacters(in: .whitespacesAndNewlines)
+                    item.sourceMarkdown = trimmed.isEmpty ? nil : trimmed
+                } else {
+                    item.sourceMarkdown = nil
+                }
+                if let md = item.sourceMarkdown, let indexed = SourceContentIndexer.index(markdown: md) {
+                    item.sourceContentHTML = indexed.html
+                    item.sourceContentIndexVersion = indexed.version
+                }
                 if let t = result.thumbnailData { item.thumbnailData = t }
                 item.displayHost = result.displayHost
                 if !item.titleUserSet {
@@ -620,7 +629,7 @@ enum BackgroundPipeline: Sendable {
         }
 
         let tagsLLMStart = Date()
-        let highlightInputs = item.highlightsSortedByPlainTextOffset
+        let highlightInputs = item.highlightsSortedByOffset
             .map { DerivedTagHighlight.forTaggingPrompt(quote: $0.quotedText, note: $0.userNote) }
         let tagNames = try await session.tagsFromDerived(
             summaryBullets: summaryBullets,

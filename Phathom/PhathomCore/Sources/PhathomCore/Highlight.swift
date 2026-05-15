@@ -3,14 +3,12 @@ import SwiftData
 
 @Model
 public final class Highlight {
-    /// Bump `MarkdownStripper.algorithmVersion` when strip rules change; offsets in `plainTextOffset` / `plainTextLength` are only valid for matching version.
-    public var markdownStripperVersion: Int = 1
     @Attribute(.unique) public var id: UUID = UUID()
     public var createdAt: Date = Date()
-    /// UTF-16 start offset in stripped plain text (`ContentItem.strippedSourceText`).
-    public var plainTextOffset: Int
-    /// UTF-16 length in stripped plain text.
-    public var plainTextLength: Int
+    /// UTF-16 start offset into canonical stored `ContentItem.sourceMarkdown`.
+    public var sourceMarkdownOffset: Int
+    /// UTF-16 length in canonical stored `sourceMarkdown`.
+    public var sourceMarkdownLength: Int
     /// Verbatim snapshot for Highlights list and note sheet.
     public var quotedText: String
     public var userNote: String?
@@ -18,15 +16,13 @@ public final class Highlight {
     @Relationship(inverse: \ContentItem.highlights) public var item: ContentItem?
 
     public init(
-        plainTextOffset: Int,
-        plainTextLength: Int,
+        sourceMarkdownOffset: Int,
+        sourceMarkdownLength: Int,
         quotedText: String,
-        userNote: String? = nil,
-        markdownStripperVersion: Int = MarkdownStripper.algorithmVersion
+        userNote: String? = nil
     ) {
-        self.markdownStripperVersion = markdownStripperVersion
-        self.plainTextOffset = plainTextOffset
-        self.plainTextLength = plainTextLength
+        self.sourceMarkdownOffset = sourceMarkdownOffset
+        self.sourceMarkdownLength = sourceMarkdownLength
         self.quotedText = quotedText
         self.userNote = userNote
     }

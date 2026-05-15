@@ -1,7 +1,7 @@
 import PhathomCore
 import SwiftUI
 
-/// Expects `highlights` sorted by `plainTextOffset` (pass `ContentItem.highlightsSortedByPlainTextOffset`).
+/// Expects `highlights` sorted by offset (pass `ContentItem.highlightsSortedByOffset`).
 struct HighlightsNotesSection: View {
     var highlights: [Highlight]
     var onTapHighlight: (Highlight) -> Void

@@ -28,7 +28,7 @@ final class StoreMigrationSmokeTests: XCTestCase {
         XCTAssertEqual(items.count, 1)
         let item = try XCTUnwrap(items.first)
 
-        let h = Highlight(plainTextOffset: 0, plainTextLength: 1, quotedText: "x")
+        let h = Highlight(sourceMarkdownOffset: 0, sourceMarkdownLength: 1, quotedText: "x")
         ctx3.insert(h)
         item.highlights.append(h)
         try ctx3.save()

@@ -10,9 +10,15 @@ let package = Package(
     products: [
         .library(name: "PhathomCore", targets: ["PhathomCore"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/swiftlang/swift-markdown", from: "0.5.0"),
+    ],
     targets: [
         .target(
             name: "PhathomCore",
+            dependencies: [
+                .product(name: "Markdown", package: "swift-markdown"),
+            ],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
             ]

@@ -2,7 +2,7 @@ import PhathomCore
 import SwiftUI
 import UIKit
 
-/// Renders stripped plain text with optional markdown decoration runs and highlight spans. **`highlights` must be sorted by `plainTextOffset`** (e.g. `ContentItem.highlightsSortedByPlainTextOffset`). Plain string must match `MarkdownPlainDecoration.build` / `ContentItem.strippedSourceText` index space.
+/// Renders stripped plain text with optional markdown decoration runs and highlight spans. **`highlights` must be sorted by offset** (e.g. `ContentItem.highlightsSortedByOffset`). Plain string must match `MarkdownPlainDecoration.build` / `ContentItem.strippedSourceText` index space.
 struct HighlightableSourceTextView: UIViewRepresentable {
     var plainText: String
     var decorationRuns: [MarkdownDecorationRun]
@@ -124,8 +124,8 @@ struct HighlightableSourceTextView: UIViewRepresentable {
         let fullLen = (plainText as NSString).length
         let (hiBg, hiFg) = highlightSpanColors(traitCollection: traitCollection)
         for h in highlights {
-            let start = h.plainTextOffset
-            let len = h.plainTextLength
+            let start = h.sourceMarkdownOffset
+            let len = h.sourceMarkdownLength
             guard start >= 0, start < fullLen, len > 0 else { continue }
             let end = min(start + len, fullLen)
             let runLen = end - start
@@ -191,8 +191,8 @@ struct HighlightableSourceTextView: UIViewRepresentable {
     private func highlight(containingUTF16Index idx: Int) -> Highlight? {
         let full = (plainText as NSString).length
         for h in highlights {
-            let start = max(0, min(h.plainTextOffset, full))
-            let end = max(start, min(h.plainTextOffset + h.plainTextLength, full))
+            let start = max(0, min(h.sourceMarkdownOffset, full))
+            let end = max(start, min(h.sourceMarkdownOffset + h.sourceMarkdownLength, full))
             if idx >= start && idx < end { return h }
         }
         return nil
@@ -253,7 +253,7 @@ struct HighlightableSourceTextView: UIViewRepresentable {
                 "\($0.utf16Range.location)-\($0.utf16Range.length)-\($0.traits.rawValue)-\($0.linkURL?.absoluteString ?? "")"
             }.joined(separator: ";")
             let ids = highlights.map { h in
-                "\(h.id.uuidString)|\(h.plainTextOffset)|\(h.plainTextLength)|\(h.quotedText.count)"
+                "\(h.id.uuidString)|\(h.sourceMarkdownOffset)|\(h.sourceMarkdownLength)|\(h.quotedText.count)"
             }.joined(separator: ";")
             return "\(plainText.utf8.count)|\(runSig)|\(ids)"
         }
@@ -282,8 +282,8 @@ struct HighlightableSourceTextView: UIViewRepresentable {
                       let h = parent.highlight(containingUTF16Index: idx)
                 else { return }
                 let full = (parent.plainText as NSString).length
-                let start = max(0, min(h.plainTextOffset, full))
-                let end = max(start, min(h.plainTextOffset + h.plainTextLength, full))
+                let start = max(0, min(h.sourceMarkdownOffset, full))
+                let end = max(start, min(h.sourceMarkdownOffset + h.sourceMarkdownLength, full))
                 let r = NSRange(location: start, length: end - start)
                 guard r.length > 0 else { return }
                 resizeSession = (h, r)

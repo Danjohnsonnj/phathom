@@ -104,7 +104,7 @@ struct DetailView: View {
                     }
                 }
 
-                HighlightsNotesSection(highlights: item.highlightsSortedByPlainTextOffset) { tapped in
+                HighlightsNotesSection(highlights: item.highlightsSortedByOffset) { tapped in
                     noteEditHighlight = tapped
                 }
 
@@ -626,52 +626,25 @@ struct DetailView: View {
     }
 
     private var sourceMarkdownForDisplay: String? {
-        guard item.kind == .web, let md = item.sourceMarkdown else { return nil }
-        let t = md.trimmingCharacters(in: .whitespacesAndNewlines)
-        return t.isEmpty ? nil : md
+        guard item.kind == .web, let md = item.sourceMarkdown, !md.isEmpty else { return nil }
+        return md
     }
 
-    /// MarkdownUI paragraph styles use `fixedSize(vertical: true)`, so `lineLimit` on `Markdown` does not
-    /// truncate. Match ~8 lines of body text using Dynamic Type–aware line height, then clip.
     private var collapsedSourceMarkdownMaxHeight: CGFloat {
         let font = UIFont.preferredFont(forTextStyle: .body)
         return ceil(font.lineHeight * 8)
     }
 
-    private func createHighlightFromSelection(range: NSRange, fragment: String) {
-        guard item.kind == .web, let base = item.strippedSourceText, !base.isEmpty else { return }
-        let maxLen = (base as NSString).length
-        guard range.location >= 0, range.length > 0, NSMaxRange(range) <= maxLen else { return }
-        let h = Highlight(plainTextOffset: range.location, plainTextLength: range.length, quotedText: fragment)
+    private func createHighlightFromWebView(offset: Int, length: Int, quotedText: String) {
+        guard item.kind == .web, let md = item.sourceMarkdown, !md.isEmpty else { return }
+        let maxLen = md.utf16.count
+        guard offset >= 0, length > 0, offset + length <= maxLen else { return }
+        let h = Highlight(sourceMarkdownOffset: offset, sourceMarkdownLength: length, quotedText: quotedText)
         modelContext.insert(h)
         item.highlights.append(h)
         guard DetailModelSave.save(modelContext, operation: "createHighlight") == nil else { return }
         LibraryContentChangeNotifier.postLibraryContentDidChange()
         noteEditHighlight = h
-    }
-
-    private func resizeHighlightModel(_ highlight: Highlight, range: NSRange, fragment: String) {
-        guard let base = item.strippedSourceText, !base.isEmpty else { return }
-        let maxLen = (base as NSString).length
-        guard range.location >= 0, range.length > 0, NSMaxRange(range) <= maxLen else { return }
-        highlight.plainTextOffset = range.location
-        highlight.plainTextLength = range.length
-        highlight.quotedText = fragment
-        _ = DetailModelSave.save(modelContext, operation: "resizeHighlight")
-        LibraryContentChangeNotifier.postLibraryContentDidChange()
-    }
-
-    /// Plain + decoration runs for web source; must match `ContentItem.strippedSourceText` index space.
-    private func markdownBuiltForSource(md: String, strippedPlain: String) -> (plain: String, runs: [MarkdownDecorationRun]) {
-        let trimmed = md.trimmingCharacters(in: .whitespacesAndNewlines)
-        let built = MarkdownPlainDecoration.build(from: trimmed)
-        #if DEBUG
-        precondition(
-            built.plain == strippedPlain,
-            "MarkdownPlainDecoration plain must match ContentItem.strippedSourceText (check MarkdownStripper pipeline)."
-        )
-        #endif
-        return (built.plain, built.runs)
     }
 
     private var sourceSection: some View {
@@ -696,37 +669,19 @@ struct DetailView: View {
             .accessibilityLabel(sourceExpanded ? "Source content, expanded" : "Source content, collapsed preview")
             .accessibilityHint("Double tap to expand or collapse the full source text.")
 
-            if let md = sourceMarkdownForDisplay {
-                if item.kind == .web, let plain = item.strippedSourceText, !plain.isEmpty {
-                    let built = markdownBuiltForSource(md: md, strippedPlain: plain)
-                    Group {
-                        HighlightableSourceTextView(
-                            plainText: built.plain,
-                            decorationRuns: built.runs,
-                            highlights: item.highlightsSortedByPlainTextOffset,
-                            onCreateHighlight: { range, fragment in
-                                createHighlightFromSelection(range: range, fragment: fragment)
-                            },
-                            onTapHighlight: { noteEditHighlight = $0 },
-                            onResizeHighlight: { h, range, fragment in
-                                resizeHighlightModel(h, range: range, fragment: fragment)
-                            }
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .modifier(SourceContentClipModifier(expanded: sourceExpanded, maxHeight: collapsedSourceMarkdownMaxHeight))
-                } else if sourceExpanded, item.kind == .web, (item.strippedSourceText ?? "").isEmpty, !item.highlights.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Plain-text view unavailable; highlights use a saved map. Markdown shown below.")
-                            .font(.caption)
-                            .foregroundStyle(AppPalette.textTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Markdown(md)
-                            .markdownTheme(.phathomNote)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                    }
-                } else if sourceExpanded {
+            if let html = item.sourceContentHTML, !html.isEmpty {
+                HighlightableMarkdownWebView(
+                    sourceHTML: html,
+                    highlights: item.highlightsSortedByOffset,
+                    collapsed: !sourceExpanded,
+                    onCreateHighlight: { offset, length, quotedText in
+                        createHighlightFromWebView(offset: offset, length: length, quotedText: quotedText)
+                    },
+                    onTapHighlight: { noteEditHighlight = $0 }
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let md = sourceMarkdownForDisplay {
+                if sourceExpanded {
                     Markdown(md)
                         .markdownTheme(.phathomNote)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -778,21 +733,6 @@ struct DetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(AppPalette.textSecondary)
             }
-        }
-    }
-}
-
-private struct SourceContentClipModifier: ViewModifier {
-    var expanded: Bool
-    var maxHeight: CGFloat
-
-    func body(content: Content) -> some View {
-        if expanded {
-            content
-        } else {
-            content
-                .frame(maxHeight: maxHeight, alignment: .top)
-                .clipped()
         }
     }
 }
