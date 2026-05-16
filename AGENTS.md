@@ -16,8 +16,9 @@ You are an expert iOS Engineer specializing in local-first systems and on-device
 To save tokens, **do not** scan the entire `/Phathom` directory. Use these specific paths:
 
 - **Architectural Truth:** `docs/decisions.md` and `docs/technical-brief.md`.
-- **Pipeline Logic:** `Phathom/Pipeline/` (Coordinates background/foreground ingestion).
-- **LLM Bridge:** `Phathom/Inference/SharedLlamaInference.swift` (Singleton managing the GGUF session).
+- **Pipeline Logic:** `Phathom/Phathom/Services/BackgroundPipeline.swift` (background/foreground ingest + analyze).
+- **LLM Bridge:** `Phathom/Phathom/Services/SharedLlamaInference.swift` (serialized GGUF session).
+- **UI shell & navigation:** `Phathom/Phathom/Views/` — recall agentmemory **UI** topic first. Tab shell: `MainTabView` (Library | Chat placeholder | Add New); Settings via Library gear → `SettingsContent`. Primary surfaces: `LibraryTab` → `DetailView`; capture in `AddNewTab`. UI binds SwiftData (`@Query` / `@Bindable`); never calls Llama directly—schedules work via `BackgroundPipeline` and `ProcessingRecovery`.
 - **Roadmap Context:** `docs/handoff/` (Current focus: Phase 2 Pipeline).
 
 ## Efficiency Rules (Token/Context Management)
@@ -42,6 +43,78 @@ To save tokens, **do not** scan the entire `/Phathom` directory. Use these speci
 - **Verify GGUF Path:** The app uses security-scoped bookmarks. If testing in Simulator, remember it is **CPU-only**; don't optimize for GPU/ANE performance unless targeting a physical device.
 - **Active Task:** We are currently in **Phase 2 (Pipeline Refinement)**. Phase 3 (RAG/Chat) is a placeholder—do not implement RAG logic unless explicitly directed.
 - **Confirm With User:** Indicate understanding by saying "Read and ready" at the beginning of a new session.
+
+## Agentmemory (long-term context)
+
+Use the **agentmemory** MCP at session start and when saving durable insights. Memory is a **compressed index** (invariants, file map, recent decisions)—not a substitute for `docs/decisions.md` or source code.
+
+Phathom-specific memories include **pipeline orchestration**, **llama.cpp backend** (xcframework supply chain, `LlamaCppRuntime` APIs, KV reuse), **UI shell**, **decisions gist**, **performance**, and **scope** — see the topic table below. For inference work, recall **both** pipeline and llama.cpp memories: pipeline = when/who schedules work; llama.cpp = how decode/sampling/KV behave.
+
+### Agent obligations
+
+1. **Session start:** Silently recall agentmemory for the task domain before broad file reads (e.g. pipeline, llama.cpp, decisions, performance, UI).
+2. **Authority:** `docs/decisions.md` wins over memory. Memory summarizes gist + RECENT rows; read the full file when implementing or when edge cases matter.
+3. **Save after:** architectural decisions, perf root-causes/fixes, and non-obvious constraints the next session must not forget.
+4. **Format saves as bullets**, not pasted doc paragraphs. Tag with concepts (`pipeline`, `KV-cache`, `decisions`, etc.).
+
+### Topic memories (what to recall)
+
+| Domain | Recall concepts | Code/doc anchors |
+|--------|-----------------|------------------|
+| Pipeline & inference | `pipeline`, `withSession`, `KV-cache` | `BackgroundPipeline.swift`, `SharedLlamaInference.swift`, `ModelManager.swift` |
+| llama.cpp backend | `llama.cpp`, `xcframework`, `LlamaCppRuntime`, `Metal` | `Inference/LlamaCppRuntime.swift`, `vendor/llama/llama.xcframework`, upstream `~/Local Documents/repos/llama.cpp` |
+| Decisions gist | `decisions`, `decisions.md`, `gist` | `docs/decisions.md` |
+| Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf section, pipeline metrics logs |
+| Schema | `ContentItem`, `processingStatus` | `Phathom/Phathom/Models/` |
+| UI shell & pipeline bridge | `UI`, `LibraryTab`, `DetailView`, `navigation` | `Views/MainTabView.swift`, `Library/`, `Detail/`, `AddNew/`, `Settings/SettingsTab.swift`, `ProcessingRecovery.swift` |
+| Scope | `Phase-3`, `no-RAG`, `guardrails` | `docs/handoff/phase-3-rag-chat.md` |
+| Dev bootstrap | `build`, `xcframework` | `scripts/build-phathom.sh`, `AGENTS.md` |
+
+### User phrase → agent action
+
+| User says | Agent does |
+|-----------|------------|
+| "Recall agentmemory for …" | `memory_recall` / `memory_smart_search` on that domain |
+| "Save to agentmemory …" | `memory_save` (right topic; short bullets) |
+| "Update decisions memory" | Refresh decisions gist after `docs/decisions.md` changes |
+| "What's in memory about X?" | Search and summarize hits |
+
+### Session templates (user copy-paste)
+
+**Cold start (implementation)**
+
+> Resume Phathom. Recall pipeline, decisions, and performance memories. Task: [one sentence]. Read only files needed for this task.
+
+**Planning**
+
+> Recall scope + decisions gist. I want to add [feature]. Say if Phase 3 or schema escalation. Plan only—no code. Save outcome to agentmemory when we decide.
+
+**Perf / inference debug**
+
+> Recall pipeline + llama.cpp + performance memories. Symptom: [e.g. analyze slow on device]. Use `[PhathomPipeline]` logs. Propose checks in order; save root cause to agentmemory when fixed.
+
+**llama.cpp / xcframework / runtime changes**
+
+> Recall llama.cpp backend memory. Task: [e.g. bump xcframework, adapt API, tune n_ctx]. Read `LlamaCppRuntime.swift` and linked headers; update memory if build path or context params change.
+
+**After editing `docs/decisions.md`**
+
+> I added a decision row for [topic]. Update agentmemory decisions gist RECENT to match.
+
+**UI / library / detail work**
+
+> Recall Phathom UI architecture memory. Task: [one sentence]. Read only the affected View files and any pipeline hook they call (`ProcessingRecovery`, `BackgroundPipeline` scheduling).
+
+### When to save vs skip
+
+| Save | Skip |
+|------|------|
+| Final architectural choice | Brainstorm "maybe" ideas |
+| Perf finding or fix pattern | Every file opened |
+| New invariant / must-not | Full specs (use handoff/docs) |
+| Decision that belongs in `decisions.md` | Implementation diffs (git) |
+
+**Maintenance:** append durable rows to `docs/decisions.md` first; then update agentmemory (decisions gist RECENT, or pipeline / llama.cpp / perf memory as appropriate). Rebuild or recopy `llama.xcframework` → refresh **llama.cpp backend** memory if cmake flags, upstream path, or `LlamaCppRuntime` context params change.
 
 ## PR & Development Checklist
 

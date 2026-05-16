@@ -1,6 +1,14 @@
 import Foundation
 import PhathomCore
 
+/// Which GGUF bookmark `SharedLlamaInference` prefers when acquiring a session.
+enum ModelSessionRole: Sendable {
+    /// Primary bookmark (`ModelManager.openSelection`).
+    case primary
+    /// Optional tagging bookmark first; falls back to primary when tagging missing or load fails.
+    case taggingPreferred
+}
+
 /// Serializes load → inference → unload so concurrent callers (pipeline, Settings test, warmup) cannot unload mid-generation.
 struct ModelSession: Sendable {
     private let inference: SharedLlamaInference
@@ -77,6 +85,8 @@ actor SharedLlamaInference {
     private var loadedPath: String?
     /// Active security-scoped access for `loadedPath`; released in `unload()`.
     private var scopedAccess: ModelManager.ScopedAccess?
+    /// Set during `ensureLoadedLocked(role: .taggingPreferred)` so Settings can report fallback after `runQuickTest`.
+    private(set) var lastTaggingPreferredUsedPrimaryFallback = false
 
     /// If the user previously picked a GGUF that still exists, load it in the background shortly after launch (skipped when thermally throttled).
     nonisolated static func scheduleWarmFromPersistedSelection() {
@@ -84,7 +94,11 @@ actor SharedLlamaInference {
             ModelManager.validateSelection()
             guard !ThermalMonitor.shouldThrottle else { return }
             guard ModelManager.hasReadableSelection else { return }
-            try? await SharedLlamaInference.shared.withSession(unloadOnExit: false, pipelineItemID: nil) { _ in }
+            try? await SharedLlamaInference.shared.withSession(
+                role: .primary,
+                unloadOnExit: false,
+                pipelineItemID: nil
+            ) { _ in }
         }
     }
 
@@ -95,6 +109,7 @@ actor SharedLlamaInference {
 
     /// Acquire the lifecycle lock, load weights if needed, run `work`, then optionally unload and release the lock.
     func withSession<R: Sendable>(
+        role: ModelSessionRole = .primary,
         unloadOnExit: Bool = true,
         pipelineItemID: UUID?,
         _ work: @escaping (ModelSession) async throws -> R
@@ -103,10 +118,10 @@ actor SharedLlamaInference {
         do {
             if let itemID = pipelineItemID {
                 let start = Date()
-                try await ensureLoadedLocked()
+                try await ensureLoadedLocked(role: role)
                 PipelineMetrics.logSyncElapsed("load_model", itemID: itemID, start: start)
             } else {
-                try await ensureLoadedLocked()
+                try await ensureLoadedLocked(role: role)
             }
             let result = try await work(ModelSession(self))
             if unloadOnExit { await unloadLocked() }
@@ -121,19 +136,47 @@ actor SharedLlamaInference {
 
     /// Convenience for callers that do not need `load_model` pipeline metrics (Settings, warmup).
     func withSession<R: Sendable>(
+        role: ModelSessionRole = .primary,
         unloadOnExit: Bool = true,
         _ work: @escaping (ModelSession) async throws -> R
     ) async throws -> R {
-        try await withSession(unloadOnExit: unloadOnExit, pipelineItemID: nil, work)
+        try await withSession(role: role, unloadOnExit: unloadOnExit, pipelineItemID: nil, work)
     }
 
     // MARK: - Session entry points (only valid while lifecycle lock is held)
 
-    private func ensureLoadedLocked() async throws {
+    private func ensureLoadedLocked(role: ModelSessionRole) async throws {
+        switch role {
+        case .primary:
+            try await ensureLoadedFromPrimaryBookmarkLocked()
+        case .taggingPreferred:
+            lastTaggingPreferredUsedPrimaryFallback = false
+            if let tagAccess = ModelManager.openTaggingSelection() {
+                do {
+                    try await swapToLoadedModelIfNeeded(access: tagAccess)
+                    return
+                } catch {
+                    lastTaggingPreferredUsedPrimaryFallback = true
+                    #if DEBUG
+                    print("[SharedLlamaInference] tagging model load failed, falling back to primary: \(error.localizedDescription)")
+                    #endif
+                }
+            } else {
+                lastTaggingPreferredUsedPrimaryFallback = true
+            }
+            try await ensureLoadedFromPrimaryBookmarkLocked()
+        }
+    }
+
+    private func ensureLoadedFromPrimaryBookmarkLocked() async throws {
         guard let access = ModelManager.openSelection() else {
             ModelManager.setLastLoadFailed(true)
             throw SharedLlamaInferenceError.noModelSelected
         }
+        try await swapToLoadedModelIfNeeded(access: access)
+    }
+
+    private func swapToLoadedModelIfNeeded(access: ModelManager.ScopedAccess) async throws {
         let path = access.path
         if loadedPath == path {
             ModelManager.setLastLoadFailed(false)

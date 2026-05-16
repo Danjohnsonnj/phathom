@@ -3,6 +3,8 @@ import Foundation
 /// Persists the user's chosen `.gguf` as a security-scoped bookmark so the file stays in place (e.g. shared across apps under **On My iPhone**) instead of copying into Phathom's Documents.
 enum ModelManager {
     private nonisolated static let bookmarkKey = "phathom.selectedGGUFBookmark"
+    /// Optional second GGUF used only for derived tagging when set and readable.
+    private nonisolated static let taggingBookmarkKey = "phathom.selectedGGUFBookmark.tagging"
     /// Legacy path-only storage from before bookmarks; migrated once into `bookmarkKey`.
     private nonisolated static let legacyPathKey = "phathom.selectedGGUFPath"
     /// Persisted probe for Library icon state: set by `SharedLlamaInference.withSession` / load path.
@@ -36,6 +38,8 @@ enum ModelManager {
         /// Bookmark exists but file is missing or unreadable (user should re-pick or forget).
         case missingFile
     }
+
+    // MARK: - Primary selection (existing API)
 
     /// `true` when a non-empty bookmark exists after legacy migration (may still be `.missingFile` on disk).
     nonisolated static var hasBookmark: Bool {
@@ -87,8 +91,92 @@ enum ModelManager {
     /// Resolve bookmark and begin access. Returns `nil` if missing, stale, unreadable, or access denied. Caller **must** call `end()` on success.
     nonisolated static func openSelection() -> ScopedAccess? {
         migrateLegacyIfNeeded()
+        return openBookmark(forKey: bookmarkKey)
+    }
 
-        guard let data = UserDefaults.standard.data(forKey: bookmarkKey), !data.isEmpty else {
+    /// UI: status row without holding long-lived scoped access.
+    nonisolated static func selectionDisplayState() -> SelectionDisplayState {
+        migrateLegacyIfNeeded()
+        return selectionDisplayState(forKey: bookmarkKey)
+    }
+
+    /// Drops bookmark data when resolution says the reference is stale. Does **not** remove bookmark when the file is merely missing on disk (so Settings can show **missingFile**).
+    nonisolated static func validateSelection() {
+        migrateLegacyIfNeeded()
+        validateBookmark(forKey: bookmarkKey, clear: clearSelection)
+    }
+
+    // MARK: - Tagging-only selection (optional)
+
+    nonisolated static var hasTaggingBookmark: Bool {
+        guard let data = UserDefaults.standard.data(forKey: taggingBookmarkKey) else { return false }
+        return !data.isEmpty
+    }
+
+    nonisolated static var hasReadableTaggingSelection: Bool {
+        guard let access = openTaggingSelection() else { return false }
+        access.end()
+        return true
+    }
+
+    nonisolated static func clearTaggingSelection() {
+        UserDefaults.standard.removeObject(forKey: taggingBookmarkKey)
+        notifyModelAvailabilityChanged()
+    }
+
+    nonisolated static func setTaggingSelection(from pickedURL: URL) throws {
+        let accessed = pickedURL.startAccessingSecurityScopedResource()
+        defer {
+            if accessed {
+                pickedURL.stopAccessingSecurityScopedResource()
+            }
+        }
+        let data = try pickedURL.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        UserDefaults.standard.set(data, forKey: taggingBookmarkKey)
+        notifyModelAvailabilityChanged()
+    }
+
+    nonisolated static func openTaggingSelection() -> ScopedAccess? {
+        openBookmark(forKey: taggingBookmarkKey)
+    }
+
+    nonisolated static func taggingSelectionDisplayState() -> SelectionDisplayState {
+        selectionDisplayState(forKey: taggingBookmarkKey)
+    }
+
+    /// Drops stale tagging bookmark data only.
+    nonisolated static func validateTaggingSelection() {
+        validateBookmark(forKey: taggingBookmarkKey, clear: clearTaggingSelection)
+    }
+
+    // MARK: - Shared helpers
+
+    /// For Library's unobtrusive settings gear indicator.
+    nonisolated static var didLastLoadFail: Bool {
+        UserDefaults.standard.bool(forKey: lastLoadFailedKey)
+    }
+
+    nonisolated static func setLastLoadFailed(_ failed: Bool) {
+        let prior = UserDefaults.standard.bool(forKey: lastLoadFailedKey)
+        UserDefaults.standard.set(failed, forKey: lastLoadFailedKey)
+        if prior != failed {
+            notifyModelAvailabilityChanged()
+        }
+    }
+
+    /// Coalesced fan-out for UI that cannot rely on `onAppear` (e.g. popping Settings back to Library).
+    nonisolated private static func notifyModelAvailabilityChanged() {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .phathomModelAvailabilityDidChange, object: nil)
+        }
+    }
+
+    nonisolated private static func openBookmark(forKey key: String) -> ScopedAccess? {
+        guard let data = UserDefaults.standard.data(forKey: key), !data.isEmpty else {
             return nil
         }
         guard let (url, stale) = resolveBookmark(data: data) else {
@@ -115,11 +203,8 @@ enum ModelManager {
         }
     }
 
-    /// UI: status row without holding long-lived scoped access.
-    nonisolated static func selectionDisplayState() -> SelectionDisplayState {
-        migrateLegacyIfNeeded()
-
-        guard let data = UserDefaults.standard.data(forKey: bookmarkKey), !data.isEmpty else {
+    nonisolated private static func selectionDisplayState(forKey key: String) -> SelectionDisplayState {
+        guard let data = UserDefaults.standard.data(forKey: key), !data.isEmpty else {
             return .noSelection
         }
         guard let (url, stale) = resolveBookmark(data: data), !stale else {
@@ -142,39 +227,16 @@ enum ModelManager {
         return .ready(name: name, byteString: byteString)
     }
 
-    /// Drops bookmark data when resolution says the reference is stale. Does **not** remove bookmark when the file is merely missing on disk (so Settings can show **missingFile**).
-    nonisolated static func validateSelection() {
-        migrateLegacyIfNeeded()
-
-        guard let data = UserDefaults.standard.data(forKey: bookmarkKey), !data.isEmpty else {
+    nonisolated private static func validateBookmark(forKey key: String, clear: () -> Void) {
+        guard let data = UserDefaults.standard.data(forKey: key), !data.isEmpty else {
             return
         }
         guard let (_, stale) = resolveBookmark(data: data) else {
-            clearSelection()
+            clear()
             return
         }
         if stale {
-            clearSelection()
-        }
-    }
-
-    /// For Library's unobtrusive settings gear indicator.
-    nonisolated static var didLastLoadFail: Bool {
-        UserDefaults.standard.bool(forKey: lastLoadFailedKey)
-    }
-
-    nonisolated static func setLastLoadFailed(_ failed: Bool) {
-        let prior = UserDefaults.standard.bool(forKey: lastLoadFailedKey)
-        UserDefaults.standard.set(failed, forKey: lastLoadFailedKey)
-        if prior != failed {
-            notifyModelAvailabilityChanged()
-        }
-    }
-
-    /// Coalesced fan-out for UI that cannot rely on `onAppear` (e.g. popping Settings back to Library).
-    nonisolated private static func notifyModelAvailabilityChanged() {
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .phathomModelAvailabilityDidChange, object: nil)
+            clear()
         }
     }
 

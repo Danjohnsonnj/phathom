@@ -17,9 +17,10 @@ private actor OrderLog {
     func append(_ v: Int) { values.append(v) }
 }
 
-/// Keys must stay aligned with `ModelManager` for save/restore around `clearSelection()`.
+/// Keys must stay aligned with `ModelManager` for save/restore around `clearSelection()` / `clearTaggingSelection()`.
 private enum TestModelUserDefaultsKeys {
     static let bookmark = "phathom.selectedGGUFBookmark"
+    static let taggingBookmark = "phathom.selectedGGUFBookmark.tagging"
     static let legacyPath = "phathom.selectedGGUFPath"
 }
 
@@ -218,6 +219,23 @@ struct PhathomTests {
         #expect(try ctx.fetch(fa).first?.readState == .filed)
         #expect(try ctx.fetch(fb).first?.readState == .filed)
     }
+
+    @Test func clearTaggingSelectionRemovesOptionalBookmarkData() {
+        let defaults = UserDefaults.standard
+        let key = TestModelUserDefaultsKeys.taggingBookmark
+        let saved = defaults.data(forKey: key)
+        defer {
+            if let saved {
+                defaults.set(saved, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+        defaults.set(Data([0xAB]), forKey: key)
+        #expect(ModelManager.hasTaggingBookmark)
+        ModelManager.clearTaggingSelection()
+        #expect(!ModelManager.hasTaggingBookmark)
+    }
 }
 
 private func makeInMemoryContainer() throws -> ModelContainer {
@@ -234,7 +252,9 @@ struct SharedLlamaInferenceWithSessionTests {
         let defaults = UserDefaults.standard
         let savedBookmark = defaults.data(forKey: TestModelUserDefaultsKeys.bookmark)
         let savedLegacy = defaults.string(forKey: TestModelUserDefaultsKeys.legacyPath)
+        let savedTagging = defaults.data(forKey: TestModelUserDefaultsKeys.taggingBookmark)
         ModelManager.clearSelection()
+        ModelManager.clearTaggingSelection()
         defer {
             if let savedBookmark {
                 defaults.set(savedBookmark, forKey: TestModelUserDefaultsKeys.bookmark)
@@ -245,6 +265,11 @@ struct SharedLlamaInferenceWithSessionTests {
                 defaults.set(savedLegacy, forKey: TestModelUserDefaultsKeys.legacyPath)
             } else {
                 defaults.removeObject(forKey: TestModelUserDefaultsKeys.legacyPath)
+            }
+            if let savedTagging {
+                defaults.set(savedTagging, forKey: TestModelUserDefaultsKeys.taggingBookmark)
+            } else {
+                defaults.removeObject(forKey: TestModelUserDefaultsKeys.taggingBookmark)
             }
         }
 
@@ -259,7 +284,9 @@ struct SharedLlamaInferenceWithSessionTests {
         let defaults = UserDefaults.standard
         let savedBookmark = defaults.data(forKey: TestModelUserDefaultsKeys.bookmark)
         let savedLegacy = defaults.string(forKey: TestModelUserDefaultsKeys.legacyPath)
+        let savedTagging = defaults.data(forKey: TestModelUserDefaultsKeys.taggingBookmark)
         ModelManager.clearSelection()
+        ModelManager.clearTaggingSelection()
         defer {
             if let savedBookmark {
                 defaults.set(savedBookmark, forKey: TestModelUserDefaultsKeys.bookmark)
@@ -270,6 +297,11 @@ struct SharedLlamaInferenceWithSessionTests {
                 defaults.set(savedLegacy, forKey: TestModelUserDefaultsKeys.legacyPath)
             } else {
                 defaults.removeObject(forKey: TestModelUserDefaultsKeys.legacyPath)
+            }
+            if let savedTagging {
+                defaults.set(savedTagging, forKey: TestModelUserDefaultsKeys.taggingBookmark)
+            } else {
+                defaults.removeObject(forKey: TestModelUserDefaultsKeys.taggingBookmark)
             }
         }
 

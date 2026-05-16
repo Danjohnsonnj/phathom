@@ -11,6 +11,7 @@
 	<array>
 		<string>fetch</string>
 		<string>processing</string>
+		<string>voip</string>
 	</array>
 </dict>
 </plist>

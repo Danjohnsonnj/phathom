@@ -433,7 +433,7 @@ enum BackgroundPipeline: Sendable {
         let article = String(raw.prefix(12_000))
 
         do {
-            try await SharedLlamaInference.shared.withSession(unloadOnExit: true, pipelineItemID: itemID) { session in
+            try await SharedLlamaInference.shared.withSession(role: .primary, unloadOnExit: true, pipelineItemID: itemID) { session in
                 if cancel() {
                     await session.cancelInFlight()
                     checkpointAfterCancel(item: item)
@@ -475,43 +475,56 @@ enum BackgroundPipeline: Sendable {
                     }
                 }
 
+                // Final cancel check before unloading primary session (tagging uses a separate session).
                 if cancel() {
                     await session.cancelInFlight()
                     checkpointAfterCancel(item: item)
                     saveAndNotify(ctx)
                     throw PipelineLlmCancelled()
                 }
+            }
 
-                // Final cancel check before tagging to avoid starting tagsFromDerived if cancelled
-                if cancel() {
-                    await session.cancelInFlight()
-                    checkpointAfterCancel(item: item)
-                    saveAndNotify(ctx)
-                    throw PipelineLlmCancelled()
-                }
+            if cancel() {
+                await SharedLlamaInference.signalCancelInFlight()
+                checkpointAfterCancel(item: item)
+                saveAndNotify(ctx)
+                throw PipelineLlmCancelled()
+            }
 
+            let derivedEmptyForTags = item.decodedSummaryBullets.isEmpty && item.decodedExtracts.isEmpty
+            if !derivedEmptyForTags {
                 do {
-                    try await applyDerivedTaggingForPipelineItem(
-                        item: item,
-                        itemID: itemID,
-                        session: session,
-                        context: ctx
-                    )
+                    try await SharedLlamaInference.shared.withSession(role: .taggingPreferred, unloadOnExit: true, pipelineItemID: itemID) { session in
+                        if cancel() {
+                            await session.cancelInFlight()
+                            checkpointAfterCancel(item: item)
+                            saveAndNotify(ctx)
+                            throw PipelineLlmCancelled()
+                        }
+                        try await applyDerivedTaggingForPipelineItem(
+                            item: item,
+                            itemID: itemID,
+                            session: session,
+                            context: ctx
+                        )
+                    }
                 } catch {
                     print("[PhathomPipeline] derive_tags_failed item=\(itemID.uuidString) error=\(error.localizedDescription)")
                     item.processingStatus = ProcessingStatus.failed.rawValue
                     item.failureReason = "Tag generation failed: \(error.localizedDescription)"
                     item.processingDetail = nil
                     saveAndNotify(ctx)
-                    // Throw to exit the withSession closure and trigger outer error handling
                     throw error
                 }
-
-                item.processingStatus = ProcessingStatus.completed.rawValue
+            } else {
                 item.processingDetail = nil
-                item.failureReason = nil
                 saveAndNotify(ctx)
             }
+
+            item.processingStatus = ProcessingStatus.completed.rawValue
+            item.processingDetail = nil
+            item.failureReason = nil
+            saveAndNotify(ctx)
 
             let verifyDesc = FetchDescriptor<ContentItem>(
                 predicate: #Predicate<ContentItem> { $0.id == itemID }
@@ -550,7 +563,7 @@ enum BackgroundPipeline: Sendable {
             return
         }
 
-        if !ModelManager.hasReadableSelection {
+        if !ModelManager.hasReadableSelection, !ModelManager.hasReadableTaggingSelection {
             let ctx = ModelContext(modelContainer)
             let noModelDesc = FetchDescriptor<ContentItem>(
                 predicate: #Predicate<ContentItem> { $0.id == itemID }
@@ -577,8 +590,15 @@ enum BackgroundPipeline: Sendable {
             return
         }
 
+        let derivedEmptyForTags = item.decodedSummaryBullets.isEmpty && item.decodedExtracts.isEmpty
+        if derivedEmptyForTags {
+            item.processingDetail = nil
+            saveAndNotify(ctx)
+            return
+        }
+
         do {
-            try await SharedLlamaInference.shared.withSession(unloadOnExit: true, pipelineItemID: itemID) { session in
+            try await SharedLlamaInference.shared.withSession(role: .taggingPreferred, unloadOnExit: true, pipelineItemID: itemID) { session in
                 try await applyDerivedTaggingForPipelineItem(
                     item: item,
                     itemID: itemID,

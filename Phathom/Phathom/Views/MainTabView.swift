@@ -50,11 +50,13 @@ struct MainTabView: View {
         .onAppear {
             ArchiveRetention.purgeExpired(in: modelContext)
             ModelManager.validateSelection()
+            ModelManager.validateTaggingSelection()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 ArchiveRetention.purgeExpired(in: modelContext)
                 ModelManager.validateSelection()
+                ModelManager.validateTaggingSelection()
                 BackgroundPipeline.scheduleForegroundDrain()
             } else if phase == .background || phase == .inactive {
                 BackgroundPipeline.scheduleAll()
