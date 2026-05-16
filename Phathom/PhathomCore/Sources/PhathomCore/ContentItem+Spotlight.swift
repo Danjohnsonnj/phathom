@@ -11,6 +11,8 @@ public extension ContentItem {
         let attrs = CSSearchableItemAttributeSet(contentType: .text)
         attrs.title = displayTitle
         attrs.contentDescription = teaser
+        // Keywords are tag names only for now; structural `category` is intentionally omitted until
+        // product wants system-wide category search (`applyCategory` still reindexes for title/teaser/tags).
         attrs.keywords = tagNames
         if let data = thumbnailData {
             attrs.thumbnailData = data

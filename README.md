@@ -9,10 +9,11 @@
 ## Product features
 
 - **Capture** — Add items from the in-app **Add New** flow and the **`PhathomShare`** share extension (URLs, text, images). Web captures can be saved offline-first and finish when the network is back.
-- **Library & detail** — Browse saved **Content** with filters, clear **processing status** (queued → fetch → summarize → tags, and related states), and open a **detail** view with summaries, tags, extracts, and **source** text or markdown where available.
+- **Library & detail** — Browse saved **Content** with filters (**type**, **read status**, **structural category**), clear **processing status** (queued → fetch → summarize → tags, and related states), and open a **detail** view with summaries, tags, category (optional edit separate from filing), extracts, and **source** text or markdown where available.
 - **Highlights & notes** — In detail **source**, select text to create a **highlight** (persisted in SwiftData); optional **per-highlight note**. Anchors are **UTF-16** ranges into stored **`sourceMarkdown`** (aligned with `SourceContentIndexer` / WKWebView `data-md-*` offsets).
 - **On-device LLM** — After ingest, the pipeline runs **summarization**, **auto-tagging**, and **structured extracts** using a **primary GGUF** you choose in Settings. You can optionally pick a **second GGUF** used only for tagging (ingest + **Regenerate tags**); if it is missing or fails to load, tagging uses the primary model.
 - **Privacy** — **SwiftData** on device only; no CloudKit/sync in the current design. See [`docs/decisions.md`](docs/decisions.md).
+- **Library backup / restore** — Settings exports non-archived items as versioned JSON (`LibraryBackupService`); **v3** envelopes may include optional **`categoryName`** per item (kebab-case storage). Details: [`docs/decisions.md`](docs/decisions.md) (Library backup rows) and [`docs/technical-brief.md`](docs/technical-brief.md#8-structural-categories--backup-phase-2).
 - **Archive & recovery** — **Archive** behaves like delete in the library, with **undo** and **Recently Deleted** under Settings (time-limited retention). See the product/decision notes in [`docs/product-brief.md`](docs/product-brief.md) and [`docs/decisions.md`](docs/decisions.md).
 - **System integration** — **Spotlight** / **App Intents** are part of the planned surface area for making the library discoverable on-device (see Phase 2 hand-off).
 
@@ -25,7 +26,7 @@
 | **Ingest**    | Fetches and normalizes web pages (generic HTML uses a Readability-style **main content** pass for both plain **`rawText`** and optional **`sourceMarkdown`**). Specialized paths exist for some social hosts.                                                                                                                                                                                                                                                                                                                                                                |
 | **Pipeline**  | **Background** tasks and foreground **drain** coordinate scraping, then **embedding** queue stages, then **Llama** passes—serialized so overlapping wakes don’t corrupt in-flight analysis.                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Inference** | **`SharedLlamaInference`** loads/unloads GGUF(s) inside a locked **`withSession`** (serialized — never concurrent dual-load). **`LlamaCppRuntime`** wraps vendored **`llama.xcframework`** (Metal on device, CPU on simulator). **Summarize** and **extracts** share **KV cache prefix reuse** (`llama_memory_seq_cp`) on the primary model in one session. **Tags** (`tagsFromDerived` from summary + extracts + highlights) run in a following **`taggingPreferred`** session that loads an optional tagging GGUF when set, otherwise reuses primary. Also enables Flash Attention (AUTO), **`offload_kqv`**, and tuned **`n_ubatch`**. See **Llama performance** below. |
-| **Storage**   | **SwiftData** models for items, tags, **highlights** (with optional user notes), chat scaffolding, etc. **Embeddings** are not persisted yet (queue state only); RAG storage is future work.                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Storage**   | **SwiftData** models for items, tags, optional structural **`Category`** per item, **highlights** (with optional user notes), chat scaffolding, etc. **Embeddings** are not persisted yet (queue state only); RAG storage is future work.                                                                                                                                                                                                                                                                                                                                                                                  |
 
 Deeper architecture and file map: [`docs/handoff/phase-2-pipeline.md`](docs/handoff/phase-2-pipeline.md).
 
@@ -59,6 +60,14 @@ bash scripts/setup-llama-xcframework.sh
 ```
 
 The script’s comments point at a typical source (`intrai-llama`); you can also produce **`llama.xcframework`** from upstream **llama.cpp** using the same packaging approach your team uses for iOS static libraries + headers. Integration rules (no third-party Swift wrappers, link **`import llama`**, **`-lc++`**) are documented in [`docs/handoff/phase-2-pipeline.md`](docs/handoff/phase-2-pipeline.md).
+
+### Manual QA — category filing (Detail)
+
+Before release or after touching filing UI:
+
+1. From **Detail**, move an item to **Filed** when the category sheet appears — confirm picker choice persists and library filter reflects category.
+2. **Cancel** / swipe-dismiss the sheet without confirming — item should stay non-Filed until user completes filing (library + Detail consistent).
+3. Rotate device while sheet visible — no orphan pending state; filing completes or dismisses cleanly.
 
 ## Llama.cpp: setup and use
 

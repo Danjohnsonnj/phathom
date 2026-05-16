@@ -188,16 +188,16 @@ struct PhathomTests {
         try ctx.save()
 
         let all = try ctx.fetch(FetchDescriptor<ContentItem>())
-        let browseAll = LibrarySearchService.bucket(query: "", items: all, filterKind: nil, filterStatus: nil)
+        let browseAll = LibrarySearchService.bucket(query: "", items: all, filterKind: nil, filterStatus: nil, filterCategory: nil)
         #expect(browseAll.matching.count == 3)
         #expect(browseAll.adjacent.isEmpty)
         #expect(browseAll.resolvedTagName == nil)
 
-        let webReadOnly = LibrarySearchService.bucket(query: "", items: all, filterKind: .web, filterStatus: .read)
+        let webReadOnly = LibrarySearchService.bucket(query: "", items: all, filterKind: .web, filterStatus: .read, filterCategory: nil)
         #expect(webReadOnly.matching.count == 1)
         #expect(webReadOnly.matching.first?.id == webRead.id)
 
-        let textSearch = LibrarySearchService.bucket(query: "hello", items: all, filterKind: nil, filterStatus: nil)
+        let textSearch = LibrarySearchService.bucket(query: "hello", items: all, filterKind: nil, filterStatus: nil, filterCategory: nil)
         #expect(textSearch.matching.contains(where: { $0.id == note.id }))
     }
 

@@ -27,6 +27,9 @@ struct DetailView: View {
     @State private var noteEditHighlight: Highlight?
     @State private var sourceWebSelectionActive = false
     @State private var sourceWebHighlightApplyToken = 0
+    @State private var pendingFileCategorySheet = false
+    @State private var detailCategoryPickHandled = false
+    @State private var isCategoryPickerPresented = false
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -92,6 +95,8 @@ struct DetailView: View {
                 failedSection
 
                 readingStatusSection
+
+                categorySection
 
                 summarySection
 
@@ -162,6 +167,20 @@ struct DetailView: View {
                 onDismiss: { noteEditHighlight = nil }
             )
             .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $pendingFileCategorySheet, onDismiss: detailFileCategoryOnDismiss) {
+            CategoryPicker { picked in
+                detailCategoryPickHandled = true
+                item.applyFiled(category: picked, modelContext: modelContext)
+            }
+        }
+        .sheet(isPresented: $isCategoryPickerPresented) {
+            CategoryPicker(
+                toolbarCancelPassesSelection: false,
+                navigationTitle: "Category"
+            ) { picked in
+                item.applyCategory(picked, modelContext: modelContext)
+            }
         }
     }
 
@@ -364,11 +383,58 @@ struct DetailView: View {
         .accessibilityElement(children: .contain)
     }
 
+    private var categorySectionDisplayName: String {
+        if let cat = item.category {
+            return CategoryDisplayFormatter.displayName(cat.name)
+        }
+        return "Uncategorized"
+    }
+
+    private var categorySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Category")
+                    .font(.headline.bold())
+                    .foregroundStyle(AppPalette.textPrimary)
+                Spacer()
+                Button("Edit") {
+                    isCategoryPickerPresented = true
+                }
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(AppPalette.accent)
+                .accessibilityLabel("Edit category")
+                .accessibilityHint("Opens a list to choose, create, or clear the category.")
+            }
+            Text(categorySectionDisplayName)
+                .font(.subheadline)
+                .foregroundStyle(AppPalette.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 14)
+                .background(AppPalette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        }
+    }
+
     private var readStatusBinding: Binding<ReadStatus> {
         Binding(
             get: { item.readState },
-            set: { item.applyReadStatus($0, modelContext: modelContext) }
+            set: { newValue in
+                if newValue == .filed, item.readState != .filed {
+                    pendingFileCategorySheet = true
+                    return
+                }
+                item.applyReadStatus(newValue, modelContext: modelContext)
+            }
         )
+    }
+
+    private func detailFileCategoryOnDismiss() {
+        let handled = detailCategoryPickHandled
+        detailCategoryPickHandled = false
+        guard !handled else { return }
+        item.applyFiled(category: nil, modelContext: modelContext)
     }
 
     private var detailChipTapAction: (() -> Void)? {

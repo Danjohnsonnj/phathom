@@ -29,6 +29,7 @@ public final class ContentItem {
     /// apply a lightweight migration on existing rows: missing values materialize as `"new"`.
     public var readStatus: String = ReadStatus.new.rawValue
     @Relationship(deleteRule: .nullify) public var tags: [Tag] = []
+    @Relationship(deleteRule: .nullify) public var category: Category? = nil
     @Relationship(deleteRule: .cascade) public var highlights: [Highlight] = []
 
     /// Themed HTML for WKWebView source display; generated at ingest by `SourceContentIndexer`.

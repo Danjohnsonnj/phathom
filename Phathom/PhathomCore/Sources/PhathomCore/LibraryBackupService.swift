@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 public enum LibraryBackupService {
-    public static let currentFormatVersion = 2
+    public static let currentFormatVersion = 3
 
     public enum ImportPolicy: Sendable {
         case replace
@@ -76,6 +76,33 @@ public enum LibraryBackupService {
         public var archivedAt: Date?
         public var tags: [String]
         public var highlights: [HighlightRecord]
+        public var categoryName: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case id
+            case createdAt
+            case title
+            case titleUserSet
+            case originalURL
+            case displayHost
+            case contentKind
+            case rawText
+            case sourceMarkdown
+            case thumbnailData
+            case thumbnailColorHex
+            case mediaDescription
+            case summaryBullets
+            case extracts
+            case processingStatus
+            case processingDetail
+            case lastProcessedChunk
+            case failureReason
+            case isArchived
+            case archivedAt
+            case tags
+            case highlights
+            case categoryName
+        }
 
         public init(
             id: UUID,
@@ -99,7 +126,8 @@ public enum LibraryBackupService {
             isArchived: Bool,
             archivedAt: Date?,
             tags: [String],
-            highlights: [HighlightRecord] = []
+            highlights: [HighlightRecord] = [],
+            categoryName: String? = nil
         ) {
             self.id = id
             self.createdAt = createdAt
@@ -123,6 +151,34 @@ public enum LibraryBackupService {
             self.archivedAt = archivedAt
             self.tags = tags
             self.highlights = highlights
+            self.categoryName = categoryName
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(createdAt, forKey: .createdAt)
+            try container.encodeIfPresent(title, forKey: .title)
+            try container.encode(titleUserSet, forKey: .titleUserSet)
+            try container.encodeIfPresent(originalURL, forKey: .originalURL)
+            try container.encodeIfPresent(displayHost, forKey: .displayHost)
+            try container.encode(contentKind, forKey: .contentKind)
+            try container.encodeIfPresent(rawText, forKey: .rawText)
+            try container.encodeIfPresent(sourceMarkdown, forKey: .sourceMarkdown)
+            try container.encodeIfPresent(thumbnailData, forKey: .thumbnailData)
+            try container.encodeIfPresent(thumbnailColorHex, forKey: .thumbnailColorHex)
+            try container.encodeIfPresent(mediaDescription, forKey: .mediaDescription)
+            try container.encodeIfPresent(summaryBullets, forKey: .summaryBullets)
+            try container.encodeIfPresent(extracts, forKey: .extracts)
+            try container.encode(processingStatus, forKey: .processingStatus)
+            try container.encodeIfPresent(processingDetail, forKey: .processingDetail)
+            try container.encode(lastProcessedChunk, forKey: .lastProcessedChunk)
+            try container.encodeIfPresent(failureReason, forKey: .failureReason)
+            try container.encode(isArchived, forKey: .isArchived)
+            try container.encodeIfPresent(archivedAt, forKey: .archivedAt)
+            try container.encode(tags, forKey: .tags)
+            try container.encode(highlights, forKey: .highlights)
+            try container.encodeIfPresent(categoryName, forKey: .categoryName)
         }
 
         public init(from decoder: Decoder) throws {
@@ -149,6 +205,7 @@ public enum LibraryBackupService {
             archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
             tags = try container.decode([String].self, forKey: .tags)
             highlights = try container.decodeIfPresent([HighlightRecord].self, forKey: .highlights) ?? []
+            categoryName = try container.decodeIfPresent(String.self, forKey: .categoryName)
         }
     }
 
@@ -258,7 +315,8 @@ public enum LibraryBackupService {
                 isArchived: item.isArchived,
                 archivedAt: item.archivedAt,
                 tags: item.tags.map(\.name),
-                highlights: hlRecords
+                highlights: hlRecords,
+                categoryName: item.category?.name
             )
         }
 
@@ -301,6 +359,11 @@ public enum LibraryBackupService {
             for tag in allTags {
                 modelContext.delete(tag)
             }
+            let categoryDescriptor = FetchDescriptor<Category>()
+            let allCategories = try modelContext.fetch(categoryDescriptor)
+            for category in allCategories {
+                modelContext.delete(category)
+            }
             try modelContext.save()
             DispatchQueue.main.async {
                 LibraryContentChangeNotifier.postLibraryContentDidChange()
@@ -310,13 +373,19 @@ public enum LibraryBackupService {
 
         var existingByID = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
         var tagsByName = try existingTagsByName(from: modelContext)
+        var categoriesByName = try existingCategoriesByName(from: modelContext)
 
         for record in envelope.items {
             if policy == .merge, existingByID[record.id] != nil {
                 skipped += 1
                 continue
             }
-            let item = makeContentItem(from: record, tagIndex: &tagsByName, modelContext: modelContext)
+            let item = makeContentItem(
+                from: record,
+                tagIndex: &tagsByName,
+                categoryIndex: &categoriesByName,
+                modelContext: modelContext
+            )
             modelContext.insert(item)
             existingByID[item.id] = item
             imported += 1
@@ -379,6 +448,15 @@ public enum LibraryBackupService {
         return index
     }
 
+    private static func existingCategoriesByName(from modelContext: ModelContext) throws -> [String: Category] {
+        let categories = try modelContext.fetch(FetchDescriptor<Category>())
+        var index: [String: Category] = [:]
+        for category in categories {
+            index[category.name] = category
+        }
+        return index
+    }
+
     private static func shouldImportHighlight(_ hr: HighlightRecord, sourceMarkdown: String?) -> Bool {
         guard let md = sourceMarkdown, !md.isEmpty else { return false }
         guard hr.sourceMarkdownOffset >= 0, hr.sourceMarkdownLength > 0 else { return false }
@@ -391,6 +469,7 @@ public enum LibraryBackupService {
     private static func makeContentItem(
         from record: ItemRecord,
         tagIndex: inout [String: Tag],
+        categoryIndex: inout [String: Category],
         modelContext: ModelContext
     ) -> ContentItem {
         let baseKind = ContentKind(rawValue: record.contentKind) ?? .web
@@ -427,6 +506,20 @@ public enum LibraryBackupService {
             modelContext.insert(newTag)
             tagIndex[normalized] = newTag
             return newTag
+        }
+
+        if let rawCat = record.categoryName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !rawCat.isEmpty,
+           let normalizedCat = CategoryDisplayFormatter.normalize(rawCat)
+        {
+            if let existing = categoryIndex[normalizedCat] {
+                item.category = existing
+            } else {
+                let newCategory = Category(name: normalizedCat)
+                modelContext.insert(newCategory)
+                categoryIndex[normalizedCat] = newCategory
+                item.category = newCategory
+            }
         }
 
         for hr in record.highlights {

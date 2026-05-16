@@ -3,7 +3,7 @@ import SwiftData
 
 public enum PhathomModelContainer {
     public static var currentSchema: Schema {
-        Schema(versionedSchema: PhathomSchemaV3.self)
+        Schema(versionedSchema: PhathomSchemaV4.self)
     }
 
     private static let highlightWipeKey = "PhathomHighlightWipeV4Done"

@@ -33,10 +33,11 @@ enum LibrarySearchService {
     }
 
     /// Kind/status filter only (no tag index). Used for empty-query browse and as the pool for `buildTagIndex`.
-    private static func itemsFilteredByKindAndStatus(
+    private static func itemsFilteredByKindStatusAndCategory(
         items: [ContentItem],
         filterKind: ContentKind?,
-        filterStatus: ReadStatus?
+        filterStatus: ReadStatus?,
+        filterCategory: String?
     ) -> [ContentItem] {
         var pool = items
         if let filterKind {
@@ -44,6 +45,13 @@ enum LibrarySearchService {
         }
         if let filterStatus {
             pool = pool.filter { $0.readState == filterStatus }
+        }
+        if let filterCategory {
+            if filterCategory == LibraryCategoryFilterStorage.uncategorizedRaw {
+                pool = pool.filter { $0.category == nil }
+            } else {
+                pool = pool.filter { $0.category?.name == filterCategory }
+            }
         }
         return pool
     }
@@ -54,21 +62,24 @@ enum LibrarySearchService {
         query: String,
         items: [ContentItem],
         filterKind: ContentKind?,
-        filterStatus: ReadStatus? = nil
+        filterStatus: ReadStatus? = nil,
+        filterCategory: String? = nil
     ) -> Sections {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else {
-            let pool = itemsFilteredByKindAndStatus(
+            let pool = itemsFilteredByKindStatusAndCategory(
                 items: items,
                 filterKind: filterKind,
-                filterStatus: filterStatus
+                filterStatus: filterStatus,
+                filterCategory: filterCategory
             )
             return Sections(matching: pool, adjacent: [], resolvedTagName: nil)
         }
         let (kindFiltered, tagIndex) = buildTagIndex(
             items: items,
             filterKind: filterKind,
-            filterStatus: filterStatus
+            filterStatus: filterStatus,
+            filterCategory: filterCategory
         )
         // Inverted index `tagIndex` is keyed by lowercased tag name. `Tag.init` already lowercases
         // names on insert, so a direct subscript with `normalized` resolves the tag without re-
@@ -174,12 +185,14 @@ enum LibrarySearchService {
     static func buildTagIndex(
         items: [ContentItem],
         filterKind: ContentKind?,
-        filterStatus: ReadStatus? = nil
+        filterStatus: ReadStatus? = nil,
+        filterCategory: String? = nil
     ) -> (kindFiltered: [ContentItem], tagIndex: [String: [ContentItem]]) {
-        let pool = itemsFilteredByKindAndStatus(
+        let pool = itemsFilteredByKindStatusAndCategory(
             items: items,
             filterKind: filterKind,
-            filterStatus: filterStatus
+            filterStatus: filterStatus,
+            filterCategory: filterCategory
         )
         var tagIndex: [String: [ContentItem]] = [:]
         for item in pool {
@@ -201,7 +214,8 @@ enum LibrarySearchService {
         sections: Sections,
         allItems: [ContentItem],
         filterKind: ContentKind?,
-        filterStatus: ReadStatus? = nil
+        filterStatus: ReadStatus? = nil,
+        filterCategory: String? = nil
     ) async -> [ContentItem] {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else { return sections.adjacent }
@@ -209,7 +223,8 @@ enum LibrarySearchService {
         let (kindFiltered, tagIndex) = buildTagIndex(
             items: allItems,
             filterKind: filterKind,
-            filterStatus: filterStatus
+            filterStatus: filterStatus,
+            filterCategory: filterCategory
         )
         let vocabulary = Array(tagIndex.keys)
         guard !vocabulary.isEmpty else { return sections.adjacent }

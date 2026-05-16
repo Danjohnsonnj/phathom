@@ -5,6 +5,7 @@ import SwiftUI
 private enum LibraryFilterDefaultsKey {
     static let kind = "library.filter.kind"
     static let status = "library.filter.status"
+    static let category = "library.filter.category"
 }
 
 struct LibraryTab: View {
@@ -19,8 +20,12 @@ struct LibraryTab: View {
     )
     private var items: [ContentItem]
 
+    @Query(sort: \PhathomCore.Category.name, order: .forward)
+    private var categories: [PhathomCore.Category]
+
     @AppStorage(LibraryFilterDefaultsKey.kind) private var filterKindRaw: String = ""
     @AppStorage(LibraryFilterDefaultsKey.status) private var filterStatusRaw: String = ""
+    @AppStorage(LibraryFilterDefaultsKey.category) private var filterCategoryRaw: String = ""
 
     private var filterKind: ContentKind? { ContentKind(rawValue: filterKindRaw) }
     private var filterStatus: ReadStatus? { ReadStatus(rawValue: filterStatusRaw) }
@@ -31,6 +36,25 @@ struct LibraryTab: View {
 
     private var filterStatusBinding: Binding<ReadStatus?> {
         Binding(get: { filterStatus }, set: { filterStatusRaw = $0?.rawValue ?? "" })
+    }
+
+    private var filterCategoryBinding: Binding<String> {
+        Binding(get: { filterCategoryRaw }, set: { filterCategoryRaw = $0 })
+    }
+
+    /// `nil` means no category filter (All capsule).
+    private var filterCategoryForSearch: String? {
+        guard !filterCategoryRaw.isEmpty else { return nil }
+        return filterCategoryRaw
+    }
+
+    private var swipeFileSheetPresented: Binding<Bool> {
+        Binding(
+            get: { pendingSwipeItemID != nil },
+            set: {
+                if !$0 { pendingSwipeItemID = nil }
+            }
+        )
     }
 
     @State private var searchText = ""
@@ -52,6 +76,13 @@ struct LibraryTab: View {
     @State private var libraryContentRevision: Int = 0
     @State private var editMode: EditMode = .inactive
     @State private var selectedItemIDs = Set<UUID>()
+
+    @State private var pendingSwipeItemID: UUID?
+    @State private var swipeCategoryHandled = false
+
+    @State private var showBulkCategoryPicker = false
+    @State private var bulkCategoryHandled = false
+    @State private var bulkPendingItemIDs = Set<UUID>()
 
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
         _deepLinkItemID = deepLinkItemID
@@ -189,6 +220,7 @@ struct LibraryTab: View {
             query: searchText,
             kind: filterKind,
             status: filterStatus,
+            category: filterCategoryForSearch,
             contentRevision: libraryContentRevision
         )) {
             await recomputeSections()
@@ -200,6 +232,9 @@ struct LibraryTab: View {
             deepRankedAdjacent = nil
         }
         .onChange(of: filterStatus) { _, _ in
+            deepRankedAdjacent = nil
+        }
+        .onChange(of: filterCategoryRaw) { _, _ in
             deepRankedAdjacent = nil
         }
         .onChange(of: sections.adjacent.map(\.id)) { _, _ in
@@ -229,6 +264,18 @@ struct LibraryTab: View {
         .onChange(of: editMode) { _, newValue in
             if newValue == .inactive {
                 selectedItemIDs = []
+            }
+        }
+        .sheet(isPresented: swipeFileSheetPresented, onDismiss: swipeCategorySheetOnDismiss) {
+            CategoryPicker { picked in
+                swipeCategoryHandled = true
+                applySwipeCategoryPick(picked)
+            }
+        }
+        .sheet(isPresented: $showBulkCategoryPicker, onDismiss: bulkCategorySheetOnDismiss) {
+            CategoryPicker { picked in
+                bulkCategoryHandled = true
+                applyBulkCategoryPick(picked)
             }
         }
     }
@@ -315,7 +362,12 @@ struct LibraryTab: View {
                     .accessibilityHint("Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now")
                 }
             }
-            LibraryFilterBar(selectedKind: filterKindBinding, selectedStatus: filterStatusBinding)
+            LibraryFilterBar(
+                selectedKind: filterKindBinding,
+                selectedStatus: filterStatusBinding,
+                filterCategoryRaw: filterCategoryBinding,
+                categories: categories
+            )
         }
         .textCase(nil)
         .padding(.horizontal, 16)
@@ -438,11 +490,13 @@ struct LibraryTab: View {
         let query = searchText
         let kind = filterKind
         let status = filterStatus
+        let cat = filterCategoryForSearch
         let computed = LibrarySearchService.bucket(
             query: query,
             items: snapshot,
             filterKind: kind,
-            filterStatus: status
+            filterStatus: status,
+            filterCategory: cat
         )
         if Task.isCancelled { return }
         sections = computed
@@ -454,6 +508,7 @@ struct LibraryTab: View {
         let querySnapshot = searchText
         let kindSnapshot = filterKind
         let statusSnapshot = filterStatus
+        let categorySnapshot = filterCategoryForSearch
         let sectionsSnapshot = sections
         let allItemsSnapshot = items
 
@@ -463,13 +518,15 @@ struct LibraryTab: View {
             sections: sectionsSnapshot,
             allItems: allItemsSnapshot,
             filterKind: kindSnapshot,
-            filterStatus: statusSnapshot
+            filterStatus: statusSnapshot,
+            filterCategory: categorySnapshot
         )
         // If the user changed the query or any filter while ranking, drop the result rather than
         // apply it to a different section.
         guard searchText == querySnapshot,
               filterKind == kindSnapshot,
-              filterStatus == statusSnapshot
+              filterStatus == statusSnapshot,
+              filterCategoryForSearch == categorySnapshot
         else {
             isDeepRanking = false
             return
@@ -536,6 +593,12 @@ struct LibraryTab: View {
     private func bulkSetReadStatus(_ status: ReadStatus) {
         let resolved = resolvedSelectedItems()
         guard !resolved.isEmpty else { return }
+        if status == .filed {
+            bulkPendingItemIDs = Set(resolved.map(\.id))
+            bulkCategoryHandled = false
+            showBulkCategoryPicker = true
+            return
+        }
         ContentItem.applyReadStatus(status, to: resolved, modelContext: modelContext)
         selectedItemIDs = []
     }
@@ -555,7 +618,12 @@ struct LibraryTab: View {
         let current = item.readState
         ForEach(ReadStatus.allCases.filter { $0 != current }, id: \.self) { target in
             Button {
-                setReadStatus(target, for: item)
+                if target == .filed {
+                    pendingSwipeItemID = item.id
+                    swipeCategoryHandled = false
+                } else {
+                    setReadStatus(target, for: item)
+                }
             } label: {
                 Label(
                     ReadStatusPresentation.swipeActionLabel(for: target),
@@ -593,6 +661,51 @@ struct LibraryTab: View {
         }
     }
 
+    private func applySwipeCategoryPick(_ category: PhathomCore.Category?) {
+        guard let id = pendingSwipeItemID, let row = items.first(where: { $0.id == id }) else { return }
+        ContentItem.applyFiled(category: category, to: [row], modelContext: modelContext)
+    }
+
+    private func swipeCategorySheetOnDismiss() {
+        let targetID = pendingSwipeItemID
+        let handled = swipeCategoryHandled
+        pendingSwipeItemID = nil
+        swipeCategoryHandled = false
+        guard !handled, let targetID, let row = items.first(where: { $0.id == targetID }) else { return }
+        ContentItem.applyFiled(category: nil, to: [row], modelContext: modelContext)
+    }
+
+    private func applyBulkCategoryPick(_ category: PhathomCore.Category?) {
+        let resolvedIDs = bulkPendingItemIDs
+        let resolved = resolvedIDs.compactMap { id in items.first(where: { $0.id == id }) }
+        guard !resolved.isEmpty else {
+            bulkPendingItemIDs.removeAll()
+            selectedItemIDs = []
+            return
+        }
+        ContentItem.applyFiled(category: category, to: resolved, modelContext: modelContext)
+        bulkPendingItemIDs.removeAll()
+        selectedItemIDs = []
+    }
+
+    private func bulkCategorySheetOnDismiss() {
+        let ids = bulkPendingItemIDs
+        let handled = bulkCategoryHandled
+        bulkCategoryHandled = false
+        if handled {
+            bulkPendingItemIDs.removeAll()
+            return
+        }
+        let resolved = ids.compactMap { id in items.first(where: { $0.id == id }) }
+        bulkPendingItemIDs.removeAll()
+        guard !resolved.isEmpty else {
+            selectedItemIDs = []
+            return
+        }
+        ContentItem.applyFiled(category: nil, to: resolved, modelContext: modelContext)
+        selectedItemIDs = []
+    }
+
 }
 
 /// Composite key for the bucketing `.task(id:)`: query, filters, and `libraryContentRevision`
@@ -601,6 +714,7 @@ private struct SearchSignature: Equatable {
     let query: String
     let kind: ContentKind?
     let status: ReadStatus?
+    let category: String?
     let contentRevision: Int
 }
 

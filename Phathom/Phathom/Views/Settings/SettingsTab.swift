@@ -810,8 +810,5 @@ struct SettingsTab: View {
     SettingsTab()
 }
 
-}
-
-
 
 

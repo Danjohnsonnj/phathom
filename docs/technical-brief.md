@@ -154,3 +154,11 @@ The analyze pass (summarize, auto-tags, extracts) uses **llama.cpp** with **KV c
 ### 7. Archive retention (SwiftData)
 
 `ContentItem` carries **`isArchived`** and **`archivedAt`**. **Foreground** and **`BGAppRefresh`** run a single-query purge of records archived longer than **48 hours**. **Spotlight** entries are removed when archiving and restored when a **completed** item is un-archived. Background **ingest/analyze** skips archived rows. Spec: [docs/handoff/phase-1-ui-shell.md](handoff/phase-1-ui-shell.md), [docs/handoff/phase-2-pipeline.md](handoff/phase-2-pipeline.md) §2D, [docs/decisions.md](decisions.md).
+
+### 8. Structural categories & backup (Phase 2)
+
+- **`Category`** (`PhathomCore`, `@Model`) stores **kebab-case** names (`TagNameNormalizer` rules via **`CategoryDisplayFormatter.normalize`**). **`ContentItem`** holds optional **`category`** (`Relationship`).
+- **Library**: **`LibraryFilterBar`** + **`CategoryPicker`** (app target); browse/search pools filter via **`LibrarySearchService`** (`filterCategory` string token + **`LibraryCategoryFilterStorage`** for Uncategorized sentinel).
+- **Backup**: **`LibraryBackupService`** envelope **`formatVersion` 3** adds optional **`categoryName`** per item; restore normalizes names on import (invalid strings skip assignment).
+
+The pseudocode **`ContentItem`** / **`Tag`** excerpt above is historical; prefer **`docs/decisions.md`** and **`README`** for current schema facts.

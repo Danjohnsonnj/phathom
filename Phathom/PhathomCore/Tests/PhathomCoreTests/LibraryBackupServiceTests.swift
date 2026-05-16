@@ -174,7 +174,7 @@ final class LibraryBackupServiceTests: XCTestCase {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let envelope = try decoder.decode(LibraryBackupService.ExportEnvelope.self, from: data)
-        XCTAssertEqual(envelope.formatVersion, 2)
+        XCTAssertEqual(envelope.formatVersion, 3)
         XCTAssertEqual(envelope.items.count, 1)
         XCTAssertEqual(envelope.items.first?.highlights.count, 1)
 
@@ -297,7 +297,7 @@ final class LibraryBackupServiceTests: XCTestCase {
     func testFutureFormatVersionThrows() throws {
         let json = """
         {
-          "formatVersion": 3,
+          "formatVersion": 4,
           "exportedAt": "2020-05-15T12:00:00.000Z",
           "appBuild": null,
           "items": []
@@ -317,8 +317,178 @@ final class LibraryBackupServiceTests: XCTestCase {
                 XCTFail("expected unsupportedFormatVersion, got \(backupError)")
                 return
             }
-            XCTAssertEqual(v, 3)
+            XCTAssertEqual(v, 4)
         }
+    }
+
+    func testV2ImportSetsNilCategory() throws {
+        let itemID = "00000000-0000-4000-8000-0000000000ab"
+        let json = """
+        {
+          "appBuild": null,
+          "exportedAt": "2020-05-15T12:00:00.000Z",
+          "formatVersion": 2,
+          "items": [
+            {
+              "archivedAt": null,
+              "contentKind": "web",
+              "createdAt": "1970-01-01T00:00:10.000Z",
+              "displayHost": "example.com",
+              "extracts": null,
+              "failureReason": null,
+              "highlights": [],
+              "id": "\(itemID)",
+              "isArchived": false,
+              "lastProcessedChunk": 0,
+              "mediaDescription": null,
+              "originalURL": "https://example.com/v2",
+              "processingDetail": null,
+              "processingStatus": "completed",
+              "rawText": "body",
+              "sourceMarkdown": null,
+              "summaryBullets": null,
+              "tags": [],
+              "thumbnailColorHex": null,
+              "thumbnailData": null,
+              "title": "v2",
+              "titleUserSet": false
+            }
+          ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: context)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let imported = try context.fetch(FetchDescriptor<ContentItem>())
+        XCTAssertEqual(imported.count, 1)
+        XCTAssertNil(imported.first?.category)
+
+        let categories = try context.fetch(FetchDescriptor<PhathomCore.Category>())
+        XCTAssertTrue(categories.isEmpty)
+    }
+
+    func testV3RoundTripPreservesCategory() throws {
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+
+        let item = makeItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 60), archived: false)
+        let cat = Category(name: "work-stuff")
+        context.insert(cat)
+        context.insert(item)
+        item.category = cat
+        try context.save()
+
+        let data = try LibraryBackupService.exportData(from: context, appBuild: "t")
+
+        let importContainer = try makeInMemoryContainer()
+        let importContext = ModelContext(importContainer)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: importContext)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let fetched = try importContext.fetch(FetchDescriptor<ContentItem>())
+        XCTAssertEqual(fetched.first?.category?.name, "work-stuff")
+    }
+
+    func testV3ImportNormalizesCategoryName() throws {
+        let itemID = "00000000-0000-4000-8000-0000000000cd"
+        let json = """
+        {
+          "appBuild": null,
+          "exportedAt": "2020-05-15T12:00:00.000Z",
+          "formatVersion": 3,
+          "items": [
+            {
+              "archivedAt": null,
+              "categoryName": "Work Stuff",
+              "contentKind": "web",
+              "createdAt": "1970-01-01T00:00:10.000Z",
+              "displayHost": "example.com",
+              "extracts": null,
+              "failureReason": null,
+              "highlights": [],
+              "id": "\(itemID)",
+              "isArchived": false,
+              "lastProcessedChunk": 0,
+              "mediaDescription": null,
+              "originalURL": "https://example.com/cat-norm",
+              "processingDetail": null,
+              "processingStatus": "completed",
+              "rawText": "body",
+              "sourceMarkdown": null,
+              "summaryBullets": null,
+              "tags": [],
+              "thumbnailColorHex": null,
+              "thumbnailData": null,
+              "title": "norm",
+              "titleUserSet": false
+            }
+          ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: context)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let imported = try context.fetch(FetchDescriptor<ContentItem>())
+        XCTAssertEqual(imported.first?.category?.name, "work-stuff")
+
+        let categories = try context.fetch(FetchDescriptor<PhathomCore.Category>())
+        XCTAssertEqual(categories.count, 1)
+        XCTAssertEqual(categories.first?.name, "work-stuff")
+    }
+
+    func testV3ImportSkipsInvalidCategoryName() throws {
+        let itemID = "00000000-0000-4000-8000-0000000000ef"
+        let json = """
+        {
+          "appBuild": null,
+          "exportedAt": "2020-05-15T12:00:00.000Z",
+          "formatVersion": 3,
+          "items": [
+            {
+              "archivedAt": null,
+              "categoryName": "a",
+              "contentKind": "web",
+              "createdAt": "1970-01-01T00:00:10.000Z",
+              "displayHost": "example.com",
+              "extracts": null,
+              "failureReason": null,
+              "highlights": [],
+              "id": "\(itemID)",
+              "isArchived": false,
+              "lastProcessedChunk": 0,
+              "mediaDescription": null,
+              "originalURL": "https://example.com/cat-skip",
+              "processingDetail": null,
+              "processingStatus": "completed",
+              "rawText": "body",
+              "sourceMarkdown": null,
+              "summaryBullets": null,
+              "tags": [],
+              "thumbnailColorHex": null,
+              "thumbnailData": null,
+              "title": "skip",
+              "titleUserSet": false
+            }
+          ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: context)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let imported = try context.fetch(FetchDescriptor<ContentItem>())
+        XCTAssertNil(imported.first?.category)
+
+        let categories = try context.fetch(FetchDescriptor<PhathomCore.Category>())
+        XCTAssertTrue(categories.isEmpty)
     }
 
     private func makeInMemoryContainer() throws -> ModelContainer {

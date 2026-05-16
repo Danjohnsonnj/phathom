@@ -18,7 +18,7 @@ To save tokens, **do not** scan the entire `/Phathom` directory. Use these speci
 - **Architectural Truth:** `docs/decisions.md` and `docs/technical-brief.md`.
 - **Pipeline Logic:** `Phathom/Phathom/Services/BackgroundPipeline.swift` (background/foreground ingest + analyze).
 - **LLM Bridge:** `Phathom/Phathom/Services/SharedLlamaInference.swift` (serialized GGUF session).
-- **UI shell & navigation:** `Phathom/Phathom/Views/` — recall agentmemory **UI** topic first. Tab shell: `MainTabView` (Library | Chat placeholder | Add New); Settings via Library gear → `SettingsContent`. Primary surfaces: `LibraryTab` → `DetailView`; capture in `AddNewTab`. UI binds SwiftData (`@Query` / `@Bindable`); never calls Llama directly—schedules work via `BackgroundPipeline` and `ProcessingRecovery`.
+- **UI shell & navigation:** `Phathom/Phathom/Views/` — recall agentmemory **UI** topic first. Tab shell: `MainTabView` (Library | Chat placeholder | Add New); Settings via Library gear → `SettingsContent`. Primary surfaces: `LibraryTab` (`LibraryFilterBar`, **`LibrarySearchService`** filters incl. **`filterCategory`**) → `DetailView` (**`CategoryPicker`** sheets where relevant); capture in `AddNewTab`. Structural categories: **`PhathomCore.Category`**, **`LibraryCategoryFilterStorage`**, **`CategoryDisplayFormatter`**. UI binds SwiftData (`@Query` / `@Bindable`); never calls Llama directly—schedules work via `BackgroundPipeline` and `ProcessingRecovery`.
 - **Roadmap Context:** `docs/handoff/` (Current focus: Phase 2 Pipeline).
 
 ## Efficiency Rules (Token/Context Management)
@@ -65,8 +65,8 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 | llama.cpp backend | `llama.cpp`, `xcframework`, `LlamaCppRuntime`, `Metal` | `Inference/LlamaCppRuntime.swift`, `vendor/llama/llama.xcframework`, upstream `~/Local Documents/repos/llama.cpp` |
 | Decisions gist | `decisions`, `decisions.md`, `gist` | `docs/decisions.md` |
 | Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf section, pipeline metrics logs |
-| Schema | `ContentItem`, `processingStatus` | `Phathom/Phathom/Models/` |
-| UI shell & pipeline bridge | `UI`, `LibraryTab`, `DetailView`, `navigation` | `Views/MainTabView.swift`, `Library/`, `Detail/`, `AddNew/`, `Settings/SettingsTab.swift`, `ProcessingRecovery.swift` |
+| Schema | `ContentItem`, **`Category`**, `processingStatus` | `Phathom/PhathomCore/Sources/PhathomCore/` (`Category.swift`, `ContentItem.swift`) |
+| UI shell & pipeline bridge | `UI`, `LibraryTab`, `LibraryFilterBar`, `DetailView`, `CategoryPicker`, `navigation` | `Views/MainTabView.swift`, `Library/`, `Detail/`, `AddNew/`, `Settings/SettingsTab.swift`, `ProcessingRecovery.swift`, `Services/LibrarySearchService.swift` |
 | Scope | `Phase-3`, `no-RAG`, `guardrails` | `docs/handoff/phase-3-rag-chat.md` |
 | Dev bootstrap | `build`, `xcframework` | `scripts/build-phathom.sh`, `AGENTS.md` |
 
