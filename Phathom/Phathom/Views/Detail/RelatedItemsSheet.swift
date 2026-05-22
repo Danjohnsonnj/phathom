@@ -2,11 +2,8 @@ import PhathomCore
 import SwiftData
 import SwiftUI
 
-/// Sheet that lists up to 3 library items related to a tapped tag on the source item.
-///
-/// Stage 1 (sync) buckets candidates; Stage 2 (async Llama) re-ranks the adjacent bucket if needed.
-/// On row tap, calls `onSelect` and dismisses; the parent (`DetailView`) is responsible for
-/// replacing the navigation stack so the user lands on the chosen item's detail.
+/// Sheet with two sections: exact tag matches and tag-adjacent suggestions (Stages 1 + 2, mirroring library Dive deeper).
+/// On row tap, calls `onSelect` and dismisses; parent replaces navigation (`LibraryTab`) when a handler exists.
 struct RelatedItemsSheet: View {
     let sourceItem: ContentItem
     let tappedTag: Tag
@@ -17,13 +14,20 @@ struct RelatedItemsSheet: View {
     private var allItems: [ContentItem]
 
     @State private var exactMatches: [ContentItem] = []
-    /// Populated only after Stage 2 completes (or when a fast path skips inference). Stays empty
-    /// while inference is in flight so unranked Bucket B is never rendered then re-ordered.
-    @State private var rerankedAdjacent: [ContentItem] = []
-    /// Number of placeholder cards to render below the exact matches while inference is in flight.
-    @State private var pendingAdjacentCount = 0
+    /// Stage 1 adjacent (prefix + inverted index).
+    @State private var stage1Related: [ContentItem] = []
+    /// Llama-ranked adjacent; `nil` until Stage 2 finishes or skips.
+    @State private var deepRankedRelated: [ContentItem]? = nil
     @State private var bucketsLoaded = false
     @State private var isRanking = false
+
+    private var displayedRelated: [ContentItem] {
+        deepRankedRelated ?? stage1Related
+    }
+
+    private var skeletonCount: Int {
+        max(stage1Related.count, 3)
+    }
 
     var body: some View {
         NavigationStack {
@@ -45,7 +49,7 @@ struct RelatedItemsSheet: View {
     private var content: some View {
         if !bucketsLoaded {
             stateView { ProgressView().controlSize(.regular) }
-        } else if exactMatches.isEmpty, rerankedAdjacent.isEmpty, !isRanking {
+        } else if exactMatches.isEmpty, displayedRelated.isEmpty, !isRanking {
             stateView {
                 VStack(spacing: 8) {
                     Image(systemName: "tag")
@@ -57,33 +61,32 @@ struct RelatedItemsSheet: View {
                 }
             }
         } else {
-            resultsList
+            resultsScroll
         }
     }
 
-    private var resultsList: some View {
-        let displayed = RelatedItemsService.combinedTopResults(
-            exactMatches: exactMatches,
-            rerankedAdjacent: rerankedAdjacent
-        )
-        let placeholderSlots = isRanking
-            ? max(0, min(RelatedItemsService.displayLimit - displayed.count, pendingAdjacentCount))
-            : 0
-
-        return ScrollView {
-            VStack(spacing: 12) {
-                ForEach(displayed, id: \.id) { item in
-                    Button {
-                        onSelect(item)
-                    } label: {
-                        ContentCardRow(item: item)
+    private var resultsScroll: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                if !exactMatches.isEmpty {
+                    sectionBlock(title: "With this tag") {
+                        ForEach(exactMatches, id: \.id) { item in
+                            relatedRowButton(item)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
 
-                if placeholderSlots > 0 {
-                    ForEach(0..<placeholderSlots, id: \.self) { _ in
-                        rankingPlaceholder
+                if !displayedRelated.isEmpty || isRanking {
+                    sectionBlock(title: "Related by tags") {
+                        if isRanking {
+                            ForEach(0..<skeletonCount, id: \.self) { _ in
+                                rankingPlaceholder
+                            }
+                        } else {
+                            ForEach(displayedRelated, id: \.id) { item in
+                                relatedRowButton(item)
+                            }
+                        }
                     }
                 }
             }
@@ -92,8 +95,27 @@ struct RelatedItemsSheet: View {
         }
     }
 
-    /// Skeleton card matching `ContentCardRow.card` chrome so layout doesn't jump when ranked rows
-    /// replace placeholders. No spinner or text — the skeleton itself is the loading affordance.
+    private func sectionBlock<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(AppPalette.textPrimary)
+                .padding(.bottom, 2)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func relatedRowButton(_ item: ContentItem) -> some View {
+        Button {
+            onSelect(item)
+        } label: {
+            ContentCardRow(item: item)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Skeleton card matching `ContentCardRow.card` chrome.
     private var rankingPlaceholder: some View {
         HStack(alignment: .top, spacing: 12) {
             RoundedRectangle(cornerRadius: 76 * 0.15)
@@ -135,37 +157,31 @@ struct RelatedItemsSheet: View {
     }
 
     private func runPipeline() async {
-        let buckets = RelatedItemsService.bucket(
-            for: sourceItem,
+        let buckets = RelatedItemsService.bucketsForTagTap(
+            sourceItem: sourceItem,
             tappedTag: tappedTag,
             in: allItems
         )
         exactMatches = buckets.exactMatches
-
-        if buckets.exactMatches.count >= RelatedItemsService.displayLimit
-            || buckets.adjacentCandidates.isEmpty {
-            rerankedAdjacent = []
-            bucketsLoaded = true
-            return
-        }
-        if !ModelManager.hasReadableSelection {
-            rerankedAdjacent = buckets.adjacentCandidates
-            bucketsLoaded = true
-            return
-        }
-
-        let slotsRemaining = RelatedItemsService.displayLimit - buckets.exactMatches.count
-        pendingAdjacentCount = min(slotsRemaining, buckets.adjacentCandidates.count)
+        stage1Related = buckets.adjacentCandidates
         bucketsLoaded = true
-        isRanking = true
 
-        let ranked = await RelatedItemsService.rerankAdjacent(
-            tappedTag: tappedTag,
+        let exactIDs = Set(exactMatches.map(\.id))
+
+        guard ModelManager.hasReadableSelection else {
+            deepRankedRelated = nil
+            return
+        }
+
+        isRanking = true
+        let ranked = await RelatedItemsService.rankedAdjacentAfterExpansion(
             sourceItem: sourceItem,
-            adjacentCandidates: buckets.adjacentCandidates
+            tappedTag: tappedTag,
+            in: allItems,
+            exactMatchIDs: exactIDs,
+            stage1Adjacent: stage1Related
         )
-        rerankedAdjacent = ranked
-        pendingAdjacentCount = 0
+        deepRankedRelated = ranked.isEmpty ? nil : ranked
         isRanking = false
     }
 }

@@ -265,6 +265,157 @@ struct PhathomTests {
         #expect(textSearch.matching.contains(where: { $0.id == note.id }))
     }
 
+    @Test @MainActor
+    func tagRelation_exactMatchesOtherThanSource_excludesOriginal() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let rust = Tag(name: "rust")
+        ctx.insert(rust)
+        let source = ContentItem(contentKind: .web, originalURL: URL(string: "https://exact-source.test")!)
+        source.tags.append(rust)
+        let other = ContentItem(contentKind: .web, originalURL: URL(string: "https://exact-other.test")!)
+        other.tags.append(rust)
+        ctx.insert(source)
+        ctx.insert(other)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let hits = TagRelationService.exactMatchesOtherThanSource(
+            tappedTagName: "rust",
+            in: all,
+            excludingSourceID: source.id
+        )
+        #expect(hits.count == 1)
+        #expect(hits.first?.id == other.id)
+    }
+
+    @Test func tagRelation_prefixResolvedTags_includesHyphenMatch() {
+        let vocab = ["rust", "rust-book", "javascript"]
+        let set = TagRelationService.prefixResolvedTags(query: "rust", vocabulary: vocab, seedTag: "rust")
+        #expect(set.contains("rust"))
+        #expect(set.contains("rust-book"))
+        #expect(!set.contains("javascript"))
+    }
+
+    @Test @MainActor
+    func relatedBuckets_adjacent_excludesExactCarriersAndResolvedTag() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let rust = Tag(name: "rust")
+        let algo = Tag(name: "algorithms")
+        ctx.insert(rust)
+        ctx.insert(algo)
+        let source = ContentItem(contentKind: .web, originalURL: URL(string: "https://rel-source.test")!)
+        source.tags.append(rust)
+        source.tags.append(algo)
+        let exactSibling = ContentItem(contentKind: .web, originalURL: URL(string: "https://rel-exact.test")!)
+        exactSibling.tags.append(rust)
+        let related = ContentItem(contentKind: .web, originalURL: URL(string: "https://rel-adj.test")!)
+        related.tags.append(algo)
+        ctx.insert(source)
+        ctx.insert(exactSibling)
+        ctx.insert(related)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let buckets = RelatedItemsService.bucketsForTagTap(
+            sourceItem: source,
+            tappedTag: rust,
+            in: all
+        )
+        #expect(buckets.exactMatches.count == 1)
+        #expect(buckets.exactMatches.first?.id == exactSibling.id)
+        #expect(buckets.adjacentCandidates.contains(where: { $0.id == related.id }))
+        #expect(!buckets.adjacentCandidates.contains(where: { $0.id == exactSibling.id }))
+    }
+
+    @Test @MainActor
+    func relatedBuckets_manyExactMatches_stillSurfacesAdjacent() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let rust = Tag(name: "rust")
+        let algo = Tag(name: "algorithms")
+        ctx.insert(rust)
+        ctx.insert(algo)
+        let source = ContentItem(contentKind: .web, originalURL: URL(string: "https://many-src.test")!)
+        source.tags.append(rust)
+        source.tags.append(algo)
+        for i in 0..<10 {
+            let e = ContentItem(contentKind: .web, originalURL: URL(string: "https://many-exact-\(i).test")!)
+            e.tags.append(rust)
+            ctx.insert(e)
+        }
+        let related = ContentItem(contentKind: .web, originalURL: URL(string: "https://many-adj.test")!)
+        related.tags.append(algo)
+        ctx.insert(source)
+        ctx.insert(related)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let buckets = RelatedItemsService.bucketsForTagTap(
+            sourceItem: source,
+            tappedTag: rust,
+            in: all
+        )
+        #expect(buckets.exactMatches.count == 10)
+        #expect(buckets.adjacentCandidates.contains(where: { $0.id == related.id }))
+    }
+
+    @Test @MainActor
+    func relatedRankExpansion_withoutModel_returnsStage1Order() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+
+        let defaults = UserDefaults.standard
+        let savedBookmark = defaults.data(forKey: TestModelUserDefaultsKeys.bookmark)
+        let savedLegacy = defaults.string(forKey: TestModelUserDefaultsKeys.legacyPath)
+        defer {
+            if let savedBookmark {
+                defaults.set(savedBookmark, forKey: TestModelUserDefaultsKeys.bookmark)
+            } else {
+                defaults.removeObject(forKey: TestModelUserDefaultsKeys.bookmark)
+            }
+            if let savedLegacy {
+                defaults.set(savedLegacy, forKey: TestModelUserDefaultsKeys.legacyPath)
+            } else {
+                defaults.removeObject(forKey: TestModelUserDefaultsKeys.legacyPath)
+            }
+        }
+        defaults.removeObject(forKey: TestModelUserDefaultsKeys.bookmark)
+        defaults.removeObject(forKey: TestModelUserDefaultsKeys.legacyPath)
+        ModelManager.clearSelection()
+
+        let rust = Tag(name: "rust")
+        let algo = Tag(name: "algorithms")
+        ctx.insert(rust)
+        ctx.insert(algo)
+        let source = ContentItem(contentKind: .web, originalURL: URL(string: "https://rank-src.test")!)
+        source.tags.append(rust)
+        source.tags.append(algo)
+        let related = ContentItem(contentKind: .web, originalURL: URL(string: "https://rank-adj.test")!)
+        related.tags.append(algo)
+        ctx.insert(source)
+        ctx.insert(related)
+        try ctx.save()
+
+        #expect(!ModelManager.hasReadableSelection)
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let buckets = RelatedItemsService.bucketsForTagTap(
+            sourceItem: source,
+            tappedTag: rust,
+            in: all
+        )
+        let out = await RelatedItemsService.rankedAdjacentAfterExpansion(
+            sourceItem: source,
+            tappedTag: rust,
+            in: all,
+            exactMatchIDs: Set(buckets.exactMatches.map(\.id)),
+            stage1Adjacent: buckets.adjacentCandidates
+        )
+        #expect(out.map(\.id) == buckets.adjacentCandidates.map(\.id))
+    }
+
     @Test func bulkApplyReadStatus_updatesAllSelected() throws {
         let container = try makeInMemoryContainer()
         let ctx = ModelContext(container)

@@ -325,7 +325,7 @@ actor LlamaContentAnalyzer {
     ) async throws -> [UUID] {
         guard !candidates.isEmpty else { return [] }
         // Cap per-item tag count so the JSON payload stays bounded even if individual items have many tags.
-        // Candidates are already capped upstream (adjacentCandidateLimit = 8); this limits tag fan-out.
+        // Candidates are already capped upstream (`TagRelationService.adjacentCandidateLimit` = 8); this limits tag fan-out.
         let maxTagsPerCandidate = 20
         let candidatesJSON = candidates.map { c in
             let tagsList = c.tagNames.prefix(maxTagsPerCandidate).map { "\"\($0)\"" }.joined(separator: ",")

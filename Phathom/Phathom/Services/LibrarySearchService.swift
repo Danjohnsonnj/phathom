@@ -1,8 +1,8 @@
 import PhathomCore
 import Foundation
 
-/// Library search bucketing — mirrors the Stage 1 contract of `RelatedItemsService`, but driven by the
-/// Library search box instead of a tapped tag.
+/// Library search bucketing — driven by the Library search box. Adjacent semantics and Dive deeper Llama expansion
+/// are implemented in ``TagRelationService``.
 ///
 /// **Stage 1 (sync, fast)**:
 ///   - `matching`: substring filter across title, raw text, host, URL, media description, and tags
@@ -13,12 +13,9 @@ import Foundation
 ///     resolved tag (library filter still applies). Ranked by max Jaccard vs anchors, capped at 8.
 ///
 /// **Stage 2 (async, "Dive deeper")** lives in `LibraryTab` and calls `diveDeeper(...)` below,
-/// which: (1) collects prefix-matching tags synchronously, (2) runs `expandTagsSemantically` via
-/// Llama to widen the resolved tag set, (3) expands the adjacent candidate pool via `ItemSnapshot`,
-/// and (4) re-ranks with `rankAdjacentItems` — all inside one `withSession` to avoid redundant
-/// load/unload cycles. On any failure the Stage 1 adjacent order is preserved.
+/// which delegates to ``TagRelationService.expandAndRankAdjacent``. On any failure the Stage 1 adjacent order is preserved.
 enum LibrarySearchService {
-    static let adjacentCandidateLimit = RelatedItemsService.adjacentCandidateLimit
+    static let adjacentCandidateLimit = TagRelationService.adjacentCandidateLimit
 
     struct Sections {
         let matching: [ContentItem]
@@ -32,30 +29,6 @@ enum LibrarySearchService {
         var isEmpty: Bool { matching.isEmpty && adjacent.isEmpty }
     }
 
-    /// Kind/status filter only (no tag index). Used for empty-query browse and as the pool for `buildTagIndex`.
-    private static func itemsFilteredByKindStatusAndCategory(
-        items: [ContentItem],
-        filterKind: ContentKind?,
-        filterStatus: ReadStatus?,
-        filterCategory: String?
-    ) -> [ContentItem] {
-        var pool = items
-        if let filterKind {
-            pool = pool.filter { $0.kind == filterKind }
-        }
-        if let filterStatus {
-            pool = pool.filter { $0.readState == filterStatus }
-        }
-        if let filterCategory {
-            if filterCategory == LibraryCategoryFilterStorage.uncategorizedRaw {
-                pool = pool.filter { $0.category == nil }
-            } else {
-                pool = pool.filter { $0.category?.name == filterCategory }
-            }
-        }
-        return pool
-    }
-
     /// Partition `items` for the Library list. Callers pass the already-loaded `@Query` snapshot;
     /// kind / status filtering happens here so adjacency respects the active filter selection.
     static func bucket(
@@ -67,7 +40,7 @@ enum LibrarySearchService {
     ) -> Sections {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else {
-            let pool = itemsFilteredByKindStatusAndCategory(
+            let pool = TagRelationService.itemsFilteredByKindStatusAndCategory(
                 items: items,
                 filterKind: filterKind,
                 filterStatus: filterStatus,
@@ -75,15 +48,15 @@ enum LibrarySearchService {
             )
             return Sections(matching: pool, adjacent: [], resolvedTagName: nil)
         }
-        let (kindFiltered, tagIndex) = buildTagIndex(
+
+        let tagIndexWrapped = TagRelationService.buildTagIndex(
             items: items,
             filterKind: filterKind,
             filterStatus: filterStatus,
             filterCategory: filterCategory
         )
-        // Inverted index `tagIndex` is keyed by lowercased tag name. `Tag.init` already lowercases
-        // names on insert, so a direct subscript with `normalized` resolves the tag without re-
-        // normalizing.
+        let kindFiltered = tagIndexWrapped.filteredItems
+        let tagIndex = tagIndexWrapped.inverted
 
         let matching = kindFiltered.filter { item in
             let titleMatch = item.displayTitle.lowercased().contains(normalized)
@@ -108,11 +81,11 @@ enum LibrarySearchService {
             if anchorItems.isEmpty {
                 adjacent = []
             } else {
-                adjacent = computeAdjacent(
+                adjacent = TagRelationService.computeAdjacent(
                     resolvedTags: [resolvedTag],
                     anchorItems: anchorItems,
                     excludeIDs: [],
-                    tagIndex: tagIndex
+                    inverted: tagIndex
                 )
             }
         } else {
@@ -122,93 +95,10 @@ enum LibrarySearchService {
         return Sections(matching: matching, adjacent: adjacent, resolvedTagName: resolvedTagName)
     }
 
-    /// Use the inverted index to expand from anchor items to candidates that share at least one
-    /// non-resolved tag, then score by max Jaccard against any anchor. Bounded by the index rather
-    /// than the whole library, so a broad query doesn't fan out to O(n × m) work.
-    ///
-    /// `resolvedTags` is the set of tag names whose carriers are excluded from adjacency. For Stage 1
-    /// this is just the single resolved tag; for "Dive deeper" this can include the prefix-matched
-    /// and Llama-expanded tags as well.
-    /// `excludeIDs` is an additional ID-level exclusion (e.g. items already shown in the Matching
-    /// section) — anchors are excluded automatically.
-    static func computeAdjacent(
-        resolvedTags: Set<String>,
-        anchorItems: [ContentItem],
-        excludeIDs: Set<UUID>,
-        tagIndex: [String: [ContentItem]]
-    ) -> [ContentItem] {
-        let anchorIDs = Set(anchorItems.map(\.id))
-        let seedTagSets: [Set<String>] = anchorItems.map { Set($0.tagNames) }
-
-        var candidatesByID: [UUID: ContentItem] = [:]
-        for seedTags in seedTagSets {
-            for seedTag in seedTags where !resolvedTags.contains(seedTag) {
-                guard let bucket = tagIndex[seedTag] else { continue }
-                for item in bucket {
-                    if anchorIDs.contains(item.id) { continue }
-                    if excludeIDs.contains(item.id) { continue }
-                    candidatesByID[item.id] = item
-                }
-            }
-        }
-
-        var scored: [(item: ContentItem, jaccard: Double)] = []
-        scored.reserveCapacity(candidatesByID.count)
-        for (_, candidate) in candidatesByID {
-            let candidateTags = Set(candidate.tagNames)
-            if candidateTags.isEmpty { continue }
-            // Defensive: adjacent never includes items that carry any resolved tag.
-            if !candidateTags.intersection(resolvedTags).isEmpty { continue }
-
-            var bestScore: Double = 0
-            for seedTags in seedTagSets {
-                let score = TagAdjacency.jaccardScore(candidateTags, seedTags)
-                if score > bestScore { bestScore = score }
-            }
-            if bestScore > 0 {
-                scored.append((candidate, bestScore))
-            }
-        }
-
-        return scored
-            .sorted { lhs, rhs in
-                if lhs.jaccard != rhs.jaccard { return lhs.jaccard > rhs.jaccard }
-                return lhs.item.createdAt > rhs.item.createdAt
-            }
-            .prefix(adjacentCandidateLimit)
-            .map(\.item)
-    }
-
-    /// Build the kind/status-filtered tag inverted index used inside `bucket`. Exposed so that the
-    /// `diveDeeper` flow can reuse it without re-running Stage 1 substring matching.
-    /// The returned `kindFiltered` array reflects both the kind and status filters when provided.
-    static func buildTagIndex(
-        items: [ContentItem],
-        filterKind: ContentKind?,
-        filterStatus: ReadStatus? = nil,
-        filterCategory: String? = nil
-    ) -> (kindFiltered: [ContentItem], tagIndex: [String: [ContentItem]]) {
-        let pool = itemsFilteredByKindStatusAndCategory(
-            items: items,
-            filterKind: filterKind,
-            filterStatus: filterStatus,
-            filterCategory: filterCategory
-        )
-        var tagIndex: [String: [ContentItem]] = [:]
-        for item in pool {
-            for tag in item.tags {
-                tagIndex[tag.name, default: []].append(item)
-            }
-        }
-        return (pool, tagIndex)
-    }
-
-    /// "Dive deeper": semantic + prefix tag expansion via Llama, then `computeAdjacent` over the
-    /// union of resolved tags, then `rankAdjacentItems` over the expanded set. Two Llama calls
-    /// happen inside one `withSession` so the model is loaded once.
+    /// "Dive deeper": semantic + prefix tag expansion via Llama, then expanded adjacent + `rankAdjacentItems`.
     ///
     /// On any error (no model, parse error, cancellation), returns the original `sections.adjacent`
-    /// so the UI keeps its Stage 1 ranking — same fallback contract as `RelatedItemsService.rerankAdjacent`.
+    /// so the UI keeps its Stage 1 ranking.
     static func diveDeeper(
         query: String,
         sections: Sections,
@@ -220,165 +110,29 @@ enum LibrarySearchService {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else { return sections.adjacent }
 
-        let (kindFiltered, tagIndex) = buildTagIndex(
+        let tagIndexWrapped = TagRelationService.buildTagIndex(
             items: allItems,
             filterKind: filterKind,
             filterStatus: filterStatus,
             filterCategory: filterCategory
         )
-        let vocabulary = Array(tagIndex.keys)
-        guard !vocabulary.isEmpty else { return sections.adjacent }
+        guard !tagIndexWrapped.vocabulary.isEmpty else { return sections.adjacent }
 
-        // Sync prefix expansion: free, deterministic, runs even if the Llama call fails.
-        var prefixResolved: Set<String> = []
-        if let exact = sections.resolvedTagName {
-            prefixResolved.insert(exact)
-        }
-        for tagName in vocabulary {
-            if tagName.hasPrefix(normalized) || tagName.contains("-\(normalized)") {
-                prefixResolved.insert(tagName)
-            }
-        }
+        let prefixResolved = TagRelationService.prefixResolvedTags(
+            query: normalized,
+            vocabulary: tagIndexWrapped.vocabulary,
+            seedTag: sections.resolvedTagName
+        )
 
-        // The session closure captures only Sendable / value-typed state — no `ContentItem` —
-        // because `ContentItem` is a `@Model` and not Sendable. We rebuild the model lookups
-        // outside the session once we have the ranked UUIDs.
-        let resolvedAtEntry = prefixResolved
-        let queryForSession = normalized
-        let exactTag = sections.resolvedTagName
-        let matchingIDs = Set(sections.matching.map(\.id))
-
-        let snapshot = ItemSnapshot(kindFilteredItems: kindFiltered)
-
-        let rankedIDs: [UUID]
-        do {
-            rankedIDs = try await SharedLlamaInference.shared.withSession(
-                unloadOnExit: true,
-                pipelineItemID: nil
-            ) { session in
-                let semantic: [String]
-                do {
-                    semantic = try await session.expandTagsSemantically(
-                        query: queryForSession,
-                        libraryTagNames: snapshot.vocabulary
-                    )
-                } catch {
-                    #if DEBUG
-                    print("[LibrarySearchService] expandTagsSemantically failed, continuing with prefix-only expansion: \(error)")
-                    #endif
-                    semantic = []
-                }
-
-                var resolvedTags = resolvedAtEntry
-                resolvedTags.formUnion(semantic)
-                if resolvedTags.isEmpty { return [] }
-
-                let expanded = snapshot.expandedAdjacent(
-                    resolvedTags: resolvedTags,
-                    excludeIDs: matchingIDs,
-                    limit: adjacentCandidateLimit
-                )
-                if expanded.isEmpty { return [] }
-
-                let payload: [(id: UUID, tagNames: [String])] = expanded.map { id in
-                    (id: id, tagNames: snapshot.tagsByID[id] ?? [])
-                }
-                return try await session.rankAdjacentItems(
-                    tappedTag: exactTag ?? queryForSession,
-                    sourceTagNames: Array(resolvedTags),
-                    candidates: payload
-                )
-            }
-        } catch {
-            return sections.adjacent
-        }
-
-        if rankedIDs.isEmpty { return sections.adjacent }
-        let ordered = TagAdjacency.remapOrdered(ids: rankedIDs, from: allItems)
-        return ordered.isEmpty ? sections.adjacent : ordered
+        return await TagRelationService.expandAndRankAdjacent(
+            semanticQuery: normalized,
+            tappedTagForRanking: sections.resolvedTagName ?? normalized,
+            sourceTagsLLMContext: .alignedWithExpandedResolvedTags,
+            tagIndex: tagIndexWrapped,
+            initialPrefixResolved: prefixResolved,
+            excludeIDsFromMatchingSection: Set(sections.matching.map(\.id)),
+            allItemsForLookup: allItems,
+            stage1Adjacent: sections.adjacent
+        )
     }
-
-    /// Value-typed snapshot of the kind-filtered items so the Llama session closure does not
-    /// capture `ContentItem` (which is a `@Model` and therefore not Sendable). All work that
-    /// previously needed `ContentItem` instances is reformulated on UUID + tag-name lookups.
-    private struct ItemSnapshot: Sendable {
-        let tagsByID: [UUID: [String]]
-        let createdAtByID: [UUID: Date]
-        let tagIndex: [String: [UUID]]
-        let vocabulary: [String]
-
-        /// Pass items already filtered by kind so we don't re-walk the whole library; the dive-deeper
-        /// callsite has the filtered list from `buildTagIndex` and reuses it here.
-        init(kindFilteredItems: [ContentItem]) {
-            var tagsByID: [UUID: [String]] = [:]
-            var createdAtByID: [UUID: Date] = [:]
-            var tagIndex: [String: [UUID]] = [:]
-            for item in kindFilteredItems {
-                let names = item.tagNames
-                tagsByID[item.id] = names
-                createdAtByID[item.id] = item.createdAt
-                for name in names {
-                    tagIndex[name, default: []].append(item.id)
-                }
-            }
-            self.tagsByID = tagsByID
-            self.createdAtByID = createdAtByID
-            self.tagIndex = tagIndex
-            self.vocabulary = Array(tagIndex.keys)
-        }
-
-        /// Mirror of `computeAdjacent` operating only on UUIDs / tag names so it can run inside the
-        /// `@Sendable` session closure without capturing `ContentItem`. Returns ordered IDs (top
-        /// `limit`) by max Jaccard, with `createdAt` tie-break.
-        func expandedAdjacent(
-            resolvedTags: Set<String>,
-            excludeIDs: Set<UUID>,
-            limit: Int
-        ) -> [UUID] {
-            var anchorIDs: Set<UUID> = []
-            for tag in resolvedTags {
-                if let ids = tagIndex[tag] { anchorIDs.formUnion(ids) }
-            }
-            if anchorIDs.isEmpty { return [] }
-            let seedTagSets: [Set<String>] = anchorIDs.compactMap { tagsByID[$0].map(Set.init) }
-
-            var candidateIDs: Set<UUID> = []
-            for seedTags in seedTagSets {
-                for seedTag in seedTags where !resolvedTags.contains(seedTag) {
-                    guard let ids = tagIndex[seedTag] else { continue }
-                    for id in ids {
-                        if anchorIDs.contains(id) { continue }
-                        if excludeIDs.contains(id) { continue }
-                        candidateIDs.insert(id)
-                    }
-                }
-            }
-
-            var scored: [(id: UUID, jaccard: Double, createdAt: Date)] = []
-            scored.reserveCapacity(candidateIDs.count)
-            for id in candidateIDs {
-                guard let names = tagsByID[id] else { continue }
-                let candidateTags = Set(names)
-                if candidateTags.isEmpty { continue }
-                if !candidateTags.intersection(resolvedTags).isEmpty { continue }
-                var bestScore: Double = 0
-                for seedTags in seedTagSets {
-                    let score = TagAdjacency.jaccardScore(candidateTags, seedTags)
-                    if score > bestScore { bestScore = score }
-                }
-                if bestScore > 0 {
-                    scored.append((id, bestScore, createdAtByID[id] ?? .distantPast))
-                }
-            }
-
-            return scored
-                .sorted { lhs, rhs in
-                    if lhs.jaccard != rhs.jaccard { return lhs.jaccard > rhs.jaccard }
-                    return lhs.createdAt > rhs.createdAt
-                }
-                .prefix(limit)
-                .map(\.id)
-        }
-    }
-
 }
