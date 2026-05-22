@@ -5,6 +5,27 @@ import SwiftData
 enum ArchiveRetention {
     private static let retentionSeconds: TimeInterval = 48 * 60 * 60
 
+    /// When archive is triggered, stop treating the item as pipeline-work: clear partial AI (non-terminal rows),
+    /// set idle `.failed`, or only clear **Regenerating tags…** noise on `.completed`/`.failed`.
+    @MainActor
+    static func pauseProcessingForArchive(_ item: ContentItem) {
+        switch item.status {
+        case .completed, .failed:
+            item.processingDetail = nil
+        default:
+            ProcessingRecovery.clearAIDerivedFields(item)
+            item.processingStatus = ProcessingStatus.failed.rawValue
+            item.failureReason = nil
+            item.processingDetail = nil
+        }
+    }
+
+    /// Invoke after `save()` for the archiving transaction so the pipeline reads `isArchived` before cooperative cancel.
+    nonisolated static func notifyProcessingCancelAfterArchiveCommitted(itemIDs: [UUID]) {
+        guard !itemIDs.isEmpty else { return }
+        BackgroundPipeline.cancelProcessing(for: itemIDs)
+    }
+
     /// Permanently removes archived items past the retention window (48h after `archivedAt`).
     @MainActor
     static func purgeExpired(in context: ModelContext) {
@@ -26,7 +47,9 @@ enum ArchiveRetention {
         LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 
+    @MainActor
     static func archive(_ item: ContentItem) {
+        pauseProcessingForArchive(item)
         item.isArchived = true
         item.archivedAt = Date()
         item.removeFromSpotlight()

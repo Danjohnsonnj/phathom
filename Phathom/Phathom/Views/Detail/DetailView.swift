@@ -678,6 +678,7 @@ struct DetailView: View {
         Button {
             ArchiveRetention.archive(item)
             DetailModelSave.save(modelContext, operation: "archiveItem")
+            ArchiveRetention.notifyProcessingCancelAfterArchiveCommitted(itemIDs: [item.id])
             LibraryContentChangeNotifier.postLibraryContentDidChange()
             dismiss()
             let archivedID = item.id

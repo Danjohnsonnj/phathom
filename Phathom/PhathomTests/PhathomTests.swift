@@ -168,6 +168,70 @@ struct PhathomTests {
         #expect(twoFresh.status == .pending)
     }
 
+    @Test func pauseProcessingForArchive_nonTerminalClearsAIDerivedAndSetsIdleFailed() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let t = Tag(name: "topic-a")
+        ctx.insert(t)
+        let item = ContentItem(contentKind: .web, originalURL: URL(string: "https://archive-pause.test/x")!)
+        item.processingStatus = ProcessingStatus.embedding.rawValue
+        item.processingDetail = "Preparing analysis…"
+        item.summaryBullets = "[]"
+        item.tags.append(t)
+        ctx.insert(item)
+        try ctx.save()
+
+        await MainActor.run {
+            ArchiveRetention.pauseProcessingForArchive(item)
+        }
+        #expect(item.status == .failed)
+        #expect(item.summaryBullets == nil)
+        #expect(item.extracts == nil)
+        #expect(item.tags.isEmpty)
+        #expect(item.processingDetail == nil)
+        #expect(item.failureReason == nil)
+    }
+
+    @Test func pauseProcessingForArchive_terminalCompletedOnlyClearsProcessingDetail() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let item = ContentItem(contentKind: .web, originalURL: URL(string: "https://archive-pause.test/y")!)
+        item.processingStatus = ProcessingStatus.completed.rawValue
+        item.processingDetail = "Regenerating tags…"
+        ctx.insert(item)
+        try ctx.save()
+
+        await MainActor.run {
+            ArchiveRetention.pauseProcessingForArchive(item)
+        }
+        #expect(item.status == .completed)
+        #expect(item.processingDetail == nil)
+    }
+
+    @Test func archivedFailedItemExcludedFromEmbeddingQueueAndRefetchesAsArchived() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let item = ContentItem(contentKind: .web, originalURL: URL(string: "https://archive-queue.test/z")!)
+        item.processingStatus = ProcessingStatus.embedding.rawValue
+        ctx.insert(item)
+        try ctx.save()
+        let id = item.id
+
+        await MainActor.run {
+            ArchiveRetention.pauseProcessingForArchive(item)
+            ArchiveRetention.archive(item)
+        }
+        try ctx.save()
+
+        var desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { row in
+                !row.isArchived && row.processingStatus == "embedding"
+            }
+        )
+        #expect((try ctx.fetch(desc)).isEmpty)
+        #expect(BackgroundPipeline._test_isItemArchived(itemID: id, modelContainer: container))
+    }
+
     /// Empty search query: `bucket` applies kind/status filters without requiring tag-index / adjacent work.
     @Test func librarySearchBucket_emptyQuery_appliesKindAndStatusFilters() throws {
         let container = try makeInMemoryContainer()

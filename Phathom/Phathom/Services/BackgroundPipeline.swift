@@ -32,6 +32,26 @@ private enum SingleAnalyzeOutcome: Sendable {
 /// Thrown from inside `SharedLlamaInference.withSession` when the pipeline is cancelled (BG expiration / cooperative cancel).
 private struct PipelineLlmCancelled: Error {}
 
+/// Tracks which pipeline item owns the outbound LLM / scrape slice so archiving can cooperative-cancel.
+private final class ActivePipelineItemIDBox: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var id: UUID?
+
+    nonisolated init() {}
+
+    nonisolated func set(_ uuid: UUID?) {
+        lock.lock()
+        defer { lock.unlock() }
+        id = uuid
+    }
+
+    nonisolated func snapshot() -> UUID? {
+        lock.lock()
+        defer { lock.unlock() }
+        return id
+    }
+}
+
 // LLM load/generate/unload is serialized by `SharedLlamaInference`'s `AsyncLock` (`withSession`).
 // `PipelineWorkGate` additionally serializes `reviveAbortedPipelineItems` plus ingest/analyze passes so a second
 // foreground drain or BG task cannot rewind `summarizing`/`tagging` rows while another pass is still running
@@ -39,6 +59,8 @@ private struct PipelineLlmCancelled: Error {}
 
 enum BackgroundPipeline: Sendable {
     nonisolated(unsafe) private static var containerRef: ModelContainer?
+    /// `nonisolated`: default module isolation is MainActor; pipeline entry points are `nonisolated static` (BG + utility `Task`).
+    nonisolated private static let activePipelineItemBox = ActivePipelineItemIDBox()
 
     private nonisolated static func saveAndNotify(_ ctx: ModelContext) {
         try? ctx.save()
@@ -61,6 +83,28 @@ enum BackgroundPipeline: Sendable {
 
     nonisolated static func modelContainerOrNil() -> ModelContainer? {
         containerRef
+    }
+
+    /// When `ArchiveRetention` persists `isArchived` for an active slice, cooperatively asks llama to stop sampling (same path as BG task expiry).
+    nonisolated static func cancelProcessing(for itemIDs: [UUID]) {
+        guard !itemIDs.isEmpty else { return }
+        guard let active = activePipelineItemBox.snapshot(), itemIDs.contains(active) else { return }
+        SharedLlamaInference.signalCancelInFlight()
+    }
+
+    nonisolated private static func isItemArchived(_ itemID: UUID, in ctx: ModelContext) -> Bool {
+        var desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { $0.id == itemID }
+        )
+        desc.fetchLimit = 1
+        guard let row = try? ctx.fetch(desc).first else { return false }
+        return row.isArchived
+    }
+
+    /// Unit tests: refetch-based archive check from a fresh `ModelContext`.
+    internal nonisolated static func _test_isItemArchived(itemID: UUID, modelContainer: ModelContainer) -> Bool {
+        let ctx = ModelContext(modelContainer)
+        return isItemArchived(itemID, in: ctx)
     }
 
     nonisolated static func scheduleForegroundDrain() {
@@ -306,6 +350,8 @@ enum BackgroundPipeline: Sendable {
                 return false
             }
 
+            let pickedID = item.id
+
             guard item.originalURL != nil else {
                 // A malformed queue head (pending web with nil URL) must not block later queued rows.
                 item.processingStatus = ProcessingStatus.failed.rawValue
@@ -316,7 +362,7 @@ enum BackgroundPipeline: Sendable {
                 continue
             }
 
-            if cancel() { return false }
+            if cancel() || isItemArchived(pickedID, in: ctx) { return false }
 
             print("[PhathomPipeline] pending_pick item=\(item.id.uuidString)")
 
@@ -333,11 +379,18 @@ enum BackgroundPipeline: Sendable {
             item.processingDetail = "Fetching article…"
             saveAndNotify(ctx)
 
+            activePipelineItemBox.set(pickedID)
+            defer { activePipelineItemBox.set(nil) }
+
             do {
                 guard let url = item.originalURL else { return false }
                 let scrapeItemID = item.id
                 let result = try await PipelineMetrics.time("scrape", itemID: scrapeItemID) {
                     try await WebIngestService.scrape(url: url)
+                }
+                guard !isItemArchived(pickedID, in: ctx) else {
+                    print("[PhathomPipeline] pending_done item=\(pickedID.uuidString) next=continue result=skipped_archived")
+                    return true
                 }
                 item.rawText = result.text
                 if let rawMd = result.sourceMarkdown {
@@ -369,15 +422,21 @@ enum BackgroundPipeline: Sendable {
                 print("[PhathomPipeline] pending_done item=\(item.id.uuidString) next=continue")
                 return true
             } catch WebIngestError.offline {
+                guard !isItemArchived(pickedID, in: ctx) else {
+                    print("[PhathomPipeline] pending_stop item=\(pickedID.uuidString) reason=skipped_archived")
+                    return true
+                }
                 item.processingStatus = ProcessingStatus.pending.rawValue
                 item.processingDetail = "Waiting for network…"
                 item.failureReason = nil
                 saveAndNotify(ctx)
-                // Returning false stops `runForegroundDrain`'s ingest loop from immediately re-fetching the same
-                // still-`pending` row (would thrash scraping ↔ pending). `NetworkReachability` + next drain retry.
                 print("[PhathomPipeline] pending_stop item=\(item.id.uuidString) reason=scrape_offline")
                 return false
             } catch {
+                guard !isItemArchived(pickedID, in: ctx) else {
+                    print("[PhathomPipeline] pending_done item=\(pickedID.uuidString) next=continue result=skipped_archived")
+                    return true
+                }
                 item.processingStatus = ProcessingStatus.failed.rawValue
                 item.failureReason = error.localizedDescription
                 item.processingDetail = nil
@@ -407,7 +466,14 @@ enum BackgroundPipeline: Sendable {
 
         let itemID = item.id
 
-        if cancel() {
+        activePipelineItemBox.set(itemID)
+        defer { activePipelineItemBox.set(nil) }
+
+        func aborting() -> Bool {
+            cancel() || isItemArchived(itemID, in: ctx)
+        }
+
+        if aborting() {
             return .cancelled
         }
 
@@ -424,6 +490,9 @@ enum BackgroundPipeline: Sendable {
         }
 
         guard let raw = item.rawText, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard !aborting() else {
+                return .cancelled
+            }
             item.processingStatus = ProcessingStatus.failed.rawValue
             item.failureReason = "No article text to analyze."
             saveAndNotify(ctx)
@@ -434,10 +503,12 @@ enum BackgroundPipeline: Sendable {
 
         do {
             try await SharedLlamaInference.shared.withSession(role: .primary, unloadOnExit: true, pipelineItemID: itemID) { session in
-                if cancel() {
+                if aborting() {
                     await session.cancelInFlight()
-                    checkpointAfterCancel(item: item)
-                    saveAndNotify(ctx)
+                    if cancel(), !isItemArchived(itemID, in: ctx) {
+                        checkpointAfterCancel(item: item)
+                        saveAndNotify(ctx)
+                    }
                     throw PipelineLlmCancelled()
                 }
 
@@ -455,20 +526,22 @@ enum BackgroundPipeline: Sendable {
                     case .summary(let bullets):
                         PipelineMetrics.logSyncElapsed("summarize", itemID: itemID, start: stageStart)
                         stageStart = Date()
+                        guard !aborting() else { return }
                         if bullets.isEmpty { item.summaryBullets = nil } else { item.encodeSummaryBullets(bullets) }
                         saveAndNotify(ctx)
 
-                        if cancel() { return }
+                        guard !aborting() else { return }
                         item.processingStatus = ProcessingStatus.extracting.rawValue
                         item.processingDetail = "Extracting details…"
                         saveAndNotify(ctx)
 
                     case .extracts(let extracts):
                         PipelineMetrics.logSyncElapsed("extracts_llm", itemID: itemID, start: stageStart)
+                        guard !aborting() else { return }
                         if extracts.isEmpty { item.extracts = nil } else { item.encodeExtracts(extracts) }
                         saveAndNotify(ctx)
 
-                        if cancel() { return }
+                        guard !aborting() else { return }
                         item.processingStatus = ProcessingStatus.tagging.rawValue
                         item.processingDetail = "Auto-tagging…"
                         saveAndNotify(ctx)
@@ -476,18 +549,22 @@ enum BackgroundPipeline: Sendable {
                 }
 
                 // Final cancel check before unloading primary session (tagging uses a separate session).
-                if cancel() {
+                if aborting() {
                     await session.cancelInFlight()
-                    checkpointAfterCancel(item: item)
-                    saveAndNotify(ctx)
+                    if cancel(), !isItemArchived(itemID, in: ctx) {
+                        checkpointAfterCancel(item: item)
+                        saveAndNotify(ctx)
+                    }
                     throw PipelineLlmCancelled()
                 }
             }
 
-            if cancel() {
-                await SharedLlamaInference.signalCancelInFlight()
-                checkpointAfterCancel(item: item)
-                saveAndNotify(ctx)
+            if aborting() {
+                SharedLlamaInference.signalCancelInFlight()
+                if cancel(), !isItemArchived(itemID, in: ctx) {
+                    checkpointAfterCancel(item: item)
+                    saveAndNotify(ctx)
+                }
                 throw PipelineLlmCancelled()
             }
 
@@ -495,10 +572,12 @@ enum BackgroundPipeline: Sendable {
             if !derivedEmptyForTags {
                 do {
                     try await SharedLlamaInference.shared.withSession(role: .taggingPreferred, unloadOnExit: true, pipelineItemID: itemID) { session in
-                        if cancel() {
+                        if aborting() {
                             await session.cancelInFlight()
-                            checkpointAfterCancel(item: item)
-                            saveAndNotify(ctx)
+                            if cancel(), !isItemArchived(itemID, in: ctx) {
+                                checkpointAfterCancel(item: item)
+                                saveAndNotify(ctx)
+                            }
                             throw PipelineLlmCancelled()
                         }
                         try await applyDerivedTaggingForPipelineItem(
@@ -508,7 +587,12 @@ enum BackgroundPipeline: Sendable {
                             context: ctx
                         )
                     }
+                } catch is PipelineLlmCancelled {
+                    throw PipelineLlmCancelled()
                 } catch {
+                    if isItemArchived(itemID, in: ctx) {
+                        throw PipelineLlmCancelled()
+                    }
                     print("[PhathomPipeline] derive_tags_failed item=\(itemID.uuidString) error=\(error.localizedDescription)")
                     item.processingStatus = ProcessingStatus.failed.rawValue
                     item.failureReason = "Tag generation failed: \(error.localizedDescription)"
@@ -517,8 +601,15 @@ enum BackgroundPipeline: Sendable {
                     throw error
                 }
             } else {
+                guard !aborting() else {
+                    throw PipelineLlmCancelled()
+                }
                 item.processingDetail = nil
                 saveAndNotify(ctx)
+            }
+
+            guard !aborting() else {
+                throw PipelineLlmCancelled()
             }
 
             item.processingStatus = ProcessingStatus.completed.rawValue
@@ -539,6 +630,9 @@ enum BackgroundPipeline: Sendable {
         } catch is PipelineLlmCancelled {
             return .cancelled
         } catch {
+            if isItemArchived(itemID, in: ctx) {
+                return .cancelled
+            }
             item.processingStatus = ProcessingStatus.failed.rawValue
             item.failureReason = error.localizedDescription
             saveAndNotify(ctx)
@@ -548,6 +642,9 @@ enum BackgroundPipeline: Sendable {
 
     /// User-initiated tags-only refresh: derives tags from saved summary+extracts, then merges platform hashtags.
     fileprivate nonisolated static func performRetag(modelContainer: ModelContainer, itemID: UUID) async {
+        activePipelineItemBox.set(itemID)
+        defer { activePipelineItemBox.set(nil) }
+
         reviveAbortedPipelineItems(modelContainer: modelContainer)
 
         if ThermalMonitor.shouldThrottle {
@@ -581,8 +678,13 @@ enum BackgroundPipeline: Sendable {
         )
         guard let item = try? ctx.fetch(desc).first else { return }
 
-        guard !item.isArchived,
-              item.status == .completed,
+        if isItemArchived(itemID, in: ctx) {
+            item.processingDetail = nil
+            saveAndNotify(ctx)
+            return
+        }
+
+        guard item.status == .completed,
               item.kind == .web || item.kind == .note
         else {
             item.processingDetail = nil
@@ -643,6 +745,12 @@ enum BackgroundPipeline: Sendable {
         session: ModelSession,
         context: ModelContext
     ) async throws {
+        if isItemArchived(itemID, in: context) {
+            item.processingDetail = nil
+            saveAndNotify(context)
+            return
+        }
+
         let summaryBullets = item.decodedSummaryBullets
         let extracts = item.decodedExtracts
         if summaryBullets.isEmpty && extracts.isEmpty {
@@ -659,6 +767,12 @@ enum BackgroundPipeline: Sendable {
             highlights: highlightInputs
         )
         PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: tagsLLMStart)
+
+        if isItemArchived(itemID, in: context) {
+            item.processingDetail = nil
+            saveAndNotify(context)
+            return
+        }
 
         let tagDbStart = Date()
         item.tags.removeAll()

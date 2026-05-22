@@ -118,7 +118,9 @@ enum ProcessingRecovery {
         return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private static func clearAIDerivedFields(_ item: ContentItem) {
+    /// Clears LLM-derived fields shared by retries, summarize-again, and archive-during-processing.
+    @MainActor
+    internal static func clearAIDerivedFields(_ item: ContentItem) {
         item.summaryBullets = nil
         item.extracts = nil
         item.tags.removeAll()

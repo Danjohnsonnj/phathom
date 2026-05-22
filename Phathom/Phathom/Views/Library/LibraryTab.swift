@@ -543,6 +543,7 @@ struct LibraryTab: View {
         }
         try? modelContext.save()
         LibraryContentChangeNotifier.postLibraryContentDidChange()
+        ArchiveRetention.notifyProcessingCancelAfterArchiveCommitted(itemIDs: ids)
         NotificationCenter.default.post(
             name: .phathomDidArchiveItem,
             object: nil,

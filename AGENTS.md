@@ -123,3 +123,4 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 - [ ] Ensure all SwiftData changes include a migration plan or a "Clear Library" debug option.
 - [ ] Update `docs/decisions.md` if changing the inference lifecycle.
 - [ ] Verify that new ingest paths support `sourceMarkdown` fallback.
+- [ ] After landing plan-driven changes: check **linter/IDE diagnostics** and **`xcodebuild` compiler warnings** on touched files (clean build + grep `*.swift:` in build log), not only `BUILD SUCCEEDED` — Swift 6 / default MainActor issues often appear as warnings only.
