@@ -21,8 +21,8 @@ struct SettingsContent: View {
     @State private var importerError: String?
     @State private var showPrimaryTestResponse = false
     @State private var showTaggingTestResponse = false
-    @State private var changePrimaryModelExpanded: Bool = true
-    @State private var changeTaggingModelExpanded: Bool = false
+    @State private var primaryModelDisclosureExpanded: Bool = true
+    @State private var taggingModelDisclosureExpanded: Bool = false
     @State private var showModelSelectionGuidance = false
     @State private var showBackupExporter = false
     @State private var backupDocument = BackupJSONDocument()
@@ -263,80 +263,211 @@ struct SettingsContent: View {
 
     private var modelSection: some View {
         Section {
-            Text("Primary model")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppPalette.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 4, trailing: 0))
+            DisclosureGroup(isExpanded: $primaryModelDisclosureExpanded) {
+                primaryModelDisclosureContent
+            } label: {
+                HStack {
+                    Text("Primary model")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppPalette.textPrimary)
+                    Spacer()
+                    modelSelectionIndicator(for: selectionState, rolePhrase: "Primary model")
+                }
+            }
+
+            primaryModelFootnote
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
                 .listRowBackground(Color.clear)
 
-            primaryModelStatusRows
-
-            Button("Test primary model") {
-                runPrimaryModelTest()
+            DisclosureGroup(isExpanded: $taggingModelDisclosureExpanded) {
+                taggingModelDisclosureContent
+            } label: {
+                HStack {
+                    Text("Tagging model (optional)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppPalette.textPrimary)
+                    Spacer()
+                    modelSelectionIndicator(for: taggingSelectionState, rolePhrase: "Tagging model")
+                }
             }
-            .disabled(isPrimaryTestRunning || !canRunPrimaryTest)
 
-            primaryTestPhaseRows
+            taggingModelFootnote
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                .listRowBackground(Color.clear)
+        } header: {
+            Text("AI Models")
+                .font(.title2)
+        }
+    }
 
-            DisclosureGroup("Change primary model", isExpanded: $changePrimaryModelExpanded) {
-                Button("Select primary model from Files…") {
-                    requestedImporter = .primaryModel
-                }
-                if ModelManager.hasBookmark {
-                    Button("Forget primary model", role: .destructive) {
-                        ModelManager.clearSelection()
-                        primaryTestPhase = .idle
-                        showPrimaryTestResponse = false
-                        refreshSelectionState()
-                    }
-                }
-                Button {
-                    showModelSelectionGuidance = true
-                } label: {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Image(systemName: "info.circle")
-                        Text("About model files")
-                    }
+    @ViewBuilder
+    private func modelSelectionIndicator(for state: ModelManager.SelectionDisplayState, rolePhrase: String) -> some View {
+        switch state {
+        case .ready:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .imageScale(.medium)
+                .accessibilityLabel("\(rolePhrase) selected")
+        case .noSelection:
+            Image(systemName: "circle")
+                .foregroundStyle(AppPalette.textSecondary)
+                .imageScale(.medium)
+                .accessibilityLabel("\(rolePhrase) not selected")
+        case .missingFile:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .imageScale(.medium)
+                .accessibilityLabel("\(rolePhrase) file missing")
+        }
+    }
+
+    @ViewBuilder
+    private var primaryModelDisclosureContent: some View {
+        Button("Select primary model from Files…") {
+            requestedImporter = .primaryModel
+        }
+
+        primaryModelExpandedStatusRows
+
+        Button("Test primary model") {
+            runPrimaryModelTest()
+        }
+        .disabled(isPrimaryTestRunning || !canRunPrimaryTest)
+
+        primaryTestPhaseRows
+
+        if ModelManager.hasBookmark {
+            Button("Forget primary model", role: .destructive) {
+                ModelManager.clearSelection()
+                primaryTestPhase = .idle
+                showPrimaryTestResponse = false
+                refreshSelectionState()
+            }
+        }
+        Button {
+            showModelSelectionGuidance = true
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "info.circle")
+                Text("About model files")
+            }
+            .font(.footnote)
+            .foregroundStyle(AppPalette.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var taggingModelDisclosureContent: some View {
+        Button("Select tagging model from Files…") {
+            requestedImporter = .taggingModel
+        }
+
+        taggingModelExpandedStatusRows
+
+        Button("Test tagging model path") {
+            runTaggingModelTest()
+        }
+        .disabled(isTaggingTestRunning || !canRunTaggingTest)
+
+        taggingTestPhaseRows
+
+        if ModelManager.hasTaggingBookmark {
+            Button("Forget tagging model", role: .destructive) {
+                ModelManager.clearTaggingSelection()
+                taggingTestPhase = .idle
+                showTaggingTestResponse = false
+                refreshSelectionState()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var primaryModelExpandedStatusRows: some View {
+        switch selectionState {
+        case .noSelection:
+            Text("No primary model selected.")
+                .foregroundStyle(AppPalette.textSecondary)
+        case .ready(let name, let byteString):
+            LabeledContent("Selected file", value: name)
+            LabeledContent("Size", value: byteString)
+        case .missingFile:
+            Text("Primary model file not found")
+                .foregroundStyle(.orange)
+            Text("The file may have moved or been deleted. Choose a new primary model or forget this selection.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private var taggingModelExpandedStatusRows: some View {
+        switch taggingSelectionState {
+        case .noSelection:
+            Text("No optional tagging model — tags use the primary model.")
+                .foregroundStyle(AppPalette.textSecondary)
+        case .ready(let name, let byteString):
+            LabeledContent("Selected file", value: name)
+            LabeledContent("Size", value: byteString)
+        case .missingFile:
+            Text("Tagging model file not found")
+                .foregroundStyle(.orange)
+            Text("Tagging will use the primary model until you pick a new tagging file or forget this selection.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private var primaryModelFootnote: some View {
+        switch selectionState {
+        case .noSelection:
+            Text("No primary model selected.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .ready:
+            Text("Used for summaries, extracts, Library semantic search, related items, and as fallback for tagging.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+                .padding(.top, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .missingFile:
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Primary model file not found")
+                    .foregroundStyle(.orange)
+                Text("The file may have moved or been deleted. Choose a new primary model or forget this selection.")
                     .font(.footnote)
                     .foregroundStyle(AppPalette.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 
-            Text("Tagging model (optional)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(AppPalette.textPrimary)
-                .padding(.top, 8)
+    @ViewBuilder
+    private var taggingModelFootnote: some View {
+        switch taggingSelectionState {
+        case .noSelection:
+            Text("No optional tagging model — tags use the primary model.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 4, trailing: 0))
-                .listRowBackground(Color.clear)
-
-            taggingModelStatusRows
-
-            Button("Test tagging model path") {
-                runTaggingModelTest()
+        case .ready:
+            Text("Used only when automatically tagging items or tapping Regenerate tags. Falls back to primary if this file is unavailable.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+                .padding(.top, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .missingFile:
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Tagging model file not found")
+                    .foregroundStyle(.orange)
+                Text("Tagging will use the primary model until you pick a new tagging file or forget this selection.")
+                    .font(.footnote)
+                    .foregroundStyle(AppPalette.textSecondary)
             }
-            .disabled(isTaggingTestRunning || !canRunTaggingTest)
-
-            taggingTestPhaseRows
-
-            DisclosureGroup("Change tagging model", isExpanded: $changeTaggingModelExpanded) {
-                Button("Select tagging model from Files…") {
-                    requestedImporter = .taggingModel
-                }
-                if ModelManager.hasTaggingBookmark {
-                    Button("Forget tagging model", role: .destructive) {
-                        ModelManager.clearTaggingSelection()
-                        taggingTestPhase = .idle
-                        showTaggingTestResponse = false
-                        refreshSelectionState()
-                    }
-                }
-            }
-        } header: {
-            Text("AI model")
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -359,20 +490,17 @@ struct SettingsContent: View {
                     }
                 }
             }
-            Button("Reset web processing queue…") {
+            Button("Reset pending web item processing") {
                 showResetWebProcessingConfirm = true
             }
             .disabled(activeWebProcessingQueueCount == 0 || isResettingWebProcessingQueue)
         } header: {
             Text("Library")
+                .font(.title2)
         } footer: {
-            Text(
-                """
-                Applies to web URLs only (not notes). Clears summaries, extracts, and auto-tags on items currently processing. Completed and failed rows are never changed here. Spotlight may show stale text until processing finishes again. Does not restart work automatically — use Library’s play button.
-                """
-            )
-            .font(.footnote)
-            .foregroundStyle(AppPalette.textSecondary)
+            Text("Clears AI generated meta content and reprocesses any incomplete items in the Library.")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
         }
     }
 
@@ -388,6 +516,7 @@ struct SettingsContent: View {
             .disabled(backupBusy)
         } header: {
             Text("Backup")
+                .font(.title2)
         } footer: {
             Text("Exports active library items only. Archived items are excluded.")
                 .font(.footnote)
@@ -395,12 +524,15 @@ struct SettingsContent: View {
     }
 
     private var aboutSection: some View {
-        Section("About") {
+        Section {
             LabeledContent("Version", value: appVersion)
             LabeledContent("Build", value: build)
             Text("Phathom keeps your library on this device only.")
                 .font(.footnote)
                 .foregroundStyle(AppPalette.textSecondary)
+        } header: {
+            Text("About")
+                .font(.title2)
         }
     }
 
@@ -452,50 +584,6 @@ struct SettingsContent: View {
             }
         }
         .tint(AppPalette.accent)
-    }
-
-    @ViewBuilder
-    private var primaryModelStatusRows: some View {
-        switch selectionState {
-        case .noSelection:
-            Text("No primary model selected.")
-                .foregroundStyle(AppPalette.textSecondary)
-        case .ready(let name, let byteString):
-            LabeledContent("Selected file", value: name)
-            LabeledContent("Size", value: byteString)
-            Text("Used for summaries, extracts, Library semantic search, related items, and as fallback for tagging.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-                .padding(.top, 4)
-        case .missingFile:
-            Text("Primary model file not found")
-                .foregroundStyle(.orange)
-            Text("The file may have moved or been deleted. Choose a new primary model or forget this selection.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-        }
-    }
-
-    @ViewBuilder
-    private var taggingModelStatusRows: some View {
-        switch taggingSelectionState {
-        case .noSelection:
-            Text("No optional tagging model — tags use the primary model.")
-                .foregroundStyle(AppPalette.textSecondary)
-        case .ready(let name, let byteString):
-            LabeledContent("Selected file", value: name)
-            LabeledContent("Size", value: byteString)
-            Text("Used only when automatically tagging items or tapping Regenerate tags. Falls back to primary if this file is unavailable.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-                .padding(.top, 4)
-        case .missingFile:
-            Text("Tagging model file not found")
-                .foregroundStyle(.orange)
-            Text("Tagging will use the primary model until you pick a new tagging file or forget this selection.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-        }
     }
 
     @ViewBuilder
@@ -565,17 +653,17 @@ struct SettingsContent: View {
         taggingSelectionState = ModelManager.taggingSelectionDisplayState()
         switch next {
         case .ready:
-            changePrimaryModelExpanded = false
+            primaryModelDisclosureExpanded = false
         case .noSelection, .missingFile:
-            changePrimaryModelExpanded = true
+            primaryModelDisclosureExpanded = true
         }
         switch taggingSelectionState {
         case .ready:
-            changeTaggingModelExpanded = false
+            taggingModelDisclosureExpanded = false
         case .noSelection:
-            changeTaggingModelExpanded = false
+            taggingModelDisclosureExpanded = false
         case .missingFile:
-            changeTaggingModelExpanded = true
+            taggingModelDisclosureExpanded = true
         }
     }
 
