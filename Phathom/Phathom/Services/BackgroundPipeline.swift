@@ -23,6 +23,28 @@ private final class CancelFlagBox: @unchecked Sendable {
     }
 }
 
+private final class UserPipelineResetFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var requested = false
+
+    nonisolated init() {}
+
+    nonisolated var value: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return requested
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            requested = newValue
+        }
+    }
+
+    nonisolated static let shared = UserPipelineResetFlag()
+}
+
 private enum SingleAnalyzeOutcome: Sendable {
     case noItemToProcess
     case finished(taskSuccess: Bool)
@@ -61,6 +83,16 @@ enum BackgroundPipeline: Sendable {
     nonisolated(unsafe) private static var containerRef: ModelContainer?
     /// `nonisolated`: default module isolation is MainActor; pipeline entry points are `nonisolated static` (BG + utility `Task`).
     nonisolated private static let activePipelineItemBox = ActivePipelineItemIDBox()
+
+    /// Web-only pipeline rows Settings “Reset processing queue” rewinds (`completed`/`failed`/notes/media excluded elsewhere).
+    nonisolated static let activeWebQueueResetEligibleStatuses: Set<ProcessingStatus> = [
+        .pending,
+        .scraping,
+        .embedding,
+        .summarizing,
+        .extracting,
+        .tagging,
+    ]
 
     private nonisolated static func saveAndNotify(_ ctx: ModelContext) {
         try? ctx.save()
@@ -141,6 +173,23 @@ enum BackgroundPipeline: Sendable {
     nonisolated static func scheduleAll() {
         scheduleIngest()
         scheduleAnalyze()
+    }
+
+    /// Stops cooperative in-flight slices, gate-serialized bulk rewind for active **web** rows; does **not** `schedule*`.
+    nonisolated static func resetActiveWebQueue() async {
+        guard containerRef != nil else { return }
+        UserPipelineResetFlag.shared.value = true
+        SharedLlamaInference.signalCancelInFlight()
+        guard let container = containerRef else {
+            UserPipelineResetFlag.shared.value = false
+            return
+        }
+        await PipelineWorkGate.shared.performActiveWebQueueReset(modelContainer: container)
+    }
+
+    /// Same rewind as Settings reset path; tests need not wire `containerRef` or toggle `UserPipelineResetFlag`.
+    internal nonisolated static func _test_performActiveWebQueueReset(modelContainer: ModelContainer) async {
+        await PipelineWorkGate.shared.performActiveWebQueueReset(modelContainer: modelContainer)
     }
 
     /// After a crash mid-inference, rows can stay in `summarizing` / `tagging` / `scraping` forever because
@@ -229,7 +278,9 @@ enum BackgroundPipeline: Sendable {
                 return
             }
 
-            let didIngest = await processNextPendingWebItem(modelContainer: container) { false }
+            let didIngest = await processNextPendingWebItem(modelContainer: container) {
+                UserPipelineResetFlag.shared.value
+            }
             if didIngest {
                 scheduleAnalyze()
                 continue
@@ -242,7 +293,7 @@ enum BackgroundPipeline: Sendable {
 
             let outcome = await processNextEmbeddingItem(
                 modelContainer: container,
-                cancel: { false }
+                cancel: { UserPipelineResetFlag.shared.value }
             )
 
             switch outcome {
@@ -277,7 +328,7 @@ enum BackgroundPipeline: Sendable {
         Task.detached {
             await PipelineWorkGate.shared.performBackgroundIngest(
                 modelContainer: container,
-                cancel: { cancelFlag.value }
+                cancel: { cancelFlag.value || UserPipelineResetFlag.shared.value }
             )
 
             task.setTaskCompleted(success: true)
@@ -316,7 +367,7 @@ enum BackgroundPipeline: Sendable {
         Task.detached {
             let outcome = await PipelineWorkGate.shared.performBackgroundAnalyze(
                 modelContainer: container,
-                cancel: { cancelFlag.value }
+                cancel: { cancelFlag.value || UserPipelineResetFlag.shared.value }
             )
 
             switch outcome {
@@ -832,6 +883,40 @@ enum BackgroundPipeline: Sendable {
         let names = TagNameNormalizer.normalize(many: HashtagParser.tagNames(in: raw))
         upsertTagsOnItem(tagNames: names, item: item, context: context)
     }
+
+    /// Gate-only: rewind active **web** queue; clears `UserPipelineResetFlag`; no Spotlight re-index (`docs/decisions.md`).
+    fileprivate nonisolated static func performActiveWebQueueRewindLocked(modelContainer: ModelContainer) {
+        defer { UserPipelineResetFlag.shared.value = false }
+
+        let ctx = ModelContext(modelContainer)
+        let desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived && item.contentKind == "web"
+            }
+        )
+
+        guard let candidates = try? ctx.fetch(desc) else { return }
+
+        let eligible = BackgroundPipeline.activeWebQueueResetEligibleStatuses
+
+        for item in candidates {
+            guard eligible.contains(item.status) else { continue }
+            item.summaryBullets = nil
+            item.extracts = nil
+            item.tags.removeAll()
+            item.failureReason = nil
+            let body = item.rawText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !body.isEmpty {
+                item.processingStatus = ProcessingStatus.embedding.rawValue
+                item.processingDetail = "Preparing analysis…"
+            } else {
+                item.processingStatus = ProcessingStatus.pending.rawValue
+                item.processingDetail = "Queued for capture"
+            }
+        }
+
+        saveAndNotify(ctx)
+    }
 }
 
 // MARK: - Serialize revive + ingest/analyze (foreground + BG)
@@ -887,6 +972,12 @@ private final class PipelineWorkGate: @unchecked Sendable {
     func performRetag(modelContainer: ModelContainer, itemID: UUID) async {
         await lock.withLock { @Sendable [modelContainer] in
             await BackgroundPipeline.performRetag(modelContainer: modelContainer, itemID: itemID)
+        }
+    }
+
+    func performActiveWebQueueReset(modelContainer: ModelContainer) async {
+        await lock.withLock { @Sendable [modelContainer] in
+            BackgroundPipeline.performActiveWebQueueRewindLocked(modelContainer: modelContainer)
         }
     }
 }

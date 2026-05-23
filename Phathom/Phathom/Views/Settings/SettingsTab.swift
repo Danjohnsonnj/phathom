@@ -8,6 +8,9 @@ struct SettingsContent: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
 
+    @Query(filter: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" })
+    private var webItemsActiveQueueCandidates: [ContentItem]
+
     @State private var archivedCount: Int = 0
     @State private var selectionState: ModelManager.SelectionDisplayState = .noSelection
     @State private var taggingSelectionState: ModelManager.SelectionDisplayState = .noSelection
@@ -32,6 +35,8 @@ struct SettingsContent: View {
     @State private var importErrorDetails: String?
     @State private var showImportErrorSheet = false
     @State private var backupBusy = false
+    @State private var showResetWebProcessingConfirm = false
+    @State private var isResettingWebProcessingQueue = false
 
     private enum ModelTestPhase {
         case idle
@@ -98,6 +103,16 @@ struct SettingsContent: View {
         case nil:
             return [.data]
         }
+    }
+
+    private var activeWebProcessingQueueCount: Int {
+        webItemsActiveQueueCandidates.filter { BackgroundPipeline.activeWebQueueResetEligibleStatuses.contains($0.status) }.count
+    }
+
+    private var resetWebProcessingQueueConfirmationMessage: String {
+        """
+        Stops summaries and tagging in progress when possible (one fetch may finish). Rewinds \(activeWebProcessingQueueCount) web item\(activeWebProcessingQueueCount == 1 ? "" : "s") to queued or analyzing (clears incomplete AI outputs). Completed and failed rows are untouched. Tap the Library toolbar play button later to resume.
+        """
     }
 
     var body: some View {
@@ -176,6 +191,22 @@ struct SettingsContent: View {
             }
             .sheet(isPresented: $showImportErrorSheet) {
                 importErrorDetailsSheet
+            }
+            .confirmationDialog(
+                "Reset web processing?",
+                isPresented: $showResetWebProcessingConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Reset \(activeWebProcessingQueueCount) item(s)", role: .destructive) {
+                    Task { @MainActor in
+                        isResettingWebProcessingQueue = true
+                        await BackgroundPipeline.resetActiveWebQueue()
+                        isResettingWebProcessingQueue = false
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(resetWebProcessingQueueConfirmationMessage)
             }
     }
 
@@ -310,7 +341,7 @@ struct SettingsContent: View {
     }
 
     private var librarySection: some View {
-        Section("Library") {
+        Section {
             NavigationLink {
                 RecentlyDeletedView()
             } label: {
@@ -328,6 +359,20 @@ struct SettingsContent: View {
                     }
                 }
             }
+            Button("Reset web processing queue…") {
+                showResetWebProcessingConfirm = true
+            }
+            .disabled(activeWebProcessingQueueCount == 0 || isResettingWebProcessingQueue)
+        } header: {
+            Text("Library")
+        } footer: {
+            Text(
+                """
+                Applies to web URLs only (not notes). Clears summaries, extracts, and auto-tags on items currently processing. Completed and failed rows are never changed here. Spotlight may show stale text until processing finishes again. Does not restart work automatically — use Library’s play button.
+                """
+            )
+            .font(.footnote)
+            .foregroundStyle(AppPalette.textSecondary)
         }
     }
 

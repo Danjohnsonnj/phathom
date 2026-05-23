@@ -451,6 +451,104 @@ struct PhathomTests {
         ModelManager.clearTaggingSelection()
         #expect(!ModelManager.hasTaggingBookmark)
     }
+
+    @Test func activeWebQueueReset_rewindsSummarizingClearsAIDerived() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let tag = Tag(name: "topic-a")
+        ctx.insert(tag)
+        let active = ContentItem(contentKind: .web, originalURL: URL(string: "https://reset-queue.test/a")!)
+        active.processingStatus = ProcessingStatus.summarizing.rawValue
+        active.processingDetail = "Generating summary…"
+        active.rawText = "article body text"
+        active.summaryBullets = "[\"a\"]"
+        active.tags.append(tag)
+        ctx.insert(active)
+        try ctx.save()
+        let id = active.id
+
+        await BackgroundPipeline._test_performActiveWebQueueReset(modelContainer: container)
+
+        let after = ModelContext(container)
+        let afterFetch = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == id })
+        let rows = try after.fetch(afterFetch)
+        let row = try #require(rows.first)
+        #expect(row.status == .embedding)
+        #expect(row.summaryBullets == nil)
+        #expect(row.extracts == nil)
+        #expect(row.tags.isEmpty)
+        #expect(row.failureReason == nil)
+        #expect(row.processingDetail == "Preparing analysis…")
+        #expect(row.rawText == "article body text")
+    }
+
+    @Test func activeWebQueueReset_pendingNoBodyKeepsQueuedDetail() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let pendingOnly = ContentItem(contentKind: .web, originalURL: URL(string: "https://reset-queue.test/b")!)
+        pendingOnly.processingStatus = ProcessingStatus.pending.rawValue
+        pendingOnly.processingDetail = "Queued for capture"
+        pendingOnly.rawText = nil
+        ctx.insert(pendingOnly)
+        try ctx.save()
+        let id = pendingOnly.id
+
+        await BackgroundPipeline._test_performActiveWebQueueReset(modelContainer: container)
+
+        let after = ModelContext(container)
+        let afterFetch = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == id })
+        let rows = try after.fetch(afterFetch)
+        let row = try #require(rows.first)
+        #expect(row.status == .pending)
+        #expect(row.processingDetail == "Queued for capture")
+    }
+
+    @Test func activeWebQueueReset_doesNotTouchCompletedFailedNoteOrMediaEmbedding() async throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let completed = ContentItem(contentKind: .web, originalURL: URL(string: "https://reset-queue.test/c")!)
+        completed.processingStatus = ProcessingStatus.completed.rawValue
+        completed.summaryBullets = "[\"done\"]"
+
+        let failed = ContentItem(contentKind: .web, originalURL: URL(string: "https://reset-queue.test/d")!)
+        failed.processingStatus = ProcessingStatus.failed.rawValue
+        failed.failureReason = "x"
+
+        let note = ContentItem(contentKind: .note)
+        note.rawText = "note md"
+        note.processingStatus = ProcessingStatus.tagging.rawValue
+        note.processingDetail = "Auto-tagging…"
+
+        let mediaStuck = ContentItem(contentKind: .media, originalURL: nil)
+        mediaStuck.processingStatus = ProcessingStatus.embedding.rawValue
+
+        ctx.insert(completed)
+        ctx.insert(failed)
+        ctx.insert(note)
+        ctx.insert(mediaStuck)
+        try ctx.save()
+
+        await BackgroundPipeline._test_performActiveWebQueueReset(modelContainer: container)
+
+        let after = ModelContext(container)
+        let all = FetchDescriptor<ContentItem>()
+        let rows = try after.fetch(all)
+        let byID = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
+
+        let c = try #require(byID[completed.id])
+        #expect(c.status == .completed)
+        #expect(c.summaryBullets != nil)
+
+        let f = try #require(byID[failed.id])
+        #expect(f.status == .failed)
+        #expect(f.failureReason == "x")
+
+        let n = try #require(byID[note.id])
+        #expect(n.status == .tagging)
+
+        let m = try #require(byID[mediaStuck.id])
+        #expect(m.status == .embedding)
+    }
 }
 
 private func makeInMemoryContainer() throws -> ModelContainer {
