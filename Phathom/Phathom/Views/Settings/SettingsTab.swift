@@ -8,10 +8,8 @@ struct SettingsContent: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
 
-    @Query(filter: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" })
-    private var webItemsActiveQueueCandidates: [ContentItem]
-
     @State private var archivedCount: Int = 0
+    @State private var activeWebProcessingQueueCount: Int = 0
     @State private var selectionState: ModelManager.SelectionDisplayState = .noSelection
     @State private var taggingSelectionState: ModelManager.SelectionDisplayState = .noSelection
     @State private var primaryTestPhase: ModelTestPhase = .idle
@@ -103,10 +101,6 @@ struct SettingsContent: View {
         case nil:
             return [.data]
         }
-    }
-
-    private var activeWebProcessingQueueCount: Int {
-        webItemsActiveQueueCandidates.filter { BackgroundPipeline.activeWebQueueResetEligibleStatuses.contains($0.status) }.count
     }
 
     private var resetWebProcessingQueueConfirmationMessage: String {
@@ -201,6 +195,7 @@ struct SettingsContent: View {
                     Task { @MainActor in
                         isResettingWebProcessingQueue = true
                         await BackgroundPipeline.resetActiveWebQueue()
+                        refreshActiveWebProcessingQueueCount()
                         isResettingWebProcessingQueue = false
                     }
                 }
@@ -219,6 +214,7 @@ struct SettingsContent: View {
             .onAppear {
                 refreshSelectionState()
                 refreshArchivedCount()
+                refreshActiveWebProcessingQueueCount()
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
@@ -226,7 +222,11 @@ struct SettingsContent: View {
                     ModelManager.validateTaggingSelection()
                     refreshSelectionState()
                     refreshArchivedCount()
+                    refreshActiveWebProcessingQueueCount()
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .phathomLibraryContentDidChange)) { _ in
+                refreshActiveWebProcessingQueueCount()
             }
             .onReceive(NotificationCenter.default.publisher(for: .phathomDidArchiveItem)) { _ in
                 refreshArchivedCount()
@@ -640,6 +640,10 @@ struct SettingsContent: View {
             predicate: #Predicate<ContentItem> { $0.isArchived == true }
         )
         archivedCount = (try? modelContext.fetchCount(fd)) ?? 0
+    }
+
+    private func refreshActiveWebProcessingQueueCount() {
+        activeWebProcessingQueueCount = BackgroundPipeline.activeWebQueueResetEligibleCount(in: modelContext)
     }
 
     private func refreshSelectionState() {

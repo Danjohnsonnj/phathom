@@ -94,6 +94,36 @@ enum BackgroundPipeline: Sendable {
         .tagging,
     ]
 
+    /// Count-only for Settings “Reset pending web processing” — matches `performActiveWebQueueRewindLocked` eligibility
+    /// without materializing full rows (SwiftUI `@Query` was syncing whole blobs on every form refresh).
+    @MainActor
+    static func activeWebQueueResetEligibleCount(in context: ModelContext) -> Int {
+        let pending = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "pending" }
+        )
+        let scraping = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "scraping" }
+        )
+        let embedding = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "embedding" }
+        )
+        let summarizing = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "summarizing" }
+        )
+        let extracting = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "extracting" }
+        )
+        let tagging = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "tagging" }
+        )
+        return ((try? context.fetchCount(pending)) ?? 0)
+            + ((try? context.fetchCount(scraping)) ?? 0)
+            + ((try? context.fetchCount(embedding)) ?? 0)
+            + ((try? context.fetchCount(summarizing)) ?? 0)
+            + ((try? context.fetchCount(extracting)) ?? 0)
+            + ((try? context.fetchCount(tagging)) ?? 0)
+    }
+
     private nonisolated static func saveAndNotify(_ ctx: ModelContext) {
         try? ctx.save()
         DispatchQueue.main.async {
