@@ -296,7 +296,7 @@ struct SettingsContent: View {
                 .listRowBackground(Color.clear)
         } header: {
             Text("AI Models")
-                .font(.title2)
+                .font(.title2.bold())
         }
     }
 
@@ -454,7 +454,7 @@ struct SettingsContent: View {
                 .foregroundStyle(AppPalette.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .ready:
-            Text("Used only when automatically tagging items or tapping Regenerate tags. Falls back to primary if this file is unavailable.")
+            Text("Used only when automatically tagging items or tapping Regenerate tags. Falls back to primary.")
                 .font(.footnote)
                 .foregroundStyle(AppPalette.textSecondary)
                 .padding(.top, 4)
@@ -496,7 +496,7 @@ struct SettingsContent: View {
             .disabled(activeWebProcessingQueueCount == 0 || isResettingWebProcessingQueue)
         } header: {
             Text("Library")
-                .font(.title2)
+                .font(.title2.bold())
         } footer: {
             Text("Clears AI generated meta content and reprocesses any incomplete items in the Library.")
                 .font(.footnote)
@@ -516,7 +516,7 @@ struct SettingsContent: View {
             .disabled(backupBusy)
         } header: {
             Text("Backup")
-                .font(.title2)
+                .font(.title2.bold())
         } footer: {
             Text("Exports active library items only. Archived items are excluded.")
                 .font(.footnote)
@@ -532,7 +532,7 @@ struct SettingsContent: View {
                 .foregroundStyle(AppPalette.textSecondary)
         } header: {
             Text("About")
-                .font(.title2)
+                .font(.title2.bold())
         }
     }
 
