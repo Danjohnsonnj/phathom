@@ -52,7 +52,7 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 
 ### Agent obligations
 
-1. **Session start:** Silently recall agentmemory for the task domain before broad file reads (e.g. pipeline, llama.cpp, decisions, performance, UI).
+1. **Session start:** Silently recall agentmemory for the task domain before broad file reads (e.g. pipeline, llama.cpp, decisions, performance, UI, **versioning**).
 2. **Authority:** `docs/decisions.md` wins over memory. Memory summarizes gist + RECENT rows; read the full file when implementing or when edge cases matter.
 3. **Save after:** architectural decisions, perf root-causes/fixes, and non-obvious constraints the next session must not forget.
 4. **Format saves as bullets**, not pasted doc paragraphs. Tag with concepts (`pipeline`, `KV-cache`, `decisions`, etc.).
@@ -69,6 +69,7 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 | UI shell & pipeline bridge | `UI`, `LibraryTab`, `LibraryFilterBar`, `DetailView`, `CategoryPicker`, `navigation` | `Views/MainTabView.swift`, `Library/`, `Detail/`, `AddNew/`, `Settings/SettingsTab.swift`, `ProcessingRecovery.swift`, `Services/LibrarySearchService.swift` |
 | Scope | `Phase-3`, `no-RAG`, `guardrails` | `docs/handoff/phase-3-rag-chat.md` |
 | Dev bootstrap | `build`, `xcframework` | `scripts/build-phathom.sh`, `AGENTS.md` |
+| App versioning | `version`, `semver`, `MARKETING_VERSION`, `0.x.y` | `Phathom.xcodeproj/project.pbxproj`, `SettingsTab.swift`, `PhathomShare/Info.plist` |
 
 ### User phrase → agent action
 
