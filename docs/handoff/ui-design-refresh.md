@@ -1,6 +1,6 @@
 # UI Design Refresh — Handoff & Brief (Draft)
 
-> **Status:** Design update brief **approved** (client kickoff 2026-05-24). §10 is normative for refresh work. **§12 design system** is required Phase 0 output before screen implementation. Implement in phases per [§11](#11-phased-rollout--feed-forward).
+> **Status:** Design update brief **approved** (client kickoff 2026-05-24). Detail **§5.3 IA reorder** shipped in **`DetailView`**. §10 remains normative for remaining work (Library/shell/Add New/Settings + **§12** design system gate). Implement in phases per [§11](#11-phased-rollout--feed-forward).
 >
 > **Audience:** UI/UX designer, design-focused agent, or implementer planning a visual/IA refresh.
 >
@@ -60,7 +60,7 @@ flowchart TB
 | Surface | Role |
 |--------|------|
 | **Library** | Primary home — browse, filter, search, triage, bulk ops |
-| **Detail** | Deep read on one item — AI output, tags, source, highlights |
+| **Detail** | Deep read — **§5.3 order:** hero → snippet → Source → highlights → tags → AI summary → actions |
 | **Add New** | In-app capture (web URL, markdown note, photo) |
 | **Chat** | **Not built** — placeholder for Phase 3 “Deep Dive” RAG chat |
 | **Settings** | Pushed from Library gear — models, backup, Recently Deleted |
@@ -191,23 +191,22 @@ Category display: [`CategoryDisplayFormatter.swift`](../../Phathom/PhathomCore/S
 
 ### 5.3 Detail (`DetailView`)
 
-**Target section order (IA change — approved):**
+**Implemented section order** (reader-first Detail IA):
 
 1. Hero (~200pt) — thumbnail/fallback; web: **Visit Site** capsule
 2. Processing status chip
-3. Header — host (web), editable title, **source-content snippet** (summary snippet as today)
-4. **Source Content** — promoted above triage/AI blocks; collapsible; web uses selectable WKWebView markdown HTML
-5. Reading status — segmented: New | Read | Filed
-6. Category — display + Edit → sheet
-7. Highlights & Notes — quoted text + optional user note (web source selection)
-8. Tags — chips, Edit, tap → RelatedItemsSheet
-9. AI Summary — bullets in surface card; placeholder while processing
-10. Extracted Key Figures — label/value pairs
-11. Actions — Summarize again, Regenerate tags, Archive (or Restore if archived)
+3. **Processing failed** card — only when `status == .failed` (retry, reason)
+4. Header — host (web), editable title, **snippet** (`sourceMarkdown`/raw preview — same helpers as before), timestamp
+5. **Source Content** — collapsible (default collapsed); web: WKWebView + highlights; **note**: markdown body merged here under same header (“Source Content”). Non-web/non-note raw fallback unchanged.
+6. Reading status — segmented: New | Read | Filed
+7. Category — display + Edit → sheet
+8. Highlights & Notes — quoted text + optional user note (web source selection)
+9. Tags — chips, Edit, tap → RelatedItemsSheet
+10. AI Summary — bullets in surface card; placeholder while processing
+11. Extracted Key Figures — label/value pairs
+12. Actions — Summarize again, Regenerate tags, Archive (or Restore if archived)
 
-**Rationale:** Reader-first — source and annotation before metadata and AI synthesis. Note body (note kind) stays with source block when present. Failed section remains when applicable (after status chip or inline with source — implementer discretion, same visibility).
-
-**Legacy order (for diff awareness):** hero → status → title → note → failed → read status → category → summary → tags → extracts → highlights → actions → source.
+**Rationale:** Reader-first — source and annotation before metadata and AI synthesis. Note `.note` body only under Source Content (no separate “Note” card).
 
 ### 5.4 Add New (`AddNewTab`)
 
@@ -263,7 +262,7 @@ Minimal: “Saving…” → auto-dismiss. URLs, text, images → shared SwiftDa
 |------|--------|-----------------|
 | **Overall POV** | Clean and task-focused but **generic** — reads as incremental/computer-built, not a unified aesthetic vision | Define a **design point of view** first (tokens, type, spacing, card language), then apply consistently |
 | Library chrome | Large title + 3 filter columns + search + sections | Light IA + POV-aligned components; no functional change to filters/search |
-| Detail hierarchy | AI blocks before source/highlights | **Restructure** — source + highlights before tags/summary (§5.3) |
+| Detail (visual only) | §5.3 **IA shipped** — tokens/layout still baseline `AppPalette` | Apply §12 to Detail surfaces when Phase 0 completes |
 | Add New | Standard `Form` | Reader-app capture UX; web-first |
 | Settings | Dense model/backup copy | **Visual alignment only**; progressive disclosure (show what’s needed, expand for context) — no model UX or copy model changes |
 | Chat tab | Placeholder | Keep as-is |
@@ -314,7 +313,8 @@ Per phase, also append:
 
 - Establish a clear **design point of view** — sophisticated, clean, engaging, focused — then apply it consistently (not incremental “computer-built” polish).
 - **Visual cohesion + refined elegance** across Library, Detail, Add New, Settings — task-focused, unobtrusive, lightweight flows with appropriate depth.
-- **Light IA adjustments:** Detail section reorder (reader-first); Library/shell chrome refinement.
+- **Detail IA:** reader-first §5.3 scroll order **[shipped]**; remaining Detail work is **§12 visuals** after Phase 0.
+- **Light IA adjustments (remaining):** Library/shell chrome refinement.
 - **Elevate Add New** as reader-app capture (web-first).
 - Preserve **power-reader / researcher** workflow without changing data model or core behaviors.
 
@@ -353,7 +353,7 @@ Add New: **web like a reader app**; notes secondary.
 | Surface | Priority | Notes |
 |---------|----------|--------|
 | **Library** | High | POV + light IA; address “generic” feel via unified components |
-| **Detail** | High | **Section reorder** (§5.3); reader-first hierarchy |
+| **Detail** | Medium–High | IA done (§5.3); **§12 polish** pending Phase 0 |
 | **Add New** | High | Reader-app web capture; notes secondary |
 | **Main shell** | Medium | Tab bar, snackbar, nav chrome |
 | **Settings / Recently Deleted** | Medium | Visual alignment; **progressive disclosure** pattern (match recent Settings improvements) |
@@ -376,7 +376,7 @@ Add New: **web like a reader app**; notes secondary.
 |----------|--------|
 | Tabs | Library · Chat (placeholder) · Add new |
 | Settings | Gear on Library |
-| Detail order | §5.3 (source + highlights before AI blocks) |
+| Detail IA | §5.3 **implemented** (`DetailView`; failed after chip; source + highlights before AI blocks) |
 | Capture | Web-first reader pattern |
 
 ### Constraints (must not break)
@@ -415,7 +415,7 @@ Phased delivery with **iteration and sign-off per phase** before the next. Each 
 |-------|--------|---------------|
 | **0 — Design system** | POV + **complete §12** (colors, type, spacing, components) | §12 fully specified; client OK; no screen code until signed off |
 | **1 — Library + shell** | Apply §12 to library list, filters, search, toolbar, tab bar, snackbar | Library on-system; feed-forward logged |
-| **2 — Detail restructure** | §5.3 order + §12 on all detail sections | Detail reader-first; feed-forward logged |
+| **2 — Detail** | IA §5.3 **done** (`DetailView`) · §12 **visual polish** after Phase 0 | IA done; Detail tokens/layout when §12 applied |
 | **3 — Add New** | Web-first capture using §12 form/button rules | Capture on-system; feed-forward logged |
 | **4 — Settings alignment** | Settings + Recently Deleted; §12 disclosure patterns | §12 reflected in code; success criteria met |
 
@@ -434,17 +434,21 @@ Deliverables:
 
 _Status: TBD at implementation kickoff._
 
+### Phase 2 — Detail (**IA complete**)
+
+Reader-first §5.3 shipped in [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) — canonical order documented in **[§5.3](#53-detail-detailview)**. Remaining Detail work under this refresh is **§12 token/style application** once Phase 0 completes.
+
 ### Feed-forward log
 
 | After phase | Decisions for next phase |
 |-------------|-------------------------|
-| _none yet_ | — |
+| **Phase 2** | Detail IA frozen at §5.3; Phase 3+ must not regress scroll order without new decision row. Implement §12 on Detail surfaces with Library/Phase 1. |
 
 ---
 
 ## 12. Design system specification (required output)
 
-> **Normative target.** Phase 0 **must** replace every `_TBD_` with concrete values. Phases 1–4 implement this system; they do not redefine it ad hoc.
+> **Normative target.** Phase 0 **must** replace every `_TBD_` with concrete values. **Detail §5.3 IA is already shipped** in `DetailView`; Phases 0–4 then apply §12 visuals across surfaces (including Detail polish). Phases **1**, **3**, **4**, and Detail **visual pass** adopt tokens from §12 rather than inventing ad hoc UI.
 >
 > **Format:** Semantic tokens first (e.g. `text.primary`), then hex/pt values, then **Usage** (where applied in Phathom).
 

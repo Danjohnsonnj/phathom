@@ -52,64 +52,15 @@ struct DetailView: View {
 
                 detailStatusChip
 
-                VStack(alignment: .leading, spacing: 8) {
-                    if let host = item.displayHost, item.kind == .web {
-                        Text(host)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(AppPalette.accent)
-                    }
-
-                    TextField(item.displayTitle, text: $titleDraft, axis: .vertical)
-                        .font(.title.bold())
-                        .foregroundStyle(AppPalette.textPrimary)
-                        .textFieldStyle(.plain)
-                        .submitLabel(.done)
-                        .focused($titleFocused)
-                        .onSubmit { commitTitleDraft() }
-                        .onChange(of: titleFocused) { _, isFocused in
-                            if !isFocused { commitTitleDraft() }
-                        }
-
-                    if let snippet = summarySnippetMarkdown {
-                        Markdown(snippet)
-                            .markdownTheme(.phathomNote)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else if let snippet = summarySnippetPlain {
-                        Text(snippet)
-                            .font(.subheadline)
-                            .foregroundStyle(AppPalette.textSecondary)
-                    }
-
-                    Text(item.createdAt.formatted(Self.timestampFormat))
-                        .font(.subheadline)
-                        .foregroundStyle(AppPalette.textTertiary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if titleFocused { titleFocused = false }
-                }
-
-                noteRenderedSection
-
                 failedSection
+
+                headerSection
+
+                sourceContentSection
 
                 readingStatusSection
 
                 categorySection
-
-                summarySection
-
-                tagsSection
-
-                if !item.decodedExtracts.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Extracted Key Figures")
-                            .font(.headline.bold())
-                            .foregroundStyle(AppPalette.textPrimary)
-                        ExtractsSection(extracts: item.decodedExtracts)
-                    }
-                }
 
                 HighlightsNotesSection(
                     highlights: item.highlightsSortedByOffset,
@@ -118,9 +69,15 @@ struct DetailView: View {
                     noteEditHighlight = tapped
                 }
 
-                actionButtons
+                DetailAIAnalysisDivider()
 
-                sourceSection
+                tagsSection
+
+                summarySection
+
+                extractsSection
+
+                actionButtons
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
@@ -199,6 +156,56 @@ struct DetailView: View {
         }
     }
 
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let host = item.displayHost, item.kind == .web {
+                Text(host)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(AppPalette.accent)
+            }
+
+            TextField(item.displayTitle, text: $titleDraft, axis: .vertical)
+                .font(.title.bold())
+                .foregroundStyle(AppPalette.textPrimary)
+                .textFieldStyle(.plain)
+                .submitLabel(.done)
+                .focused($titleFocused)
+                .onSubmit { commitTitleDraft() }
+                .onChange(of: titleFocused) { _, isFocused in
+                    if !isFocused { commitTitleDraft() }
+                }
+
+            if let snippet = summarySnippetMarkdown {
+                Markdown(snippet)
+                    .markdownTheme(.phathomNote)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let snippet = summarySnippetPlain {
+                Text(snippet)
+                    .font(.subheadline)
+                    .foregroundStyle(AppPalette.textSecondary)
+            }
+
+            Text(item.createdAt.formatted(Self.timestampFormat))
+                .font(.subheadline)
+                .foregroundStyle(AppPalette.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if titleFocused { titleFocused = false }
+        }
+    }
+
+    @ViewBuilder
+    private var extractsSection: some View {
+        if !item.decodedExtracts.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                DetailAISubsectionHeader(title: "Key Figures")
+                ExtractsSection(extracts: item.decodedExtracts)
+            }
+        }
+    }
+
     private var tagValidationMessage: String? {
         let trimmed = tagEditorDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -211,18 +218,8 @@ struct DetailView: View {
     @ViewBuilder
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Tags")
-                    .font(.headline.bold())
-                    .foregroundStyle(AppPalette.textPrimary)
-                Spacer()
-                Button(isTagEditMode ? "Done" : "Edit") {
-                    isTagEditMode.toggle()
-                }
-                .font(.subheadline.weight(.semibold))
-                .buttonStyle(.plain)
-                .foregroundStyle(AppPalette.accent)
-                .accessibilityLabel(isTagEditMode ? "Done editing tags" : "Edit tags")
+            DetailAITagsSectionHeader(title: "Tags", isEditMode: isTagEditMode) {
+                isTagEditMode.toggle()
             }
             if item.tags.isEmpty {
                 Text("No tags")
@@ -497,29 +494,9 @@ struct DetailView: View {
     }
 
     @ViewBuilder
-    private var noteRenderedSection: some View {
-        if item.kind == .note, let raw = item.rawText, !raw.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Note")
-                    .font(.headline.bold())
-                    .foregroundStyle(AppPalette.textPrimary)
-                Markdown(raw)
-                    .markdownTheme(.phathomNote)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppPalette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-    }
-
-    @ViewBuilder
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("AI Summary")
-                .font(.headline.bold())
-                .foregroundStyle(AppPalette.textPrimary)
+            DetailAISubsectionHeader(title: "Summary")
 
             if item.status == .completed {
                 VStack(alignment: .leading, spacing: 8) {
@@ -744,7 +721,7 @@ struct DetailView: View {
         LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 
-    private var sourceSection: some View {
+    private var sourceContentSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -766,7 +743,26 @@ struct DetailView: View {
             .accessibilityLabel(sourceExpanded ? "Source content, expanded" : "Source content, collapsed preview")
             .accessibilityHint("Double tap to expand or collapse the full source text.")
 
-            if let html = item.sourceContentHTML, !html.isEmpty {
+            if item.kind == .note {
+                if let raw = item.rawText, !raw.isEmpty {
+                    if sourceExpanded {
+                        Markdown(raw)
+                            .markdownTheme(.phathomNote)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    } else {
+                        Markdown(raw)
+                            .markdownTheme(.phathomNote)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxHeight: collapsedSourceMarkdownMaxHeight, alignment: .top)
+                            .clipped()
+                    }
+                } else {
+                    Text("No source text")
+                        .font(.subheadline)
+                        .foregroundStyle(AppPalette.textSecondary)
+                }
+            } else if let html = item.sourceContentHTML, !html.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     HighlightableMarkdownWebView(
                         selectionActive: $sourceWebSelectionActive,
@@ -795,40 +791,23 @@ struct DetailView: View {
                         .clipped()
                 }
             } else if let raw = item.rawText, !raw.isEmpty {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        sourceExpanded.toggle()
-                    }
-                } label: {
-                    HStack(alignment: .top, spacing: 8) {
-                        Group {
-                            if sourceExpanded {
-                                Text(raw)
-                                    .font(.subheadline)
-                                    .foregroundStyle(AppPalette.textSecondary)
-                                    .multilineTextAlignment(.leading)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .textSelection(.enabled)
-                            } else {
-                                Text(raw)
-                                    .font(.subheadline)
-                                    .foregroundStyle(AppPalette.textSecondary)
-                                    .multilineTextAlignment(.leading)
-                                    .lineLimit(4)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .accessibilityHidden(true)
-                        Image(systemName: "chevron.down")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(AppPalette.textTertiary)
-                            .rotationEffect(.degrees(sourceExpanded ? 180 : 0))
-                            .accessibilityHidden(true)
+                Group {
+                    if sourceExpanded {
+                        Text(raw)
+                            .font(.subheadline)
+                            .foregroundStyle(AppPalette.textSecondary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    } else {
+                        Text(raw)
+                            .font(.subheadline)
+                            .foregroundStyle(AppPalette.textSecondary)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(4)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(sourceExpanded ? "Source content, expanded" : "Source content, collapsed preview")
-                .accessibilityHint("Double tap to expand or collapse the full source text.")
             } else {
                 Text("No source text")
                     .font(.subheadline)

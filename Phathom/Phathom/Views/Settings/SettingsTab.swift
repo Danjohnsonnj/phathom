@@ -21,7 +21,6 @@ struct SettingsContent: View {
     @State private var showTaggingTestResponse = false
     @State private var primaryModelDisclosureExpanded: Bool = true
     @State private var taggingModelDisclosureExpanded: Bool = false
-    @State private var showModelSelectionGuidance = false
     @State private var showBackupExporter = false
     @State private var backupDocument = BackupJSONDocument()
     @State private var backupDefaultFilename = "phathom-library-backup.json"
@@ -55,18 +54,6 @@ struct SettingsContent: View {
 
     private var build: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-    }
-
-    private var modelSelectionGuidance: String {
-        """
-        Download `.gguf` weights from Hugging Face or another vendor and save them under **On My iPhone** (or another local folder) in the Files app.
-
-        **Primary model** powers summaries, extracts, Library “Dive deeper,” related-item ranking, and Settings tests for the primary path.
-
-        **Tagging model** (optional) is used only when generating tags during ingest and when you tap **Regenerate tags**. If it is missing or fails to load, tagging falls back to the primary model.
-
-        Choosing a file creates a security-scoped bookmark—Phathom reads the weights in place without copying them into the app sandbox.
-        """
     }
 
     private var canRunPrimaryTest: Bool {
@@ -108,6 +95,13 @@ struct SettingsContent: View {
         Stops summaries and tagging in progress when possible (one fetch may finish). Rewinds \(activeWebProcessingQueueCount) web item\(activeWebProcessingQueueCount == 1 ? "" : "s") to queued or analyzing (clears incomplete AI outputs). Completed and failed rows are untouched. Tap the Library toolbar play button later to resume.
         """
     }
+
+    /// Shared with grouped cards; aligns with §12 `space.screenHorizontal` baseline (16).
+    private static let screenHorizontalInset: CGFloat = 16
+    /// Baseline Detail `space.sectionGap` (24).
+    private static let sectionVerticalGap: CGFloat = 24
+
+    private var settingsGroupedCornerRadius: CGFloat { 14 }
 
     var body: some View {
         configuredForm
@@ -247,54 +241,129 @@ struct SettingsContent: View {
             } message: {
                 Text(importerError ?? "")
             }
-            .sheet(isPresented: $showModelSelectionGuidance) {
-                modelFileInfoSheet
-            }
     }
 
     private var settingsForm: some View {
-        Form {
-            modelSection
-            librarySection
-            backupSection
-            aboutSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: Self.sectionVerticalGap) {
+                aiModelsGroupedSection
+                libraryGroupedSection
+                dataGroupedSection
+                settingsScreenFooter
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Self.screenHorizontalInset)
+            .padding(.top, 8)
+            .padding(.bottom, Self.sectionVerticalGap)
         }
     }
 
-    private var modelSection: some View {
-        Section {
-            DisclosureGroup(isExpanded: $primaryModelDisclosureExpanded) {
-                primaryModelDisclosureContent
-                primaryModelFootnote
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 12, trailing: 0))
-            } label: {
-                HStack {
-                    Text("Primary model")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppPalette.textPrimary)
-                    Spacer()
-                    modelSelectionIndicator(for: selectionState, rolePhrase: "Primary model")
+    private var aiModelsGroupedSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(
+                title: "AI Models",
+                subtitle: "On-device models for summarization and tagging"
+            )
+            settingsGroupedSurface {
+                VStack(spacing: 0) {
+                    DisclosureGroup(isExpanded: $primaryModelDisclosureExpanded) {
+                        modelDisclosureExpandedContent(
+                            role: .primary,
+                            state: selectionState,
+                            testPhase: primaryTestPhase,
+                            testRows: { primaryTestPhaseRows },
+                            hasBookmark: ModelManager.hasBookmark,
+                            isTestRunning: isPrimaryTestRunning,
+                            canRunTest: canRunPrimaryTest,
+                            onSelect: {
+                                requestedImporter = .primaryModel
+                            },
+                            onTest: { runPrimaryModelTest() },
+                            onForget: {
+                                ModelManager.clearSelection()
+                                primaryTestPhase = .idle
+                                showPrimaryTestResponse = false
+                                refreshSelectionState()
+                            }
+                        )
+                        .padding(.bottom, 12)
+                    } label: {
+                        HStack {
+                            Text("Primary model")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppPalette.textPrimary)
+                            Spacer(minLength: 8)
+                            modelSelectionIndicator(for: selectionState, rolePhrase: "Primary model")
+                        }
+                        .padding(.vertical, SettingsCardCell.verticalPadding)
+                        .contentShape(Rectangle())
+                    }
+                    .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                    .tint(AppPalette.accent)
+
+                    settingsGroupedDivider
+
+                    DisclosureGroup(isExpanded: $taggingModelDisclosureExpanded) {
+                        modelDisclosureExpandedContent(
+                            role: .tagging,
+                            state: taggingSelectionState,
+                            testPhase: taggingTestPhase,
+                            testRows: { taggingTestPhaseRows },
+                            hasBookmark: ModelManager.hasTaggingBookmark,
+                            isTestRunning: isTaggingTestRunning,
+                            canRunTest: canRunTaggingTest,
+                            onSelect: {
+                                requestedImporter = .taggingModel
+                            },
+                            onTest: { runTaggingModelTest() },
+                            onForget: {
+                                ModelManager.clearTaggingSelection()
+                                taggingTestPhase = .idle
+                                showTaggingTestResponse = false
+                                refreshSelectionState()
+                            }
+                        )
+                        .padding(.bottom, 8)
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("Tagging model")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(AppPalette.textPrimary)
+                            Text("(optional)")
+                                .font(.subheadline)
+                                .foregroundStyle(AppPalette.textSecondary)
+                            Spacer(minLength: 8)
+                            modelSelectionIndicator(for: taggingSelectionState, rolePhrase: "Tagging model")
+                        }
+                        .padding(.vertical, SettingsCardCell.verticalPadding)
+                        .contentShape(Rectangle())
+                    }
+                    .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                    .tint(AppPalette.accent)
                 }
             }
-
-            DisclosureGroup(isExpanded: $taggingModelDisclosureExpanded) {
-                taggingModelDisclosureContent
-                taggingModelFootnote
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
-            } label: {
-                HStack {
-                    Text("Tagging model (optional)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppPalette.textPrimary)
-                    Spacer()
-                    modelSelectionIndicator(for: taggingSelectionState, rolePhrase: "Tagging model")
-                }
-            }
-
-        } header: {
-            Text("AI Models")
-                .font(.title2.bold())
         }
+    }
+
+    /// Full-width separator inside a padded `DisclosureGroup` interior (avoid double-leading inset).
+    private var settingsGroupedInteriorDivider: some View {
+        Divider()
+            .overlay(AppPalette.textTertiary.opacity(0.35))
+    }
+
+    /// Inset divider between sibling rows inside a grouped card (`Form`-style grouping).
+    private var settingsGroupedDivider: some View {
+        Divider()
+            .overlay(AppPalette.textTertiary.opacity(0.35))
+            .padding(.leading, SettingsCardCell.horizontalPadding)
+    }
+
+    @ViewBuilder
+    private func settingsGroupedSurface<C: View>(@ViewBuilder content: () -> C) -> some View {
+        content()
+            .frame(maxWidth: .infinity)
+            .background(AppPalette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: settingsGroupedCornerRadius, style: .continuous))
     }
 
     @ViewBuilder
@@ -318,243 +387,231 @@ struct SettingsContent: View {
         }
     }
 
+    private enum ModelDisclosureRole {
+        case primary
+        case tagging
+    }
+
+    /// Expanded-only body for Primary / Tagging model `DisclosureGroup`. Collapsed labels stay untouched.
     @ViewBuilder
-    private var primaryModelDisclosureContent: some View {
-        Button("Select primary model from Files…") {
-            requestedImporter = .primaryModel
-        }
+    private func modelDisclosureExpandedContent<TR: View>(
+        role: ModelDisclosureRole,
+        state: ModelManager.SelectionDisplayState,
+        testPhase: ModelTestPhase,
+        @ViewBuilder testRows: () -> TR,
+        hasBookmark: Bool,
+        isTestRunning: Bool,
+        canRunTest: Bool,
+        onSelect: @escaping () -> Void,
+        onTest: @escaping () -> Void,
+        onForget: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            settingsGroupedInteriorDivider
 
-        primaryModelExpandedStatusRows
+            Group {
+                switch state {
+                case .noSelection:
+                    Text(role == .primary
+                        ? "No primary model selected."
+                        : "No optional tagging model — tags use the primary model.")
+                        .foregroundStyle(AppPalette.textSecondary)
 
-        Button("Test primary model") {
-            runPrimaryModelTest()
-        }
-        .disabled(isPrimaryTestRunning || !canRunPrimaryTest)
+                case .ready(let name, let byteString):
+                    SettingsModelFileInfoBlock(fileName: name, byteString: byteString)
 
-        primaryTestPhaseRows
-
-        if ModelManager.hasBookmark {
-            Button("Forget primary model", role: .destructive) {
-                ModelManager.clearSelection()
-                primaryTestPhase = .idle
-                showPrimaryTestResponse = false
-                refreshSelectionState()
+                case .missingFile:
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(role == .primary
+                            ? "Primary model file not found"
+                            : "Tagging model file not found")
+                            .foregroundStyle(.orange)
+                        Text(role == .primary
+                            ? "The file may have moved or been deleted. Choose a new primary model or forget this selection."
+                            : "Tagging will use the primary model until you pick a new tagging file or forget this selection.")
+                            .font(.footnote)
+                            .foregroundStyle(AppPalette.textSecondary)
+                    }
+                }
             }
-        }
-        Button {
-            showModelSelectionGuidance = true
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "info.circle")
-                Text("About model files")
-            }
-            .font(.footnote)
-            .foregroundStyle(AppPalette.textSecondary)
+            .padding(.horizontal, SettingsCardCell.horizontalPadding)
+            .padding(.vertical, SettingsCardCell.verticalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(.plain)
-    }
 
-    @ViewBuilder
-    private var taggingModelDisclosureContent: some View {
-        Button("Select tagging model from Files…") {
-            requestedImporter = .taggingModel
-        }
+            settingsGroupedInteriorDivider
 
-        taggingModelExpandedStatusRows
+            SettingsModelActionRow(
+                title: modelDisclosureSelectRowTitle(role: role, state: state),
+                iconName: "arrow.down.doc.fill",
+                iconTint: AppPalette.accent,
+                foreground: AppPalette.accent,
+                disabled: false,
+                action: onSelect
+            )
+            .padding(.horizontal, SettingsCardCell.horizontalPadding)
 
-        Button("Test tagging model path") {
-            runTaggingModelTest()
-        }
-        .disabled(isTaggingTestRunning || !canRunTaggingTest)
+            settingsGroupedInteriorDivider
 
-        taggingTestPhaseRows
+            SettingsModelActionRow(
+                title: "Test model",
+                iconName: "play.fill",
+                iconTint: AppPalette.textPrimary,
+                foreground: AppPalette.textPrimary,
+                disabled: isTestRunning || !canRunTest,
+                action: onTest
+            )
+            .padding(.horizontal, SettingsCardCell.horizontalPadding)
 
-        if ModelManager.hasTaggingBookmark {
-            Button("Forget tagging model", role: .destructive) {
-                ModelManager.clearTaggingSelection()
-                taggingTestPhase = .idle
-                showTaggingTestResponse = false
-                refreshSelectionState()
+            if case .idle = testPhase {
+                EmptyView()
+            } else {
+                settingsGroupedInteriorDivider
+                testRows()
+                    .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                    .padding(.vertical, SettingsCardCell.verticalPadding)
+            }
+
+            if hasBookmark {
+                settingsGroupedInteriorDivider
+                SettingsModelActionRow(
+                    title: "Forget model",
+                    iconName: "trash.fill",
+                    iconTint: Color.red,
+                    foreground: Color.red,
+                    disabled: false,
+                    action: onForget
+                )
+                .padding(.horizontal, SettingsCardCell.horizontalPadding)
+            }
+
+            if case .ready = state {
+                settingsGroupedInteriorDivider
+                SettingsModelInfoFooter(
+                    text: role == .primary
+                        ? "Used for summaries, extracts, semantic search, related items, and as fallback for tagging."
+                        : "Used only when automatically tagging items or tapping Regenerate tags. Falls back to primary."
+                )
+                .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                .padding(.vertical, SettingsCardCell.verticalPadding)
             }
         }
     }
 
-    @ViewBuilder
-    private var primaryModelExpandedStatusRows: some View {
-        switch selectionState {
+    private func modelDisclosureSelectRowTitle(
+        role: ModelDisclosureRole,
+        state: ModelManager.SelectionDisplayState
+    ) -> String {
+        switch state {
         case .noSelection:
-            Text("No primary model selected.")
-                .foregroundStyle(AppPalette.textSecondary)
-        case .ready(let name, let byteString):
-            LabeledContent("Selected file", value: name)
-            LabeledContent("Size", value: byteString)
-        case .missingFile:
-            Text("Primary model file not found")
-                .foregroundStyle(.orange)
-            Text("The file may have moved or been deleted. Choose a new primary model or forget this selection.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
+            return role == .primary ? "Select primary model" : "Select tagging model"
+        case .ready, .missingFile:
+            return "Select different model"
         }
     }
 
-    @ViewBuilder
-    private var taggingModelExpandedStatusRows: some View {
-        switch taggingSelectionState {
-        case .noSelection:
-            Text("No optional tagging model — tags use the primary model.")
-                .foregroundStyle(AppPalette.textSecondary)
-        case .ready(let name, let byteString):
-            LabeledContent("Selected file", value: name)
-            LabeledContent("Size", value: byteString)
-        case .missingFile:
-            Text("Tagging model file not found")
-                .foregroundStyle(.orange)
-            Text("Tagging will use the primary model until you pick a new tagging file or forget this selection.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-        }
-    }
+    private var libraryGroupedSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(title: "Library")
+            settingsGroupedSurface {
+                VStack(spacing: 0) {
+                    NavigationLink {
+                        RecentlyDeletedView()
+                    } label: {
+                        HStack {
+                            Text("Recently Deleted")
+                                .foregroundStyle(AppPalette.textPrimary)
+                            Spacer()
+                            if archivedCount > 0 {
+                                Text("\(archivedCount)")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(AppPalette.textPrimary)
+                                    .padding(.horizontal, 7)
+                                    .frame(minWidth: 24, minHeight: 24)
+                                    .background(AppPalette.surfaceNested)
+                                    .clipShape(Capsule())
+                                    .minimumScaleFactor(0.8)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                        .padding(.vertical, SettingsCardCell.verticalPadding)
+                        .frame(maxWidth: .infinity)
+                    }
 
-    @ViewBuilder
-    private var primaryModelFootnote: some View {
-        switch selectionState {
-        case .noSelection:
-            Text("No primary model selected.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        case .ready:
-            Text("Used for summaries, extracts, Library semantic search, related items, and as fallback for tagging.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-                .padding(.top, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        case .missingFile:
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Primary model file not found")
-                    .foregroundStyle(.orange)
-                Text("The file may have moved or been deleted. Choose a new primary model or forget this selection.")
-                    .font(.footnote)
-                    .foregroundStyle(AppPalette.textSecondary)
+                    settingsGroupedDivider
+
+                    Button {
+                        showResetWebProcessingConfirm = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Reset processing queue")
+                                .font(.body)
+                                .foregroundStyle(AppPalette.textPrimary)
+                                .multilineTextAlignment(.leading)
+                            Text("Clears processing data and retries incomplete items")
+                                .font(.footnote)
+                                .foregroundStyle(AppPalette.textSecondary)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(activeWebProcessingQueueCount == 0 || isResettingWebProcessingQueue)
+                    .opacity((activeWebProcessingQueueCount == 0 || isResettingWebProcessingQueue) ? 0.45 : 1)
+                    .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                    .padding(.vertical, SettingsCardCell.verticalPadding)
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    @ViewBuilder
-    private var taggingModelFootnote: some View {
-        switch taggingSelectionState {
-        case .noSelection:
-            Text("No optional tagging model — tags use the primary model.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        case .ready:
-            Text("Used only when automatically tagging items or tapping Regenerate tags. Falls back to primary.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-                .padding(.top, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        case .missingFile:
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Tagging model file not found")
-                    .foregroundStyle(.orange)
-                Text("Tagging will use the primary model until you pick a new tagging file or forget this selection.")
-                    .font(.footnote)
-                    .foregroundStyle(AppPalette.textSecondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var librarySection: some View {
-        Section {
-            NavigationLink {
-                RecentlyDeletedView()
-            } label: {
-                HStack {
-                    Text("Recently Deleted")
-                    Spacer()
-                    if archivedCount > 0 {
-                        Text("\(archivedCount)")
-                            .font(.caption.weight(.semibold))
+    private var dataGroupedSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(title: "Data")
+            settingsGroupedSurface {
+                VStack(spacing: 0) {
+                    Button {
+                        exportLibraryBackup()
+                    } label: {
+                        Label("Export Library", systemImage: "square.and.arrow.up")
+                            .labelStyle(.titleAndIcon)
                             .foregroundStyle(AppPalette.textPrimary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(AppPalette.surfaceNested)
-                            .clipShape(Capsule())
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                }
-            }
-            Button("Reset pending web item processing") {
-                showResetWebProcessingConfirm = true
-            }
-            .disabled(activeWebProcessingQueueCount == 0 || isResettingWebProcessingQueue)
-        } header: {
-            Text("Library")
-                .font(.title2.bold())
-        } footer: {
-            Text("Clears AI generated meta content and reprocesses any incomplete items in the Library.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-        }
-    }
+                    .buttonStyle(.plain)
+                    .disabled(backupBusy)
+                    .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                    .padding(.vertical, SettingsCardCell.verticalPadding)
 
-    private var backupSection: some View {
-        Section {
-            Button("Export Library Backup") {
-                exportLibraryBackup()
-            }
-            .disabled(backupBusy)
-            Button("Import Library Backup") {
-                requestedImporter = .backup
-            }
-            .disabled(backupBusy)
-        } header: {
-            Text("Backup")
-                .font(.title2.bold())
-        } footer: {
-            Text("Exports active library items only. Archived items are excluded.")
-                .font(.footnote)
-        }
-    }
+                    settingsGroupedDivider
 
-    private var aboutSection: some View {
-        Section {
-            LabeledContent("Version", value: appVersion)
-            LabeledContent("Build", value: build)
-            Text("Phathom keeps your library on this device only.")
-                .font(.footnote)
-                .foregroundStyle(AppPalette.textSecondary)
-        } header: {
-            Text("About")
-                .font(.title2.bold())
-        }
-    }
-
-    private var modelFileInfoSheet: some View {
-        NavigationStack {
-            ScrollView {
-                Text(modelSelectionGuidance)
-                    .font(.body)
-                    .foregroundStyle(AppPalette.textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-            }
-            .scrollContentBackground(.hidden)
-            .background(AppPalette.background)
-            .navigationTitle("Model files")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        showModelSelectionGuidance = false
+                    Button {
+                        requestedImporter = .backup
+                    } label: {
+                        Label("Import Library", systemImage: "square.and.arrow.down")
+                            .labelStyle(.titleAndIcon)
+                            .foregroundStyle(AppPalette.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(backupBusy)
+                    .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                    .padding(.vertical, SettingsCardCell.verticalPadding)
                 }
             }
         }
-        .tint(AppPalette.accent)
+    }
+
+    private var settingsScreenFooter: some View {
+        VStack(spacing: 6) {
+            Text("Phathom v\(appVersion) (\(build))")
+            Text("Your data stays on your device")
+        }
+        .font(.footnote)
+        .foregroundStyle(AppPalette.textSecondary)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 8)
     }
 
     private var importErrorDetailsSheet: some View {
@@ -908,6 +965,124 @@ struct SettingsContent: View {
         ].joined(separator: "\n")
     }
 
+}
+
+private struct SettingsModelIconWell: View {
+    let systemName: String
+    var foreground: Color = AppPalette.textPrimary
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(AppPalette.surfaceNested)
+                .frame(width: SettingsModelIcons.wellDiameter, height: SettingsModelIcons.wellDiameter)
+            Image(systemName: systemName)
+                .font(.system(size: SettingsModelIcons.symbolFontSize, weight: .semibold))
+                .foregroundStyle(foreground)
+                .symbolRenderingMode(.hierarchical)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private enum SettingsModelIcons {
+    static let wellDiameter: CGFloat = 32
+    static let symbolFontSize: CGFloat = 14
+}
+
+private struct SettingsModelActionRow: View {
+    let title: String
+    let iconName: String
+    let iconTint: Color
+    let foreground: Color
+    let disabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 12) {
+                SettingsModelIconWell(systemName: iconName, foreground: iconTint)
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(disabled ? AppPalette.textTertiary : foreground)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.5 : 1)
+        .padding(.vertical, SettingsCardCell.verticalPadding)
+        .accessibilityLabel(title)
+    }
+}
+
+private struct SettingsModelFileInfoBlock: View {
+    let fileName: String
+    let byteString: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Selected file")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+            Text(fileName)
+                .font(.body)
+                .foregroundStyle(AppPalette.textPrimary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(byteString)
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct SettingsModelInfoFooter: View {
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle")
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(AppPalette.textSecondary)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private enum SettingsCardCell {
+    static let horizontalPadding: CGFloat = 16
+    static let verticalPadding: CGFloat = 12
+}
+
+private struct SettingsSectionHeader: View {
+    let title: String
+    var subtitle: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.title2.bold())
+                .foregroundStyle(AppPalette.textPrimary)
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(AppPalette.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
 }
 
 private struct BackupJSONDocument: FileDocument {
