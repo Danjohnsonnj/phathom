@@ -1,6 +1,6 @@
 # UI Design Refresh — Handoff & Brief (Draft)
 
-> **Status:** Design update brief **approved** (client kickoff 2026-05-24). §10 is normative for refresh work. Implement in phases per [§11](#11-phased-rollout--feed-forward); refresh is not complete until all phases ship.
+> **Status:** Design update brief **approved** (client kickoff 2026-05-24). §10 is normative for refresh work. **§12 design system** is required Phase 0 output before screen implementation. Implement in phases per [§11](#11-phased-rollout--feed-forward).
 >
 > **Audience:** UI/UX designer, design-focused agent, or implementer planning a visual/IA refresh.
 >
@@ -72,9 +72,11 @@ flowchart TB
 
 ---
 
-## 3. Design system (shipped)
+## 3. Design system — baseline (shipped)
 
-Defined in [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift) and [`AppAppearance.swift`](../../Phathom/Phathom/Helpers/AppAppearance.swift).
+> **This section is inventory only.** Phase 0 must produce the **complete target design system** in [§12](#12-design-system-specification-required-output). Implementation maps tokens to [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift) and [`AppAppearance.swift`](../../Phathom/Phathom/Helpers/AppAppearance.swift).
+
+Defined today in [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift) and [`AppAppearance.swift`](../../Phathom/Phathom/Helpers/AppAppearance.swift).
 
 | Token | Hex | Usage |
 |-------|-----|--------|
@@ -282,16 +284,25 @@ Minimal: “Saving…” → auto-dismiss. URLs, text, images → shared SwiftDa
 
 ## 9. Deliverables (this refresh)
 
-**Output:** An **updated design brief in this document** (tokens, components, key-frame descriptions, phase notes) — **not** a separate Figma file unless added later.
+**Output:** An **updated design brief in this document** — including a **complete design system** ([§12](#12-design-system-specification-required-output)) — plus phase notes and feed-forward log. **Not** a separate Figma file unless added later.
 
-Per phase, append to §11:
+### Required artifacts
 
-1. Design POV statement + token deltas
-2. Component rules (cards, chips, filters, sections)
-3. Screen-level acceptance notes
-4. Feed-forward decisions for the next phase
+| Artifact | When | Section |
+|----------|------|---------|
+| **Complete design system** | Phase 0 (gate) | §12 — all subsections filled; no TBD |
+| Design POV statement | Phase 0 | §12.1 |
+| Per-phase screen acceptance notes | Phases 1–4 | §11 phase blocks |
+| Feed-forward decisions | End of each phase | §11 log |
+| SwiftUI token mapping notes | Phase 0 + final | §12.15 |
 
-Implementation may proceed directly from the brief into SwiftUI.
+Implementation proceeds from §12 into SwiftUI (`AppPalette`, shared styles, components).
+
+Per phase, also append:
+
+1. Component usage deltas (if any new rules)
+2. Screen-level acceptance checklist
+3. Feed-forward bullets for the next phase
 
 ---
 
@@ -377,19 +388,22 @@ Add New: **web like a reader app**; notes secondary.
 - Bulk select + archive undo ([`library-bulk-selection.md`](library-bulk-selection.md))
 - [`docs/decisions.md`](../decisions.md)
 
+**Design POV must be written explicitly in Phase 0** (see §11) before screen work — one paragraph in §12.1 plus the full design system in §12.
+
 ### Success criteria (client)
 
-Refresh is **not done** until **all phases** (§11) ship. Overall bar:
+Refresh is **not done** until **all phases** (§11) ship **and §12 is complete**. Overall bar:
 
 - **Apple quality** — clean, engaging, sophisticated, focused
 - UX feels **lightweight but appropriate** — not stripped, not heavy
 - Unified **point of view** visible across Library, Detail, Add New, Settings
+- **Complete design system documented** — color, type, spacing, components; implementable without guesswork
 - Power-user flows intact or improved (filter, search, swipe, source read, highlight)
 - No accessibility regression (contrast, Dynamic Type)
 
 ### Deliverable format
 
-**This document** — brief sections updated per phase; no Figma requirement.
+**This document** — §12 design system + phase updates; no Figma requirement.
 
 ---
 
@@ -399,20 +413,260 @@ Phased delivery with **iteration and sign-off per phase** before the next. Each 
 
 | Phase | Focus | Exit criteria |
 |-------|--------|---------------|
-| **0 — POV & tokens** | Design POV paragraph; type scale; spacing; surface/elevation rules; chip/card/snackbar spec | Token sheet + component rules documented below; client OK to proceed |
-| **1 — Library + shell** | Library list, filter bar, search sections, toolbar, tab bar, archive snackbar | Library feels on-POV; feed-forward logged |
-| **2 — Detail restructure** | Section reorder §5.3; source/highlights prominence; visual pass all sections | Detail reader-first; feed-forward logged |
-| **3 — Add New** | Web-first reader capture UX | Capture flow on-POV; feed-forward logged |
-| **4 — Settings alignment** | Settings + Recently Deleted; progressive disclosure polish | Full refresh complete per success criteria |
+| **0 — Design system** | POV + **complete §12** (colors, type, spacing, components) | §12 fully specified; client OK; no screen code until signed off |
+| **1 — Library + shell** | Apply §12 to library list, filters, search, toolbar, tab bar, snackbar | Library on-system; feed-forward logged |
+| **2 — Detail restructure** | §5.3 order + §12 on all detail sections | Detail reader-first; feed-forward logged |
+| **3 — Add New** | Web-first capture using §12 form/button rules | Capture on-system; feed-forward logged |
+| **4 — Settings alignment** | Settings + Recently Deleted; §12 disclosure patterns | §12 reflected in code; success criteria met |
 
-**Agent discretion:** Order is fixed at 0→1→2→3→4; within a phase, component order can flex. Do not skip Phase 0.
+**Agent discretion:** Order is fixed at 0→1→2→3→4. **Do not skip Phase 0.** Phases 1–4 must not invent tokens or component styles outside §12 — propose §12 amendments instead.
 
-### Phase 0 — POV & tokens
+### Phase 0 — Design system
 
-_TBD at implementation kickoff._
+**Gate:** Fill [§12](#12-design-system-specification-required-output) completely before Phase 1.
+
+Deliverables:
+
+1. §12.1 Design POV (one short paragraph + 3–5 design principles)
+2. §12.2–§12.14 — every token and component rule specified with values
+3. §12.15 — mapping to SwiftUI / `AppPalette` / `AppAppearance`
+4. Baseline diff note: what changes vs §3 shipped inventory
+
+_Status: TBD at implementation kickoff._
 
 ### Feed-forward log
 
 | After phase | Decisions for next phase |
 |-------------|-------------------------|
 | _none yet_ | — |
+
+---
+
+## 12. Design system specification (required output)
+
+> **Normative target.** Phase 0 **must** replace every `_TBD_` with concrete values. Phases 1–4 implement this system; they do not redefine it ad hoc.
+>
+> **Format:** Semantic tokens first (e.g. `text.primary`), then hex/pt values, then **Usage** (where applied in Phathom).
+
+### 12.1 Design point of view
+
+_TBD — One paragraph describing the aesthetic thesis. Plus 3–5 numbered principles (e.g. “Content leads chrome,” “Warm dark, not OLED black”)._
+
+### 12.2 Color palette
+
+**Semantic color tokens** (dark mode only):
+
+| Token | Hex / value | Usage |
+|-------|-------------|--------|
+| `background.primary` | _TBD_ (baseline `#252422`) | Screen base |
+| `background.secondary` | _TBD_ | Grouped areas, tab bar |
+| `surface.primary` | _TBD_ (baseline `#403d39`) | Cards, list rows |
+| `surface.secondary` | _TBD_ (baseline `#353330`) | Nested blocks, bulk bar buttons |
+| `surface.inset` | _TBD_ | Text fields, wells |
+| `text.primary` | _TBD_ (baseline `#fffcf2`) | Titles, body |
+| `text.secondary` | _TBD_ (baseline `#ccc5b9`) | Subtitles, metadata |
+| `text.tertiary` | _TBD_ | Timestamps, hints |
+| `text.onAccent` | _TBD_ | Label on accent fills |
+| `accent.primary` | _TBD_ (baseline `#eb5e28`) | CTAs, selected tab, links, highlight rail |
+| `accent.muted` | _TBD_ | Subtle accent tints (optional) |
+| `border.subtle` | _TBD_ | Card strokes, snackbar outline |
+| `chip.meta` | _TBD_ (baseline `#401F12`) | Processing status badge bg |
+| `chip.tag` | _TBD_ (baseline `#0B0A0A`) | Tag pill bg |
+| `status.success` | _TBD_ | Restore, ready indicators |
+| `status.warning` | _TBD_ | Archive swipe, missing model |
+| `status.destructive` | _TBD_ | Delete, forget model |
+| `unread.indicator` | _TBD_ | Library unread dot |
+| `thumbnail.fallback` | _TBD_ | Placeholder thumbnail cycle (see §12.2.1) |
+
+#### 12.2.1 Thumbnail placeholder hues
+
+_TBD — Ordered hex list for deterministic placeholders (baseline in `AppPalette.thumbnailHexCycle`)._
+
+#### 12.2.2 Contrast & accessibility
+
+_TBD — Minimum contrast ratios for `text.primary` on `background.primary`, `text.secondary` on `surface.primary`, accent on surfaces. WCAG AA target for body text._
+
+### 12.3 Typography
+
+**Font:** System (SF Pro) unless POV specifies otherwise.
+
+| Style token | SwiftUI mapping | Size / weight | Line spacing | Usage |
+|-------------|-----------------|---------------|--------------|--------|
+| `type.largeTitle` | `.largeTitle.bold()` | _TBD_ | _TBD_ | Library hero |
+| `type.title` | `.title.bold()` | _TBD_ | _TBD_ | Detail editable title |
+| `type.headline` | `.headline.bold()` | _TBD_ | _TBD_ | Section headers |
+| `type.body` | `.body` | _TBD_ | _TBD_ | Source, summary bullets |
+| `type.subheadline` | `.subheadline` | _TBD_ | _TBD_ | Host, snippets, form labels |
+| `type.subheadline.emphasis` | `.subheadline.weight(.semibold)` | _TBD_ | _TBD_ | Toolbar actions, button labels |
+| `type.caption` | `.caption` | _TBD_ | _TBD_ | Timestamps, badge text |
+| `type.caption.emphasis` | `.caption.weight(.semibold)` | _TBD_ | _TBD_ | Processing chip |
+| `type.footnote` | `.footnote` | _TBD_ | _TBD_ | Snackbar, settings footer |
+
+**Rules:**
+
+- _TBD — Max lines for library title, secondary line, etc._
+- _TBD — Dynamic Type: which styles scale vs cap at `large` accessibility size_
+- _TBD — Markdown body theme reference (`DetailMarkdownTheme`)_
+
+### 12.4 Spacing & layout
+
+**Base unit:** _TBD_ (recommend 4pt grid).
+
+| Token | Value | Usage |
+|-------|-------|--------|
+| `space.xxs` | _TBD_ | Tight inline (chip icon gap) |
+| `space.xs` | _TBD_ | Row internal gaps |
+| `space.sm` | _TBD_ | Card padding compact |
+| `space.md` | _TBD_ | Default card padding, section gap |
+| `space.lg` | _TBD_ | Detail section spacing |
+| `space.xl` | _TBD_ | Screen horizontal margin |
+| `space.screenHorizontal` | _TBD_ (baseline 16) | Scroll content inset |
+| `space.sectionGap` | _TBD_ (baseline 24) | Detail `VStack` spacing |
+| `space.filterBarHeight` | _TBD_ (baseline 72) | Library filter bar |
+
+**Layout rules:**
+
+- _TBD — Library filter column fractions or replacement layout_
+- _TBD — Hero height (baseline 200pt)_
+- _TBD — Thumbnail sizes (library 76pt, etc.)_
+- _TBD — Safe area / tab bar inset for bulk bar and snackbar_
+
+### 12.5 Radius & shape
+
+| Token | Value | Usage |
+|-------|-------|--------|
+| `radius.card` | _TBD_ (baseline 14 continuous) | Content cards, snackbar |
+| `radius.chip` | _TBD_ | Capsule / filter value |
+| `radius.button` | _TBD_ | Primary/secondary buttons |
+| `radius.thumbnail` | _TBD_ | Library/detail thumbnails |
+| `radius.sheet` | _TBD_ | Sheets (system default or custom) |
+
+### 12.6 Elevation & surfaces
+
+Dark UI uses **surface hierarchy**, not shadows.
+
+| Level | Token | Rule |
+|-------|-------|------|
+| 0 | `background.primary` | Full bleed |
+| 1 | `surface.primary` | Cards on background |
+| 2 | `surface.secondary` | Nested inside cards |
+| 3 | `surface.inset` | Inputs, wells |
+
+_TBD — When to use stroke (`border.subtle`) vs surface step alone._
+
+### 12.7 Buttons
+
+| Variant | Fill | Text | Height / padding | Usage |
+|---------|------|------|------------------|--------|
+| **Primary** | `accent.primary` | `text.onAccent` | _TBD_ | Visit Site, Save |
+| **Secondary** | `surface.secondary` or stroke | `text.primary` | _TBD_ | Summarize again, bulk bar |
+| **Plain / link** | none | `accent.primary` | _TBD_ | Edit, Done, toolbar text |
+| **Destructive** | none or tinted fill | `status.destructive` | _TBD_ | Archive, Forget model, Delete |
+| **Icon** | none | `accent` or `text.secondary` | _TBD_ | Play kickoff, gear, share |
+
+**States:** _TBD — disabled opacity, pressed scale/opacity (if any)._
+
+**Minimum touch target:** _TBD_ (recommend 44pt).
+
+### 12.8 Chips & badges
+
+| Component | Shape | Colors | Typography | Notes |
+|-----------|-------|--------|------------|--------|
+| **Processing status** | Capsule | `chip.meta` + icon | `type.caption.emphasis` | Keep granular labels §4 |
+| **Filter value** | Capsule | _TBD_ | _TBD_ | LibraryFilterBar trigger |
+| **Tag** | Capsule / rounded rect | `chip.tag` | _TBD_ | Detail + related sheet |
+| **Unread dot** | Circle 8pt | `unread.indicator` | — | Library row |
+| **Read status swipe** | — | per `ReadStatusPresentation` tints | — | Align with §12.2 status colors |
+
+### 12.9 Cards & list rows
+
+**ContentCardRow:**
+
+- _TBD — Padding, thumbnail size, corner radius, background token_
+- _TBD — Plain vs card chrome (`ContentCardRowChrome`)
+
+**Detail section cards** (summary, highlights):
+
+- _TBD — Padding, radius, optional accent rail (highlights)
+
+**Snackbar (archive undo):**
+
+- _TBD — Match §12.7 secondary + `radius.card` + stroke rule
+
+### 12.10 Form controls
+
+| Control | Spec |
+|---------|------|
+| **Segmented** (read status, Add New type) | _TBD — tint, background, height_ |
+| **TextField** | _TBD — plain style, title field, URL field |
+| **TextEditor** | _TBD — note capture min height, placeholder style |
+| **Picker / popover** | _TBD — filter panels, list row highlight |
+| **DisclosureGroup** | _TBD — Settings model sections (reference pattern) |
+| **Toggle / checkbox** | _TBD — if used |
+
+### 12.11 Navigation chrome
+
+| Element | Spec |
+|---------|------|
+| **Tab bar** | _TBD — background, selected/unselected colors (baseline charcoal / dust / paprika)_ |
+| **Navigation bar** | _TBD — background, title, inline vs large title usage |
+| **Toolbar buttons** | _TBD — Select, Done, Edit placement and style |
+| **Search bar** | _TBD — `.searchable` styling on dark background |
+
+### 12.12 Feedback & motion
+
+| Pattern | Spec |
+|---------|------|
+| **Snackbar** | _TBD — duration, layout (see MainTabView undo)_ |
+| **Alerts / confirmations** | System default; _TBD — tint_ |
+| **Loading / skeleton** | _TBD — Dive deeper placeholders, summary pending |
+| **Motion** | _TBD — source expand chevron; prefer subtle; respect Reduce Motion |
+
+### 12.13 Icons
+
+- **Set:** SF Symbols only.
+- _TBD — Weight rules (semibold for toolbar/chips?)_
+- _TBD — Tab bar icons (baseline: photo.on.rectangle.angled, bubble, plus)
+
+### 12.14 Content-specific patterns
+
+| Pattern | Spec |
+|---------|------|
+| **Hero** | _TBD — height, Visit Site button (§12.7 primary capsule)_ |
+| **Source / WKWebView** | _TBD — inset, selection highlight color_ |
+| **Highlight card** | _TBD — 4pt accent rail, quote vs note typography_ |
+| **Extracts** | _TBD — label/value layout_ |
+| **Empty states** | _TBD — typography, vertical padding_ |
+
+### 12.15 SwiftUI implementation map
+
+| Design token / component | Code target |
+|--------------------------|-------------|
+| Colors | `AppPalette` (+ rename plan if any) |
+| UIKit chrome | `AppAppearance.configureIfNeeded()` |
+| Markdown | `DetailMarkdownTheme` |
+| Shared button styles | _TBD — e.g. `PhathomButtonStyle` enum/file_ |
+| Shared spacing | _TBD — e.g. `PhathomSpacing` enum_ |
+
+**Migration rule:** Phases 1–4 replace hardcoded values in Views with §12 tokens; avoid one-off hex in View files.
+
+### 12.16 Design system completion checklist
+
+Phase 0 is complete only when all are checked:
+
+- [ ] §12.1 POV + principles written
+- [ ] §12.2 All semantic colors defined (+ contrast note)
+- [ ] §12.3 Full type scale + Dynamic Type rule
+- [ ] §12.4 Spacing tokens + key layout constants
+- [ ] §12.5 Radius tokens
+- [ ] §12.6 Surface hierarchy documented
+- [ ] §12.7 All button variants
+- [ ] §12.8 All chip/blob variants
+- [ ] §12.9 Card/row/snackbar rules
+- [ ] §12.10 Form controls used in app
+- [ ] §12.11 Navigation chrome
+- [ ] §12.12 Feedback/motion
+- [ ] §12.13 Icons
+- [ ] §12.14 Content patterns (hero, source, highlights)
+- [ ] §12.15 SwiftUI map agreed
+- [ ] No `_TBD_` remains in §12
