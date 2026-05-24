@@ -265,6 +265,8 @@ struct SettingsContent: View {
         Section {
             DisclosureGroup(isExpanded: $primaryModelDisclosureExpanded) {
                 primaryModelDisclosureContent
+                primaryModelFootnote
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 12, trailing: 0))
             } label: {
                 HStack {
                     Text("Primary model")
@@ -275,12 +277,10 @@ struct SettingsContent: View {
                 }
             }
 
-            primaryModelFootnote
-                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
-                .listRowBackground(Color.clear)
-
             DisclosureGroup(isExpanded: $taggingModelDisclosureExpanded) {
                 taggingModelDisclosureContent
+                taggingModelFootnote
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 8, trailing: 0))
             } label: {
                 HStack {
                     Text("Tagging model (optional)")
@@ -291,9 +291,6 @@ struct SettingsContent: View {
                 }
             }
 
-            taggingModelFootnote
-                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                .listRowBackground(Color.clear)
         } header: {
             Text("AI Models")
                 .font(.title2.bold())
