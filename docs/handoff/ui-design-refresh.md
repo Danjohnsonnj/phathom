@@ -1,6 +1,6 @@
 # UI Design Refresh — Handoff & Brief (Draft)
 
-> **Status:** Design update brief **approved** (client kickoff 2026-05-24). Detail **§5.3 IA reorder** shipped in **`DetailView`**. §10 remains normative for remaining work (Library/shell/Add New/Settings + **§12** design system gate). Implement in phases per [§11](#11-phased-rollout--feed-forward).
+> **Status:** Design update brief **approved** (client kickoff 2026-05-24). Detail **§5.3 IA reorder** shipped in **`DetailView`**. Settings **grouped-card shell** + **AI Models expanded disclosure** shipped in **`SettingsTab`**. **§11 Phase 3 (Add New)** reader-app capture UX shipped in **`AddNewTab`** — not to be confused with **RAG Chat “Phase 3”** elsewhere in this doc ([§5.5](#55-chat-chattab)). Remaining §10 scope: Library/shell, Settings Recently Deleted, **§12** design-system gate. Pragmatic **§11 Phase 3** shipped using §3 baseline + partial §12 backfill ([§11](#11-phased-rollout--feed-forward)); global Phase 0 still required before claiming §12 complete.
 >
 > **Audience:** UI/UX designer, design-focused agent, or implementer planning a visual/IA refresh.
 >
@@ -8,7 +8,7 @@
 
 **Related code:** [`MainTabView.swift`](../../Phathom/Phathom/Views/MainTabView.swift) · [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) · [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) · [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) · [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) · [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
 
-**Visual references (may be stale):** [main-screen.PNG](../assets/main-screen.PNG) · [detail-screen.PNG](../assets/detail-screen.PNG)
+**Visual references (may be stale):** [main-screen.PNG](../assets/main-screen.PNG) · [detail-screen.PNG](../assets/detail-screen.PNG). Add New mock PNGs [`19-add-new-sheet-web.png`](../assets/ui-refresh/19-add-new-sheet-web.png) · [`20-add-new-sheet-note.png`](../assets/ui-refresh/20-add-new-sheet-note.png) superseded by shipped **`AddNewTab`** UI (client-provided screenshot is normative alongside §5.4 below).
 
 ---
 
@@ -104,6 +104,10 @@ Defined today in [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.s
 | Tag chips + flow | `TagChipsView.swift`, `FlowLayout.swift` |
 | Thumbnail fallback | `ThumbnailFallback.swift` |
 | Markdown theme | `DetailMarkdownTheme.swift` |
+| Settings section header | `SettingsSectionHeader` in `SettingsTab.swift` |
+| Settings grouped card surface | `settingsGroupedSurface` in `SettingsTab.swift` |
+| Settings model disclosure (expanded) | `modelDisclosureExpandedContent` + helpers in `SettingsTab.swift` |
+| Add New capture shell | [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) — grouped capture card + bottom pill mode bar + §5.4 |
 
 ---
 
@@ -208,13 +212,54 @@ Category display: [`CategoryDisplayFormatter.swift`](../../Phathom/PhathomCore/S
 
 **Rationale:** Reader-first — source and annotation before metadata and AI synthesis. Note `.note` body only under Source Content (no separate “Note” card).
 
-### 5.4 Add New (`AddNewTab`)
+### 5.4 Add New (`AddNewTab`) — shipped (§11 Phase 3)
 
-**Primary use:** reader-app pattern — **Web URL capture first**; Notes secondary. Media is **not** a design priority (implementation incomplete).
+**Normative UI** (implement from [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift); client screenshot + this section win over stale PNG mocks).
 
-Target feel: fast URL paste + save; minimal chrome; reader-app adjacency (Matter / Instapaper), not a heavy form. Returns to Library on success (current behavior unless phase notes say otherwise).
+**Shell**
 
-**Refresh priority:** High — same phase family as Library/Detail polish.
+- Background: `AppPalette.background`; navigation bar **hidden**; no system `"Add new"` title.
+- Horizontal inset **16pt**; vertical block spacing ~**24pt** between header, capture card, CTA, hint.
+- **Header:** **`Save`** `.largeTitle.bold()` · **`Add to your library`** `.subheadline`, `AppPalette.textSecondary`.
+
+**Capture card**
+
+- Outer fill `AppPalette.surface`, **14pt** continuous corner radius (**match** grouped-card language in Settings).
+- Internal padding **16pt**.
+- **Mode label row:** **28pt** circle, accent-tint wash (`accent` opacity ~0.22) + SF Symbol (`link` · `doc.text` · `photo`) · uppercase **accent** caption: **PASTE URL** / **WRITE NOTE** / **CHOOSE PHOTO** (tab bar still says Add new **Photo**, not legacy “Media”).
+- **Inset wells:** `AppPalette.surfaceNested`, corner radius ~**11pt**, inner padding ~**14pt**.
+- **Field order:**
+  - **Web:** URL `TextField` (placeholder `https://...`; URL keyboard) → optional **`Custom title (optional)`** with plain text + divider underline (`textTertiary` ~0.45 opacity divider).
+  - **Note:** same optional title line **above** body → **`TextEditor`** min height ~**180pt**; tertiary placeholder overlay when empty (*Write or paste Markdown…*) · `scrollContentBackground(.hidden)`.
+  - **Photo:** **`PhotosPicker`** row + optional thumbnail preview below (max ~**220pt** height, clipped to ~**11pt** radius), then optional **`Custom title (optional)`** underline field.
+
+**Primary CTA**
+
+- Label **Save to Library** + **`arrow.right`**, `.body.semibold`.
+- Height **50pt**, **14pt** continuous corner radius.
+- **Disabled** when mode-required input missing: fill `surfaceNested`, label `textSecondary` (**Web**: URL empty trim; **Note**: body empty trim; **Photo**: no JPEG). **Invalid URL** stays **enabled** (non-empty trim) → error alert on tap.
+- **Enabled:** fill **`AppPalette.accent`**, label **`AppPalette.textPrimary`** (baseline until §12.7 `text.onAccent` resolves).
+
+**Hint footnote** (footnote, `textTertiary`, centered)
+
+- Web: *We'll fetch the article and process it with AI*
+- Note: *We'll index your note and process it with AI*
+- Photo: *We'll analyze the photo and process it with AI*
+
+**Bottom pill mode bar** (`safeAreaInset` above tab bar)
+
+- Outer **`surface`** fill, capsule corner radius ~**26pt**, horizontal inset **16pt**, inner gutter ~**4pt**.
+- **Segments:** `HStack` of **Button**s (icons `link`, `doc.text`, `photo` + titles **Web**, **Note**, **Photo**) — selected segment background **`surfaceNested`**, **`textPrimary`**; unselected **`textSecondary`**.
+
+**Post-save**
+
+- **No** success alert. On success (**web**, **note**, **media**): full form reset (including **`captureMode` → `.web`**) → **`selectedTab = Library` (0)**. Errors: existing **`Could not save`** alert.
+- **`ShareCapture.insertMediaItem`** unchanged (already **`save()`s**); callers must not duplicate save/notifier.
+- **`onChange(of: captureMode)`** clears photo picker + preview + JPEG buffers.
+
+**Data / pipeline:** unchanged from pre-refresh (**`titleUserSet`**, `ContentKind`, `BackgroundPipeline.schedule*`).
+
+**Deferred / non-goals:** Photo capture **behavior** (`ContentKind.media`) still placeholder pipeline vs web/note; **visual** parity shipped per mirror-card decision.
 
 ### 5.5 Chat (`ChatTab`)
 
@@ -224,16 +269,52 @@ Placeholder: *“Deep Dive coming in a future update.”*
 
 ### 5.6 Settings (`SettingsContent`)
 
-Form sections:
+**Layout:** `ScrollView` with grouped cards on `AppPalette.background` (not `Form`). Screen horizontal inset 16pt; section gap 24pt; card corner radius 14pt continuous.
 
 | Section | Contents |
 |---------|----------|
-| AI Models | Primary + optional tagging GGUF; file pickers, test, health indicators |
-| Library | Recently Deleted (count badge), reset web processing queue |
-| Backup | Export / import JSON |
-| About | Version, build, privacy line |
+| **AI Models** | `DisclosureGroup` rows for Primary + Tagging (optional); see below |
+| **Library** | Recently Deleted (count badge capsule), Reset processing queue (title + footnote, disabled when queue empty) |
+| **Data** | Export Library / Import Library (`Label` + SF Symbol rows) |
+| **Footer** | Version, build, privacy line |
 
-**Recently Deleted:** archived list, 48h countdown, swipe restore/delete, rows open Detail.
+**Recently Deleted:** archived list, 48h countdown, swipe restore/delete, rows open Detail — *visual alignment with grouped-card shell pending Phase 4*.
+
+#### AI Models — collapsed header (shipped)
+
+Each row: semibold title · trailing `modelSelectionIndicator` (green checkmark / empty circle / orange warning) · system disclosure chevron.
+
+- Primary: **Primary model**
+- Tagging: **Tagging model** + **(optional)** in secondary color
+
+Auto-expand: Primary expands when `.noSelection` or `.missingFile`; Tagging expands only on `.missingFile`.
+
+#### AI Models — expanded disclosure (shipped)
+
+Shared layout via `modelDisclosureExpandedContent` for Primary and Tagging. **Collapsed headers unchanged** when expanding.
+
+**Ready state row order:**
+
+1. **Selected file block** — `"Selected file"` (footnote secondary) · filename (body, 2-line limit) · size (footnote secondary)
+2. **Select different model** — 32pt `surfaceNested` icon well · `arrow.down.doc.fill` · accent label
+3. **Test model** — icon well · `play.fill` · primary label; disabled while running or when test unavailable
+4. **Test progress** (when non-idle) — existing running / success / failure UI
+5. **Forget model** (when bookmark exists) — icon well · `trash.fill` · red label
+6. **Info footer** (ready only) — `info.circle` + footnote secondary role copy:
+   - Primary: *Used for summaries, extracts, semantic search, related items, and as fallback for tagging.*
+   - Tagging: *Used only when automatically tagging items or tapping Regenerate tags. Falls back to primary.*
+
+**Edge states (expanded interior):**
+
+| State | Top block | Select row label | Forget | Info footer |
+|-------|-----------|------------------|--------|-------------|
+| `.noSelection` | Existing no-selection copy | Select primary model / Select tagging model | Hidden | Omitted |
+| `.ready` | File info block | Select different model | When bookmarked | Role copy above |
+| `.missingFile` | Orange title + existing detail copy | Select different model | When bookmarked | Omitted |
+
+**Removed:** “About model files” row and guidance sheet (role copy lives in ready-state info footer).
+
+**Unchanged behavior:** GGUF file importer, model test runners, forget handlers, `ModelManager` selection state.
 
 ### 5.7 Share extension (`PhathomShare`)
 
@@ -263,8 +344,8 @@ Minimal: “Saving…” → auto-dismiss. URLs, text, images → shared SwiftDa
 | **Overall POV** | Clean and task-focused but **generic** — reads as incremental/computer-built, not a unified aesthetic vision | Define a **design point of view** first (tokens, type, spacing, card language), then apply consistently |
 | Library chrome | Large title + 3 filter columns + search + sections | Light IA + POV-aligned components; no functional change to filters/search |
 | Detail (visual only) | §5.3 **IA shipped** — tokens/layout still baseline `AppPalette` | Apply §12 to Detail surfaces when Phase 0 completes |
-| Add New | Standard `Form` | Reader-app capture UX; web-first |
-| Settings | Dense model/backup copy | **Visual alignment only**; progressive disclosure (show what’s needed, expand for context) — no model UX or copy model changes |
+| Settings (AI Models disclosure) | — | **Shipped** — expanded interior per §5.6 |
+| Settings (Recently Deleted + §12 pass) | Grouped shell done; RD view baseline | Visual alignment; inherit grouped-card + disclosure patterns |
 | Chat tab | Placeholder | Keep as-is |
 | Tags vs categories | Two org concepts | **No copy or model changes** — distinguish via layout/hierarchy only if needed |
 | Mockups | Phase 1 PNGs outdated | Brief + implemented UI supersede PNGs |
@@ -325,8 +406,8 @@ Per phase, also append:
 - Chat / Deep Dive implementation (placeholder tab only).
 - Light mode — **dark-only**, refined palette.
 - Settings as tab; gear on Library stays.
-- Model picker **logic/copy** changes — alignment and disclosure only.
-- Media capture UX priority (implementation not done).
+- Model picker **logic** changes — alignment and disclosure only. **Expanded disclosure copy** refreshed per design (§5.6); collapsed headers and picker behavior unchanged.
+- **Richer Photo / `.media` processing** (beyond save + thumbnail) remains lower priority vs web/note pipelines. **`AddNewTab`** shipped **visual** parity with web/note (**§11 Phase 3**).
 - Cloud, accounts, sync UI.
 
 ### Target user & primary jobs-to-be-done
@@ -354,9 +435,9 @@ Add New: **web like a reader app**; notes secondary.
 |---------|----------|--------|
 | **Library** | High | POV + light IA; address “generic” feel via unified components |
 | **Detail** | Medium–High | IA done (§5.3); **§12 polish** pending Phase 0 |
-| **Add New** | High | Reader-app web capture; notes secondary |
+| **Add New** | **Shipped** | Reader-app **`AddNewTab`** (**§11 Phase 3** — **§5.4**) |
 | **Main shell** | Medium | Tab bar, snackbar, nav chrome |
-| **Settings / Recently Deleted** | Medium | Visual alignment; **progressive disclosure** pattern (match recent Settings improvements) |
+| **Settings / Recently Deleted** | Medium | Grouped shell + AI Models disclosure **shipped** (§5.6); Recently Deleted visual pass + §12 tokens remain |
 | **Chat** | None | Placeholder only |
 | **Share extension** | Out of scope | |
 
@@ -368,7 +449,7 @@ Add New: **web like a reader app**; notes secondary.
 | References | Apple-native + reader apps; agent proposes cohesive POV |
 | Processing UX | Keep granular status chips |
 | Tags vs categories | Same functionality; hierarchy/layout only if helpful — **no new copy** |
-| Settings | Progressive disclosure — relevant info first, expand for detail |
+| Settings | Progressive disclosure — relevant info first, expand for detail (**AI Models expanded interior shipped** §5.6) |
 
 ### IA decisions (locked)
 
@@ -416,8 +497,8 @@ Phased delivery with **iteration and sign-off per phase** before the next. Each 
 | **0 — Design system** | POV + **complete §12** (colors, type, spacing, components) | §12 fully specified; client OK; no screen code until signed off |
 | **1 — Library + shell** | Apply §12 to library list, filters, search, toolbar, tab bar, snackbar | Library on-system; feed-forward logged |
 | **2 — Detail** | IA §5.3 **done** (`DetailView`) · §12 **visual polish** after Phase 0 | IA done; Detail tokens/layout when §12 applied |
-| **3 — Add New** | Web-first capture using §12 form/button rules | Capture on-system; feed-forward logged |
-| **4 — Settings alignment** | Settings + Recently Deleted; §12 disclosure patterns | §12 reflected in code; success criteria met |
+| **3 — Add New** | Web-first capture (**§11 Phase 3** shipped in **`AddNewTab`** — **`§5.4`**) | Delivered (**feed-forward §11 table**) |
+| **4 — Settings alignment** | Recently Deleted + remaining §12 pass; AI Models disclosure **done** | RD on-system; §12 reflected where applicable |
 
 **Agent discretion:** Order is fixed at 0→1→2→3→4. **Do not skip Phase 0.** Phases 1–4 must not invent tokens or component styles outside §12 — propose §12 amendments instead.
 
@@ -438,11 +519,38 @@ _Status: TBD at implementation kickoff._
 
 Reader-first §5.3 shipped in [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) — canonical order documented in **[§5.3](#53-detail-detailview)**. Remaining Detail work under this refresh is **§12 token/style application** once Phase 0 completes.
 
+### Phase 3 — Add New (**shipped**)
+
+**Delivered in [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift)** (uses §3 `AppPalette` + grouped-card parity with Settings §5.6; partial §12.7 / §12.10 concrete values documented in-place below):
+
+- **`ScrollView` shell** replacing `Form`; hidden nav bar
+- **`Save`** / **Add to your library** editorial header (**not** `"Add new"`)
+- **Capture card:** `surface` 14 continuous; mode header row (**PASTE URL** · **WRITE NOTE** · **CHOOSE PHOTO**); **`surfaceNested`** inset wells (**11** radius typical)
+- **`Save to Library →`** disabled until required-field rule per mode (**§5.4**); **accent** enabled / **nested** disabled
+- Bottom **pill** mode picker (`safeAreaInset`); tab label IA unchanged (**Add new**)
+- **Silent** success → **`selectedTab = 0`** + full form reset; **no** success alert
+- **Photo** replaces **Media** in **UI strings** only (**`CaptureMode`** raw value `.media` unchanged)
+
+_Contrast:_ doc §11 roadmap **Phase 3** here = Add New UX. **`ChatTab` Phase 3** = RAG roadmap only ([§5.5](#55-chat-chattab)) — unrelated.
+
+### Phase 4 — Settings (partial)
+
+**Shipped in [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift):**
+
+- Grouped-card shell (`ScrollView`, `SettingsSectionHeader`, `settingsGroupedSurface`, inset dividers)
+- AI Models `DisclosureGroup` collapsed headers + shared expanded interior (`modelDisclosureExpandedContent`, `SettingsModelActionRow`, `SettingsModelFileInfoBlock`, `SettingsModelInfoFooter`)
+- Library + Data sections on grouped-card pattern
+- Removed “About model files” guidance sheet
+
+**Remaining Phase 4:** Recently Deleted visual alignment; adopt §12 tokens when Phase 0 completes (do not invent ad hoc values).
+
 ### Feed-forward log
 
 | After phase | Decisions for next phase |
 |-------------|-------------------------|
 | **Phase 2** | Detail IA frozen at §5.3; Phase 3+ must not regress scroll order without new decision row. Implement §12 on Detail surfaces with Library/Phase 1. |
+| **§11 Phase 3 (Add New)** | Layout frozen at **§5.4**. Future Library/shell polish or secondary surfaces may reuse **bottom pill segment** + **`surface`** capture card metaphors — align with **`AddNewTab`** shipped tokens (16 inset, **14** radius, **`surfaceNested`** wells) or amend §12 if diverging. |
+| **Settings (AI Models)** | Expanded disclosure layout frozen at §5.6; do not change collapsed header labels/indicators without new decision row. Recently Deleted and other Settings surfaces should inherit grouped-card + 16/12 cell padding. “About model files” sheet removed — role copy only in ready-state info footer. |
 
 ---
 
@@ -562,7 +670,8 @@ _TBD — When to use stroke (`border.subtle`) vs surface step alone._
 
 | Variant | Fill | Text | Height / padding | Usage |
 |---------|------|------|------------------|--------|
-| **Primary** | `accent.primary` | `text.onAccent` | _TBD_ | Visit Site, Save |
+| **Primary** | `accent.primary` | `text.onAccent` (baseline: use `AppPalette.textPrimary` (#fffcf2) on accent until token split) | 50pt height, 14pt continuous radius (**Add New** “Save to Library”) | Visit Site · **Save to Library** (enabled — **§5.4**) |
+| **Primary (disabled)** | `surface.secondary` (baseline `surfaceNested`) | `text.secondary` | same frame | Save to Library when URL/body/image missing (**Add New**) |
 | **Secondary** | `surface.secondary` or stroke | `text.primary` | _TBD_ | Summarize again, bulk bar |
 | **Plain / link** | none | `accent.primary` | _TBD_ | Edit, Done, toolbar text |
 | **Destructive** | none or tinted fill | `status.destructive` | _TBD_ | Archive, Forget model, Delete |
@@ -601,11 +710,12 @@ _TBD — When to use stroke (`border.subtle`) vs surface step alone._
 
 | Control | Spec |
 |---------|------|
-| **Segmented** (read status, Add New type) | _TBD — tint, background, height_ |
-| **TextField** | _TBD — plain style, title field, URL field |
-| **TextEditor** | _TBD — note capture min height, placeholder style |
+| **Segmented** (Detail **read status** only — system control) | _TBD_ |
+| **Add New mode bar** (**not** system `UISegmentedControl`) | **§5.4** — outer fill `AppPalette.surface`; inner selected segment `surfaceNested`; ~**52pt** total height (typical — `AddNewTab`); **26pt** continuous outer radius; **`HStack` + `Button`**; icons `link` · `doc.text` · `photo`; selected `text.primary` / unselected `text.secondary` |
+| **TextField** (Add New capture) | **URL:** plain in `surfaceNested` well (**11pt** radius), placeholder `https://...`, `.URL`; **Optional title:** plain + **1pt** divider (~`textTertiary` @ ~0.45), placeholder **`Custom title (optional)`** |
+| **TextEditor** (Add New note capture) | `surfaceNested` well; min height ~**180**; tertiary placeholder overlay empty state; **`scrollContentBackground(.hidden)`** |
 | **Picker / popover** | _TBD — filter panels, list row highlight |
-| **DisclosureGroup** | _TBD — Settings model sections (reference pattern) |
+| **DisclosureGroup** (Settings AI Models) | Collapsed: semibold row label + trailing status icon + chevron. Expanded interior: full-width dividers; 16pt horizontal / 12pt vertical cell padding; state block → icon action rows → optional test block → optional forget → ready-only info footer. Icon wells: 32pt circle, `surfaceNested`. Select `arrow.down.doc.fill` accent; Test `play.fill` primary; Forget `trash.fill` red. Reference: §5.6, `SettingsTab.swift`. |
 | **Toggle / checkbox** | _TBD — if used |
 
 ### 12.11 Navigation chrome
@@ -613,9 +723,10 @@ _TBD — When to use stroke (`border.subtle`) vs surface step alone._
 | Element | Spec |
 |---------|------|
 | **Tab bar** | _TBD — background, selected/unselected colors (baseline charcoal / dust / paprika)_ |
-| **Navigation bar** | _TBD — background, title, inline vs large title usage |
-| **Toolbar buttons** | _TBD — Select, Done, Edit placement and style |
-| **Search bar** | _TBD — `.searchable` styling on dark background |
+| **Navigation bar** | _TBD — background, title, inline vs large title usage_ |
+| **Add New** | Toolbar **hidden**; editorial **`Save`** lives in **`ScrollView`** (**§5.4**) |
+| **Toolbar buttons** | _TBD — Select, Done, Edit placement and style_ |
+| **Search bar** | _TBD — `.searchable` styling on dark background_ |
 
 ### 12.12 Feedback & motion
 
@@ -650,7 +761,9 @@ _TBD — When to use stroke (`border.subtle`) vs surface step alone._
 | UIKit chrome | `AppAppearance.configureIfNeeded()` |
 | Markdown | `DetailMarkdownTheme` |
 | Shared button styles | _TBD — e.g. `PhathomButtonStyle` enum/file_ |
-| Shared spacing | _TBD — e.g. `PhathomSpacing` enum_ |
+| Shared spacing | _TBD — e.g. `PhathomSpacing` enum_ (Settings uses local `SettingsCardCell`: 16h / 12v) |
+| Settings grouped cards | `SettingsTab.swift` — `settingsGroupedSurface`, `SettingsSectionHeader`, model disclosure helpers |
+| Add New capture | **`AddNewTab.swift`** — §5.4 / §11 Phase 3 (**16** inset, **`surface`** + **`surfaceNested`** wells **11** radius, **`safeAreaInset`** mode pill) |
 
 **Migration rule:** Phases 1–4 replace hardcoded values in Views with §12 tokens; avoid one-off hex in View files.
 
