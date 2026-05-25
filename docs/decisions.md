@@ -1,12 +1,35 @@
 # Phathom — Decision Log
 
-Running record of architectural and product decisions. Every phase appends here. When starting a new phase, read this entire file before beginning work.
+Append-only record of architectural and product decisions agents must preserve.
+
+**Authority:** **`source code`** **>** **`docs/decisions.md`** **>** **`docs/handoff/`** (active specs) **>** **`README.md`**. Historical material lives in [`archive/`](archive/); agents do not bootstrap from archived docs (see [`AGENTS.md`](../AGENTS.md)).
+
+---
+
+## Phase column convention
+
+Historical rows retain **Pre**, **1**, **2**, or **1–2**. **New rows** append with **Phase** **`RAG`**, **`UI`**, or **`Infra`** (or **`Pre`** if genuinely pre-scope).
+
+---
+
+## Active invariants index
+
+- **Privacy:** Local-only; no CloudKit / sync (`ContentItem`, etc.).
+- **Schema highlights:** JSON strings for summaries/extract fields; granular `processingStatus`; `Category` relational; **`sourceMarkdown`** + UTF-16 **`Highlight`** anchors; backup envelope **v3** + optional **`categoryName`** per item (`LibraryBackupService`).
+- **Inference:** Sole engine **Llama.cpp** via vendored xcframework; serialized **`withSession`**; optional **tagging GGUF** with primary fallback; **KV prefix reuse** for summarize/extract path; Llama‑3-ish chat templates.
+- **Pipeline / ingest:** GGUF **security-scoped bookmarks**; offline-tolerant web pending; **`MainContentExtractor`** for generic HTML; **`sourceMarkdown`** cap; **`BGProcessingTask` `requiresExternalPower = false`** for analyze (revisit only if jetsam/thermal warrants).
+- **UI / Library:** **`ReadStatus`** + filters; **`LibrarySearchService`** **`filterCategory`**; granular **`ProcessingStatusPresentation`**; Mail-style swipe read-state; archive = soft-delete **48h** + Spotlight de-index/re-index; **`phathomDidArchiveItem`** batch undo — see [`library-bulk-selection.md`](handoff/library-bulk-selection.md).
+- **Archive / recovery:** Undo snackbar + Recently Deleted perf pattern; archiving **cancels in-flight pipeline** slices; **`PipelineWorkGate.performActiveWebQueueReset`** rules.
+- **Spotlight:** Tag keywords only (**category omitted** deliberately); **`titleUserSet`** preserves user titles.
+
+---
+
+## Decision log
 
 | Date | Decision | Rationale | Phase |
 |------|----------|-----------|-------|
 | 2026-05-01 | App name is **Phathom** | Mockups used "LinkSavr" as a placeholder; repo name is canonical | Pre |
 | 2026-05-01 | **Local-only forever** — no CloudKit, no sync | Simplifies schema (no conflict resolution, no blob size limits), aligns with privacy-first brief | Pre |
-| 2026-05-01 | AI engine **TBD** — evaluate Apple FoundationModels vs Llama.cpp in Phase 2 | Both have trade-offs (bundle size vs device requirement); need on-device benchmarks before committing | Pre |
 | 2026-05-01 | Delivery is **3 phases**: UI shell → pipeline → RAG chat | De-risks by proving UI/data model before investing in AI integration | Pre |
 | 2026-05-01 | **Remove FAB** from library screen; Add New tab is the sole capture entry point | Mockup showed both FAB and tab, which is redundant; one path reduces confusion | Pre |
 | 2026-05-01 | `summaryBullets` and `extracts` stored as **JSON strings** on ContentItem, not as separate model relationships | SwiftData relationships for variable-length structured data add complexity with no query benefit; Codable helpers keep it clean | Pre |
@@ -37,8 +60,6 @@ Running record of architectural and product decisions. Every phase appends here.
 | 2026-05-08 | **Library backup/restore contract (JSON; introduced as v2)** | Settings adds export/import for library recovery after reinstall. Export includes **non-archived `ContentItem` rows only** with full field fidelity, tag relationships, and per-item **`highlights`** as **`HighlightRecord`** (`id`, `createdAt`, `sourceMarkdownOffset`, `sourceMarkdownLength`, `quotedText`, `userNote?`). Archived items excluded by policy. File format is versioned JSON (`formatVersion`, `exportedAt`, optional `appBuild`, `items[]`) for forward compatibility. **Import** accepts `formatVersion` **≤** `LibraryBackupService.currentFormatVersion` (v1 files decode with `highlights` defaulting to `[]`); newer versions reject with `unsupportedFormatVersion`. Import validates schema, required fields, enum values, and duplicate IDs before write. Conflict handling: **Replace** (delete all existing + archived library items, then import) or **Merge** (keep existing/archived, insert only records with new `ContentItem.id`, skip duplicates). Errors surface copyable diagnostics for debugging. **Note:** envelope **`formatVersion`** advanced since this row (**v3** adds optional **`categoryName`** per item — see **2026-05-16 Library backup v3**); importer ceiling tracks **`LibraryBackupService.currentFormatVersion`**. | 2 |
 | 2026-05-08 | **User-facing read status (`new` / `read` / `filed`)** | New `ReadStatus` enum (PhathomCore) is stored on `ContentItem.readStatus: String` (default `"new"`), distinct from `ProcessingStatus`. **Migration**: defaulted scalar property — SwiftData lightweight migration backfills existing rows to `"new"` on next open; no `VersionedSchema` required, "Clear Library" debug remains as fallback. **UI**: **`LibraryFilterBar`** exposes **Type** (`ContentKind` + All), **Status** (`ReadStatus` + All), and **Category** (All / Uncategorized / structural **`Category`**); capsule menus thread filters through **`LibrarySearchService`** (`filterKind`, `filterStatus`, `filterCategory`). **Interaction**: Mail-style **leading swipe** on each row reveals exactly the **two non-current statuses** as buttons (icons/tints from `ReadStatusPresentation`), so a single gesture can jump from any state to any other. Trailing swipe still archives unchanged. **Indicator**: `ContentCardRow` shows a small accent dot beside the title for `.new` items (Mail-style unread cue). Status changes are user-initiated only — Detail open does **not** auto-mark `.read`. Filter selection is intentionally not persisted across launches. | 2 |
 | 2026-05-12 | **Bulk Library triage + batch archive undo** | Library **Select** mode + `List` multi-select applies `ReadStatus` or archive to many items with **one save** (and one `LibraryContentChangeNotifier` fire) per action where specified. **`phathomDidArchiveItem`**: primary payload **`itemIDs`** as `[String]` UUID strings (plist-safe); **`MainTabView`** parses `itemIDs` first, else falls back to legacy **`itemID`** (`UUID`). Single-item posts may mirror `itemID` for compatibility. **Undo** snackbar restores **entire last batch** within the same ~3s window; consecutive archives replace the batch (unchanged single-action semantics, scaled up). Spec: [`docs/handoff/library-bulk-selection.md`](handoff/library-bulk-selection.md). | 2 |
-| 2026-05-14 | ~~**Highlight anchors + stripper version**~~ | Superseded by **2026-05-15** WKWebView + sourceMarkdown anchors. | 2 |
-| 2026-05-14 | ~~**Source Content: UIKit attributed plain**~~ | Superseded by **2026-05-15** WKWebView + frozen HTML at ingest. | 2 |
 | 2026-05-15 | **Optional tagging GGUF + primary fallback** | Settings adds an optional second security-scoped bookmark (`phathom.selectedGGUFBookmark.tagging`). **`SharedLlamaInference.withSession(role: .taggingPreferred)`** prefers that file for **`tagsFromDerived`**; if the bookmark is missing, stale, unreachable, or **`loadModel`** fails, inference **falls back silently** to the primary bookmark (same as single-model behavior). **Summarize/extract** stay on **`role: .primary`**. **Library Dive deeper + detail related-by-tags Llama expansion** (`TagRelationService` via **`LibrarySearchService` / `RelatedItemsService`**) remain **primary-only**. When primary and tagging resolve to different paths, the pipeline **unloads between** analyze and tagging (no concurrent dual-load). | 2 |
 | 2026-05-15 | **Highlight anchors in stored `sourceMarkdown` (UTF-16)** | `Highlight.sourceMarkdownOffset` / `sourceMarkdownLength` are UTF-16 offsets into the **canonical stored** `sourceMarkdown` (trimmed once at ingest in `BackgroundPipeline`). Dropped `markdownStripperVersion` — anchors no longer depend on stripper; highlight wipe on upgrade via `PhathomModelContainer.wipeHighlightsOnceIfNeeded`. `MarkdownStripper` / `strippedSourceText` remain for LLM/search/Spotlight only. | 2 |
 | 2026-05-15 | **Source Content: WKWebView + frozen HTML at ingest** | **Problem**: SwiftUI `Markdown` has no selection range API; inline highlight create requires layout-owning surface. **Approach**: `SourceContentIndexer` (PhathomCore) parses `sourceMarkdown` with `swift-markdown` at ingest and emits `sourceContentHTML` with `<span data-md-start="N" data-md-end="M">` wrapping each visible text leaf (UTF-16 offsets into stored markdown). `HighlightableMarkdownWebView` loads this HTML in WKWebView; JS (`selectionchange` + `phathomSelectionPayload`) computes merged span ranges for user selection; `UIEditMenuInteraction` adds **Highlight** action from cached payload (no async JS in `menuFor`). Overlays (`phathomApplyHighlights`) wrap matching spans in `<mark>` on `didFinish`; tap posts UUID via message handler. **Fallback**: items without `sourceContentHTML` show read-only `Markdown` view. CSS theme ported from `AppPalette` (dark mode). Resize highlights out of v1 scope. **Backup**: highlights ship from envelope **v2** onward; **v3** adds optional **`categoryName`** — see Library backup rows in this file. | 2 |
@@ -48,3 +69,15 @@ Running record of architectural and product decisions. Every phase appends here.
 | 2026-05-22 | **Archive cancels in-flight pipeline work** | Archiving sets idle **`.failed`** for non-terminal rows (clears LLM-derived **summary / extracts / tags** first), clears **`processingDetail`** only for **`.completed`/`.failed`** (e.g. retag in flight). **`ArchiveRetention.notifyProcessingCancelAfterArchiveCommitted`** runs after save and calls **`BackgroundPipeline.cancelProcessing`** when the active slice matches (**`signalCancelInFlight`**). **`BackgroundPipeline`** refetches **`isArchived`** mid-scrape and mid-analyze so archived rows stop receiving writes without overwriting archive-side status. Restore does **not** auto-resume (still **manual play / Detail retry**). | 2 |
 | 2026-05-22 | **`TagRelationService` + detail related sheet parity** | **Shared** inversion, prefix widening, inverted-index adjacent cap (8), **`expandTagsSemantically` + `rankAdjacentItems`** in one primary **`withSession`**. **`LibrarySearchService`** delegates bucket adjacency + **Dive deeper** to it unchanged semantically for library. **Detail tap** (`RelatedItemsSheet`): sections **With this tag** (all exact carriers, excludes source row) + **Related by tags** (sync Dive-deeper-parity anchors; auto Llama refinement with **`rankAdjacentItems` source tags = tapped item’s `tagNames`** vs library’s merged expanded-tag set via enum). Removed old **3-row cap** / skip when exact ≥ **3**. | 2 |
 | 2026-05-22 | **Settings: reset active web processing queue** | **`UserPipelineResetFlag` + `SharedLlamaInference.signalCancelInFlight()`** cooperate with ingest/analyze `cancel`; **`PipelineWorkGate.performActiveWebQueueReset`** rewinds non-archived **web** rows in **`pending`/`scraping`/`embedding`/`summarizing`/`extracting`/`tagging`**: clears **summary/tags/extracts**, **`embedding` + “Preparing analysis…”** when **`rawText` non-empty**, else **`pending` + “Queued for capture”**. Completed/failed/notes/media untouched. **Does not** **`schedule*`** afterward (manual Library play resumes). Checkpoint text **Paused — …** remains possible during cancel **before** bulk rewind. No **`indexInSpotlight()`** on rewind — Spotlight stale until pipeline completes row again (agent-selected simplicity). | 2 |
+
+---
+
+## Appendix — superseded / pre‑build rows
+
+Preserved verbatim for audit trail; **not** authoritative if they conflict rows above.
+
+| Date | Decision | Rationale | Phase |
+|------|----------|-----------|-------|
+| 2026-05-01 | AI engine **TBD** — evaluate Apple FoundationModels vs Llama.cpp in Phase 2 | Both have trade-offs (bundle size vs device requirement); need on-device benchmarks before committing | Pre |
+| 2026-05-14 | ~~**Highlight anchors + stripper version**~~ | Superseded by **2026-05-15** WKWebView + sourceMarkdown anchors. | 2 |
+| 2026-05-14 | ~~**Source Content: UIKit attributed plain**~~ | Superseded by **2026-05-15** WKWebView + frozen HTML at ingest. | 2 |

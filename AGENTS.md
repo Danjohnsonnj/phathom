@@ -11,22 +11,40 @@ You are an expert iOS Engineer specializing in local-first systems and on-device
 - **Inference:** `llama.cpp` via `llama.xcframework` (C++ interop)
 - **Architecture:** Serialized Pipeline (Scrape → Embed → Analyze)
 
+## Source of truth
+
+Agents read **minimal files per task.** Default order:
+
+| Priority | Source | Purpose |
+|:--------:|--------|---------|
+| 1 | **Source code** under `Phathom/` | What shipped — behavior, schema, Swift paths |
+| 2 | **`docs/decisions.md`** | Locked invariants and rationale |
+| 3 | **Active hand-offs** (`docs/handoff/`): **`phase-3-rag-chat.md`**, **`ui-design-refresh.md`**, **`library-bulk-selection.md`** | Scoped specs / UX acceptance |
+| 4 | **`README.md`** | Orientation for humans |
+
+**Historical / completed phase specs:** `docs/archive/` — **opt-in only** (user asks, archaeology after code + decisions, or tracing superseded ideas). **Do not** use archive on cold start, for schema/pipeline/UI truth, or for RAG embedding decisions. If archive contradicts code or live docs → **ignore archive**.
+
+**Conflict resolution:** **Code wins** over all prose. Among docs **`decisions.md` > hand-offs > README**. **Memory (agentmemory) never overrides decisions or code.**
+
 ## Context Entry Points (Read First)
 
 To save tokens, **do not** scan the entire `/Phathom` directory. Use these specific paths:
 
-- **Architectural Truth:** `docs/decisions.md` and `docs/technical-brief.md`.
+- **Decisions / invariants:** `docs/decisions.md` — read indexed sections + matching rows before changing behavior shared across surfaces.
+- **Active scope specs:** [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG Chat — roadmap), [`docs/handoff/ui-design-refresh.md`](docs/handoff/ui-design-refresh.md) (remaining UI polish), [`docs/handoff/library-bulk-selection.md`](docs/handoff/library-bulk-selection.md) (bulk select / undo — shipped).
+- **Historical only:** [`docs/archive/`](docs/archive/) — see **Source of truth** section; not for implementation bootstrap.
 - **Pipeline Logic:** `Phathom/Phathom/Services/BackgroundPipeline.swift` (background/foreground ingest + analyze).
 - **LLM Bridge:** `Phathom/Phathom/Services/SharedLlamaInference.swift` (serialized GGUF session).
 - **UI shell & navigation:** `Phathom/Phathom/Views/` — recall agentmemory **UI** topic first. Tab shell: `MainTabView` (Library | Chat placeholder | Add New); Settings via Library gear → `SettingsContent`. Primary surfaces: `LibraryTab` (`LibraryFilterBar`, **`LibrarySearchService`** filters incl. **`filterCategory`**) → `DetailView` (**`CategoryPicker`** sheets where relevant); capture in `AddNewTab`. Structural categories: **`PhathomCore.Category`**, **`LibraryCategoryFilterStorage`**, **`CategoryDisplayFormatter`**. UI binds SwiftData (`@Query` / `@Bindable`); never calls Llama directly—schedules work via `BackgroundPipeline` and `ProcessingRecovery`.
-- **Roadmap Context:** `docs/handoff/` (Current focus: Phase 2 Pipeline).
+- **Roadmap Context:** **`docs/handoff/`** active files (**RAG Chat** + **UI design refresh**) — see bullets under **Active scope specs** above. Do **not** use **`docs/archive/`** for cold-start reads.
 
 ## Efficiency Rules (Token/Context Management)
 
 1. **Implicit Knowledge:** Assume the `llama.cpp` C API is available via `import llama`. Do not ask to see the header files unless debugging a specific crash.
-2. **Minimalist Reading:** Before modifying UI, only read the relevant `View` and its `Model`. Do not read the entire `App` struct.
-3. **Session Awareness:** Always respect `SharedLlamaInference.withSession`. Never propose parallel LLM calls; they must be serialized to prevent memory corruption.
-4. **Performance Fast-Path:** Be aware of `llama_memory_seq_cp` for KV cache reuse. One article prefill serves Summarize → Tags → Extracts. Maintain this optimization in any pipeline refactors.
+2. **Read code before docs:** Identify the smallest set of `.swift` files for the task, then dip into **`docs/decisions.md`** / hand-offs only where behavior isn’t obvious. **`docs/archive/`** only after code + decisions + active hand-offs fail—and **verify in code before acting**.
+3. **Minimalist Reading:** Before modifying UI, only read the relevant `View` and its `Model`. Do not read the entire `App` struct.
+4. **Session Awareness:** Always respect `SharedLlamaInference.withSession`. Never propose parallel LLM calls; they must be serialized to prevent memory corruption.
+5. **Performance Fast-Path:** Be aware of `llama_memory_seq_cp` for KV cache reuse. One article prefill serves Summarize → Tags → Extracts. Maintain this optimization in any pipeline refactors.
 
 ## Getting Up to Speed (New Session)
 
@@ -41,7 +59,7 @@ To save tokens, **do not** scan the entire `/Phathom` directory. Use these speci
 - **Check Environment:** Verify `Phathom/vendor/llama/llama.xcframework` exists. If not, run `bash scripts/setup-llama-xcframework.sh`.
 - **Build targets:** Use **iPhone 16 Pro or newer** simulator or device in Xcode. For CLI verification, run `bash scripts/build-phathom.sh all` (simulator uses the first available device from a Pro-first list; device build uses `generic/platform=iOS`). The project sets **`EXCLUDED_ARCHS[sdk=iphonesimulator*]=x86_64`** so simulator builds match the arm64-only `llama.xcframework` slices.
 - **Verify GGUF Path:** The app uses security-scoped bookmarks. If testing in Simulator, remember it is **CPU-only**; don't optimize for GPU/ANE performance unless targeting a physical device.
-- **Active Task:** We are currently in **Phase 2 (Pipeline Refinement)**. Phase 3 (RAG/Chat) is a placeholder—do not implement RAG logic unless explicitly directed.
+- **Active Task:** Pipeline + on-device ingest shipped. Remaining roadmap: **RAG Chat** (`docs/handoff/phase-3-rag-chat.md`) and **ongoing UI polish** (`docs/handoff/ui-design-refresh.md`). Do **not** implement RAG or expand Chat tab unless explicitly directed.
 - **Confirm With User:** Indicate understanding by saying "Read and ready" at the beginning of a new session.
 
 ## Agentmemory (long-term context)
@@ -53,7 +71,7 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 ### Agent obligations
 
 1. **Session start:** Silently recall agentmemory for the task domain before broad file reads (e.g. pipeline, llama.cpp, decisions, performance, UI, **versioning**).
-2. **Authority:** `docs/decisions.md` wins over memory. Memory summarizes gist + RECENT rows; read the full file when implementing or when edge cases matter.
+2. **Authority:** **Code** wins over all prose. **`docs/decisions.md`** wins over agentmemory **and** over hand-offs. Memory is a gist only—never overrides decisions or Swift sources. For cross-cutting behavior (inference lifecycle, schema, backup, archive), read the **full** `docs/decisions.md` when implementing or when edge cases matter—not only the index.
 3. **Save after:** architectural decisions, perf root-causes/fixes, and non-obvious constraints the next session must not forget.
 4. **Format saves as bullets**, not pasted doc paragraphs. Tag with concepts (`pipeline`, `KV-cache`, `decisions`, etc.).
 
@@ -67,6 +85,9 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 | Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf section, pipeline metrics logs |
 | Schema | `ContentItem`, **`Category`**, `processingStatus` | `Phathom/PhathomCore/Sources/PhathomCore/` (`Category.swift`, `ContentItem.swift`) |
 | UI shell & pipeline bridge | `UI`, `LibraryTab`, `LibraryFilterBar`, `DetailView`, `CategoryPicker`, `navigation` | `Views/MainTabView.swift`, `Library/`, `Detail/`, `AddNew/`, `Settings/SettingsTab.swift`, `ProcessingRecovery.swift`, `Services/LibrarySearchService.swift` |
+| UI design refresh | `tokens`, `AppPalette`, `IA`, `screens` | [`docs/handoff/ui-design-refresh.md`](docs/handoff/ui-design-refresh.md) — **`code` > decisions > brief** |
+| Bulk library select | batch archive undo, notifications | [`docs/handoff/library-bulk-selection.md`](docs/handoff/library-bulk-selection.md), `MainTabView` |
+| Archived docs (**opt‑in**) | `history`, Phase 1–2 snapshots | [`docs/archive/README.md`](docs/archive/README.md) — read **only** per **Source of truth** rules |
 | Scope | `Phase-3`, `no-RAG`, `guardrails` | `docs/handoff/phase-3-rag-chat.md` |
 | Dev bootstrap | `build`, `xcframework` | `scripts/build-phathom.sh`, `AGENTS.md` |
 | App versioning | `version`, `semver`, `MARKETING_VERSION`, `0.x.y` | `Phathom.xcodeproj/project.pbxproj`, `SettingsTab.swift`, `PhathomShare/Info.plist` |
@@ -84,7 +105,7 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 
 **Cold start (implementation)**
 
-> Resume Phathom. Recall pipeline, decisions, and performance memories. Task: [one sentence]. Read only files needed for this task.
+> Resume Phathom. Recall pipeline, decisions, and performance memories. Task: [one sentence]. Read **Swift sources + `docs/decisions.md` first**; open hand-offs second; **`docs/archive/`** only if explicitly required.
 
 **Planning**
 

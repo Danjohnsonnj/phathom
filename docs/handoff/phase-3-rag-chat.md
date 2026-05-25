@@ -1,6 +1,8 @@
-# Phase 3 Hand-off: RAG Chat + Conversational Discovery (Skeleton — Finalize After Phase 2)
+# Phase 3 Hand-off: RAG Chat + Conversational Discovery (Skeleton — Finalize Before Implementation)
 
-> **Status**: This is a skeleton. Most implementation details depend on Phase 2 outcomes — specifically which AI engine was selected and how embeddings are stored. Sections marked `[TBD after Phase 2]` will be filled in after Phase 2 completes.
+> **RAG embeddings / persistent vector store:** **TBD** — log the chosen approach in [`docs/decisions.md`](../decisions.md) before shipping Phase 3. Do **not** infer embedding stack from archived `technical-brief` prose.
+
+> **Status**: Skeleton spec. Sections marked `[TBD after Phase 2]` assumed Phase 2 was in flight — **Phase 2 is shipped.** Use **source code + [What Exists After Phase 2](#what-exists-after-phase-2)** as the factual baseline before coding.
 
 ## Project Snapshot
 
@@ -10,11 +12,14 @@
 - **Storage**: Local-only — no CloudKit
 - **AI engine**: **Llama.cpp** (sole engine — decided pre-Phase 2, see [docs/decisions.md](../decisions.md))
 
-Read before starting:
-- [docs/decisions.md](../decisions.md) — all prior decisions (including Phase 2 engine choice)
-- [docs/handoff/phase-2-pipeline.md](phase-2-pipeline.md) — what Phase 2 built
-- [docs/handoff/phase-1-ui-shell.md](phase-1-ui-shell.md) — original UI spec
-- [docs/technical-brief.md](../technical-brief.md) — RAG pipeline architecture (section: "The RAG Pipeline for Phathom")
+**Read code first (non-exhaustive):** `Services/BackgroundPipeline.swift`, `Services/SharedLlamaInference.swift`, `Inference/LlamaContentAnalyzer.swift`, `Inference/LlamaCppRuntime.swift`, **`PhathomCore`** models.
+
+Then read:
+- [`docs/decisions.md`](../decisions.md) — invariants spanning all phases
+- **[What Exists After Phase 2](#what-exists-after-phase-2)** (below)
+- **[AGENTS.md](../../AGENTS.md)** — source-of-truth order
+
+Historical phase hand-offs live under [`docs/archive/`](../archive/) — consult **only** per **Source of truth** rules in **`AGENTS.md`**.
 
 ---
 
@@ -24,10 +29,12 @@ Read before starting:
 
 ### Source of truth hierarchy
 
-1. **`docs/decisions.md`** — highest authority. Includes decisions from all prior phases.
-2. **This hand-off document** — defines scope, deliverables, and acceptance criteria.
-3. **Phase 2 hand-off** — describes **`LlamaContentAnalyzer` / `LlamaCppRuntime`**, the BG pipeline, and model lifecycle patterns you must reuse. Do not reinvent these.
-4. **Phase 1 hand-off** — describes the original UI. Library and detail screens are not your concern unless this document explicitly says to modify them.
+1. **Swift source (`Phathom/`)** — shipped behavior beats all prose (especially pipeline + inference APIs).
+2. **`docs/decisions.md`** — product / architecture commitments agents must preserve.
+3. **This hand-off document** — scope, deliverables, acceptance criteria where they do not collide with **1–2**.
+4. **Design / UX refinement:** [`ui-design-refresh.md`](ui-design-refresh.md) when Chat UI touches broader shell patterns — **`code > decisions.md > refresh brief`** for contested visual details outside this spec.
+
+**Do not** treat [`docs/archive/`](../archive/) specs as authoritative for filenames, schema fields, or embedding technology.
 
 ### Behavioral rules
 
@@ -86,7 +93,7 @@ When you believe the work is done:
 
 ### Build and simulator destinations (agents)
 
-Use **iPhone 16 Pro or newer** (simulator or device), matching [phase-2-pipeline.md](phase-2-pipeline.md) § “Build and simulator destinations”. Prefer **`bash scripts/build-phathom.sh all`** for CLI verification.
+Use **iPhone 16 Pro or newer** (simulator or device), matching **`[AGENTS.md](../../AGENTS.md)`** guidance. Prefer **`bash scripts/build-phathom.sh all`** for CLI verification.
 
 ---
 
@@ -97,7 +104,7 @@ Phase 2 (as implemented) adds:
 - **Llama.cpp**: vendored **`Phathom/vendor/llama/llama.xcframework`**, first-party types in **`Phathom/Phathom/Inference/`** (`LlamaCppRuntime`, `LlamaContentAnalyzer`, `LlamaCppBridge`, `GenerationOptions`, `LlamaInferenceError`). Prompts use the GGUF’s **chat template** via **`startTemplatedUserPrompt`** (Llama-3 Instruct–compatible GGUFs expected).
 - **Model management**: **`Services/ModelManager.swift`**, **`Views/Settings/SettingsTab.swift`** (Files picker → bookmark, test, GGUF guidance copy).
 - **Background work**: **`Services/BackgroundPipeline.swift`**, **`Services/WebIngestService.swift`**, **`Services/ThermalMonitor.swift`**. No **embedding vectors** stored yet — **`embedding`** is only a pipeline stage before Llama work.
-- **Spotlight + deep links**: **`Models/ContentItem+Spotlight.swift`**, **`AppIntents/OpenPhathomItemIntent.swift`**, **`Helpers/Notifications+Phathom.swift`**, wired in **`MainTabView`** + **`LibraryTab`** (`NavigationStack` + `NavigationPath`). **Archive**: de-index when soft-deleted; re-index completed items on restore; **BG refresh** purges archives older than 48h (see [phase-2-pipeline.md](phase-2-pipeline.md) §2D).
+- **Spotlight + deep links**: **`Phathom/PhathomCore/Sources/PhathomCore/ContentItem+Spotlight.swift`**, **`Phathom/Phathom/AppIntents/OpenPhathomItemIntent.swift`**, **`Phathom/Phathom/Helpers/Notifications+Phathom.swift`**, wired in **`MainTabView`** + **`LibraryTab`** (`NavigationStack` + `NavigationPath`). **Archive**: de-index when soft-deleted; re-index completed items on restore; **BG refresh** purges archives older than 48h (see **`BackgroundPipeline`** + [`docs/decisions.md`](../decisions.md) archive rows).
 - **Capture**: **`AddNewTab`** persists **`ContentItem`** (web → `pending`; note → `embedding` with `rawText`) and schedules background work. **`PhathomShare`** (share extension) can create **`ContentItem`** records from shared URL / text / image via the app-group SwiftData container.
 - **Recently Deleted**: list UX hardened (`ScrollView` + `LazyVStack`, `fetchLimit`, plain card chrome) — see [docs/debugging/recently-deleted-freeze.md](../debugging/recently-deleted-freeze.md).
 

@@ -1,3 +1,7 @@
+> **Historical document — agents: do not consult unless explicitly needed.**
+> Authoritative sources: **source code**, [`decisions.md`](../decisions.md), [active handoffs](../handoff/).
+> This file may contradict shipped behavior. See [`README.md`](README.md) in this folder.
+
 # 1. SwiftData Schema: The Data Model
 
 We need a structure that links raw content to AI-generated metadata while maintaining a robust "Processing State" to handle background interruptions.
@@ -153,7 +157,7 @@ The analyze pass (summarize, auto-tags, extracts) uses **llama.cpp** with **KV c
 
 ### 7. Archive retention (SwiftData)
 
-`ContentItem` carries **`isArchived`** and **`archivedAt`**. **Foreground** and **`BGAppRefresh`** run a single-query purge of records archived longer than **48 hours**. **Spotlight** entries are removed when archiving and restored when a **completed** item is un-archived. Background **ingest/analyze** skips archived rows. Spec: [docs/handoff/phase-1-ui-shell.md](handoff/phase-1-ui-shell.md), [docs/handoff/phase-2-pipeline.md](handoff/phase-2-pipeline.md) §2D, [docs/decisions.md](decisions.md).
+`ContentItem` carries **`isArchived`** and **`archivedAt`**. **Foreground** and **`BGAppRefresh`** run a single-query purge of records archived longer than **48 hours**. **Spotlight** entries are removed when archiving and restored when a **completed** item is un-archived. Background **ingest/analyze** skips archived rows. Spec: [phase-1-ui-shell.md](phase-1-ui-shell.md), [phase-2-pipeline.md](phase-2-pipeline.md) §2D, [`decisions.md`](../decisions.md).
 
 ### 8. Structural categories & backup (Phase 2)
 
@@ -161,4 +165,4 @@ The analyze pass (summarize, auto-tags, extracts) uses **llama.cpp** with **KV c
 - **Library**: **`LibraryFilterBar`** + **`CategoryPicker`** (app target); browse/search pools filter via **`LibrarySearchService`** (`filterCategory` string token + **`LibraryCategoryFilterStorage`** for Uncategorized sentinel).
 - **Backup**: **`LibraryBackupService`** envelope **`formatVersion` 3** adds optional **`categoryName`** per item; restore normalizes names on import (invalid strings skip assignment).
 
-The pseudocode **`ContentItem`** / **`Tag`** excerpt above is historical; prefer **`docs/decisions.md`** and **`README`** for current schema facts.
+The pseudocode **`ContentItem`** / **`Tag`** excerpt above is historical; prefer **[`docs/decisions.md`](../decisions.md)** and **[README](../../README.md)** for current schema facts.

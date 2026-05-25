@@ -1,3 +1,7 @@
+> **Historical document — agents: do not consult unless explicitly needed.**
+> Authoritative sources: **source code**, [`decisions.md`](../decisions.md), [active handoffs](../handoff/).
+> This file may contradict shipped behavior. See [`README.md`](README.md) in this folder.
+
 # Product Brief: Phathom
 
 Objective:
@@ -42,4 +46,4 @@ A private, local-first iOS "Personal Brain" that captures digital content (links
 
 ## 5. Archive & recovery (soft delete)
 
-**Archive** removes an item from the library immediately (same mental model as delete), with a short on-screen **Undo** and a **Recently Deleted** area under Settings. The app retains the underlying record for **48 hours** from archive time, then **permanently deletes** it. Conversational discovery and the main library **exclude** archived content. Detail: [decisions.md](decisions.md) and [handoff/phase-1-ui-shell.md](handoff/phase-1-ui-shell.md).
+**Archive** removes an item from the library immediately (same mental model as delete), with a short on-screen **Undo** and a **Recently Deleted** area under Settings. The app retains the underlying record for **48 hours** from archive time, then **permanently deletes** it. Conversational discovery and the main library **exclude** archived content. Detail: [`decisions.md`](../decisions.md) and [phase-1-ui-shell.md](phase-1-ui-shell.md).

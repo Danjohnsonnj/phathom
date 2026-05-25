@@ -4,7 +4,7 @@
 >
 > **Audience:** UI/UX designer, design-focused agent, or implementer planning a visual/IA refresh.
 >
-> **Authority:** [`docs/decisions.md`](../decisions.md) wins over this doc; mockup PNGs are reference only where they conflict with shipped UI.
+> **Authority:** For **shipped UI**, **source code wins**, then **[`docs/decisions.md`](../decisions.md)**, then this brief. Mockup PNGs are reference only where they conflict with shipped UI — **do not** read [`docs/archive/`](../archive/) phase specs to discover current layout.
 
 **Related code:** [`MainTabView.swift`](../../Phathom/Phathom/Views/MainTabView.swift) · [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) · [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) · [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) · [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) · [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
 

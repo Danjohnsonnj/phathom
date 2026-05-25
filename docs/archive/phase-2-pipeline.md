@@ -1,3 +1,7 @@
+> **Historical document — agents: do not consult unless explicitly needed.**
+> Authoritative sources: **source code**, [`decisions.md`](../decisions.md), [active handoffs](../handoff/).
+> This file may contradict shipped behavior. See [`README.md`](README.md) in this folder.
+
 # Phase 2 Hand-off: Background Pipeline + Llama.cpp Integration (Skeleton — Finalize After Phase 1)
 
 > **Status**: This is a detailed skeleton. Sections marked `[TBD after Phase 1]` will be filled in once Phase 1 is complete, including exact file paths, patterns observed, and any schema adjustments. The AI engine decision has been **finalized** — Llama.cpp is the sole engine.
@@ -13,9 +17,9 @@
 
 Read before starting:
 - [docs/decisions.md](../decisions.md) — all prior decisions
-- [docs/handoff/phase-1-ui-shell.md](phase-1-ui-shell.md) — what Phase 1 built
-- [docs/product-brief.md](../product-brief.md) — product vision
-- [docs/technical-brief.md](../technical-brief.md) — reference architecture (BG processing, RAG pipeline)
+- [`phase-1-ui-shell.md`](phase-1-ui-shell.md) — what Phase 1 built *(archived; same folder)*
+- [`product-brief.md`](product-brief.md) — product vision *(historical)*
+- [`technical-brief.md`](technical-brief.md) — reference architecture *(historical; RAG stack not authoritative)*
 
 ---
 
@@ -39,7 +43,7 @@ Read before starting:
 - **Embedded Llama.cpp only (Intrai-style).** Link a vendored **`llama.xcframework`** built from upstream **llama.cpp**; use **`import llama`** and a **first-party** Swift bridge in the app target — **no** third-party Swift packages that ship or wrap Llama.cpp (e.g. `mattt/llama.swift`, `pgorzelany/swift-llama-cpp`). Do not add any **other** third-party packages without escalation.
 - **Stay in your phase.** Do not build RAG chat, conversation starters, or any Phase 3 features. The Chat tab remains a placeholder. Do not "prepare for Phase 3" by adding services or abstractions that aren't needed to pass Phase 2's acceptance criteria.
 - **Model lifecycle is critical.** Every code path that loads a llama.cpp model must unload it — including error paths and cooperative cancellation (work exits `SharedLlamaInference.withSession`, which unloads). **`BGProcessingTask` expiration** must not call `unload()` directly: set a cancel flag, call `SharedLlamaInference.signalCancelInFlight()` to stop the decode loop, and let the in-flight `withSession` finish and unload when the session ends. Memory leaks in background tasks cause iOS to kill the app.
-- **After completing work, update the next phase.** Fill in the `[TBD after Phase 1]` sections in this document with actual file paths and patterns. Then fill in the `What Exists After Phase 2` section in [docs/handoff/phase-3-rag-chat.md](phase-3-rag-chat.md). Append any new decisions to [docs/decisions.md](../decisions.md).
+- **After completing work, update the next phase.** Fill in the `[TBD after Phase 1]` sections in this document with actual file paths and patterns. Then fill in the `What Exists After Phase 2` section in [`phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md). Append any new decisions to [`docs/decisions.md`](../decisions.md).
 
 ### Decision framework — handling unknowns
 
@@ -571,15 +575,15 @@ Phase 2 agents **still** must not expand into the items below. Some have since s
 
 ## What’s Next (post–Phase 2 backlog)
 
-Work tracked **after** Phase 2 closure — see [docs/handoff/phase-3-rag-chat.md](phase-3-rag-chat.md) for the main feature spec:
+Work tracked **after** Phase 2 closure — see [`phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md) for the main feature spec:
 
 | Priority | Item | Notes |
 |----------|------|--------|
 | 1 | **Phase 3 — RAG Chat** | Replace Chat tab placeholder; grounded Q&A over saved content; reuse `LlamaContentAnalyzer` / runtime patterns. |
-| 2 | **Chunking + retrieval + embeddings** | Phase 2 left **no embedding persistence** ([decisions.md](../decisions.md)) — Phase 3 requires an **escalation-approved** approach (see technical-brief RAG section). |
+| 2 | **Chunking + retrieval + embeddings** | Phase 2 left **no embedding persistence** ([decisions.md](../decisions.md)) — Phase 3 requires an **escalation-approved** approach (historical discussion in archived [technical-brief.md](technical-brief.md); do not implement from that prose). |
 | 3 | **Detail screen stubs** | e.g. “Read Full Text (AI Parsed)”, “Translate” — still non-functional by design until scoped. |
 | 4 | **`requiresExternalPower` revisit** | Currently `false` per decisions — reconsider only if production shows jetsam / thermal pain. |
-| 5 | **Social ingest maintenance** | Instagram / TikTok markup drift — extend parsers as needed ([social-web-ingest-instagram-tiktok.md](social-web-ingest-instagram-tiktok.md)). Optional future: Instagram transcript via on-device ASR (privacy-gated). |
+| 5 | **Social ingest maintenance** | Instagram / TikTok markup drift — extend parsers in **`WebIngestService`** / related ingest code as needed (no separate hand-off doc). Optional future: Instagram transcript via on-device ASR (privacy-gated). |
 | 6 | **Single-pass structured LLM output** | Optional future: one generation returning summary + tags + extracts — may improve **total** pipeline time but delays **first** visible summary vs the current three-call flow (evaluate with `PipelineMetrics`). |
 
 ---

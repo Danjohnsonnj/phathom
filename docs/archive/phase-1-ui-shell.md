@@ -1,3 +1,7 @@
+> **Historical document — agents: do not consult unless explicitly needed.**
+> Authoritative sources: **source code**, [`decisions.md`](../decisions.md), [active handoffs](../handoff/).
+> This file may contradict shipped behavior. See [`README.md`](README.md) in this folder.
+
 # Phase 1 Hand-off: UI Shell + Library/Detail (Stubbed Data)
 
 ## Project Snapshot
@@ -12,8 +16,8 @@
 
 Reference docs (read these if you need more context, but this hand-off is self-contained):
 
-- [docs/product-brief.md](../product-brief.md) — product vision
-- [docs/technical-brief.md](../technical-brief.md) — technical architecture
+- [`product-brief.md`](product-brief.md) — product vision *(historical)*
+- [`technical-brief.md`](technical-brief.md) — technical architecture *(historical)*
 - [docs/decisions.md](../decisions.md) — all decisions and rationale
 - [docs/assets/main-screen.PNG](../assets/main-screen.PNG) — library screen mockup
 - [docs/assets/detail-screen.PNG](../assets/detail-screen.PNG) — detail screen mockup
