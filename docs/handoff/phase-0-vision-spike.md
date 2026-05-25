@@ -90,6 +90,4 @@ Capable path performs **one** automatic tightened retry with smaller JPEG + caps
 
 ## After spike
 
-Finalize [`docs/decisions.md`](../decisions.md) **2026-05-24** row with measured defaults (family pairing, realistic max pixels, gate decision).
-
-**Phase 1+** (bookmark, `ModelManager`-style persistence, pipeline) remains out of this handoff — see workspace media inference plan doc.
+Finalize [`docs/decisions.md`](../decisions.md) **2026-05-24** row — **done** (2026-05-25). Phase 1+ waits explicit user approval per master plan.
