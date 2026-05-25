@@ -34,6 +34,9 @@ struct SettingsContent: View {
     @State private var backupBusy = false
     @State private var showResetWebProcessingConfirm = false
     @State private var isResettingWebProcessingQueue = false
+#if DEBUG
+    @State private var visionSpikeRevision: Int = 0
+#endif
 
     private enum ModelTestPhase {
         case idle
@@ -46,6 +49,10 @@ struct SettingsContent: View {
         case primaryModel
         case taggingModel
         case backup
+#if DEBUG
+        case visionSpikeText
+        case visionSpikeMmproj
+#endif
     }
 
     private var appVersion: String {
@@ -81,8 +88,13 @@ struct SettingsContent: View {
 
     private var importerAllowedTypes: [UTType] {
         switch requestedImporter {
+#if DEBUG
+        case .primaryModel, .taggingModel, .visionSpikeText, .visionSpikeMmproj:
+            return [UTType(filenameExtension: "gguf") ?? .data, .data]
+#else
         case .primaryModel, .taggingModel:
             return [UTType(filenameExtension: "gguf") ?? .data, .data]
+#endif
         case .backup:
             return [.json]
         case nil:
@@ -123,6 +135,12 @@ struct SettingsContent: View {
                     handleTaggingModelImportSelection(result)
                 case .backup:
                     handleBackupImportSelection(result)
+#if DEBUG
+                case .visionSpikeText:
+                    handleVisionSpikeTextImportSelection(result)
+                case .visionSpikeMmproj:
+                    handleVisionSpikeMmprojImportSelection(result)
+#endif
                 case nil:
                     return
                 }
@@ -247,6 +265,17 @@ struct SettingsContent: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Self.sectionVerticalGap) {
                 aiModelsGroupedSection
+#if DEBUG
+                VisionSpikeSettingsSection(
+                    onPickTextGGUF: {
+                        requestedImporter = .visionSpikeText
+                    },
+                    onPickMmproj: {
+                        requestedImporter = .visionSpikeMmproj
+                    }
+                )
+                .id(visionSpikeRevision)
+#endif
                 libraryGroupedSection
                 dataGroupedSection
                 settingsScreenFooter
@@ -894,6 +923,40 @@ struct SettingsContent: View {
             importerError = error.localizedDescription
         }
     }
+
+#if DEBUG
+    private func handleVisionSpikeTextImportSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let src = urls.first else { return }
+            do {
+                try VisionSpikeStorage.setTextBookmark(from: src)
+                visionSpikeRevision &+= 1
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } catch {
+                importerError = error.localizedDescription
+            }
+        case .failure(let error):
+            importerError = error.localizedDescription
+        }
+    }
+
+    private func handleVisionSpikeMmprojImportSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let src = urls.first else { return }
+            do {
+                try VisionSpikeStorage.setMmprojBookmark(from: src)
+                visionSpikeRevision &+= 1
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } catch {
+                importerError = error.localizedDescription
+            }
+        case .failure(let error):
+            importerError = error.localizedDescription
+        }
+    }
+#endif
 
     private func handleBackupExportResult(_ result: Result<URL, Error>) {
         backupBusy = false

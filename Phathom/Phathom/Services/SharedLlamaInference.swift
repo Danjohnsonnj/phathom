@@ -285,6 +285,25 @@ actor SharedLlamaInference {
             throw error
         }
     }
+
+    #if DEBUG
+    /// Drops the primary GGUF (warm/pipeline model) and holds the lifecycle lock while a **vision spike** runs elsewhere.
+    /// Releases the lock and kicks `scheduleWarmFromPersistedSelection()` afterward so the app can reload the user's model.
+    func withVisionSpikeSession<R: Sendable>(_ work: @Sendable () async throws -> R) async rethrows -> R {
+        await lifecycleLock.acquire()
+        await unloadLocked()
+        do {
+            let result = try await work()
+            await lifecycleLock.release()
+            Self.scheduleWarmFromPersistedSelection()
+            return result
+        } catch {
+            await lifecycleLock.release()
+            Self.scheduleWarmFromPersistedSelection()
+            throw error
+        }
+    }
+    #endif
 }
 
 enum SharedLlamaInferenceError: LocalizedError {
