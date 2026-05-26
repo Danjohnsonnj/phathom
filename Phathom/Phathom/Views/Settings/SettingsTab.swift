@@ -56,12 +56,13 @@ struct SettingsContent: View {
         case backup
     }
 
+    // Fallbacks must stay in sync with MARKETING_VERSION / CURRENT_PROJECT_VERSION in project.pbxproj.
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.7.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.7.1"
     }
 
     private var build: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "88"
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "89"
     }
 
     private var canRunPrimaryTest: Bool {

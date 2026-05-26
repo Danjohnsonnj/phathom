@@ -17,15 +17,15 @@ Record **Pass / Fail / Skip** and one-line notes. Photo types: **A** general, **
 
 | ID | Scenario | Vision model | Steps | Expected |
 |----|----------|--------------|-------|----------|
-| D1 | New photo — happy path | ON | Add New → Photo → save | Stages: Preparing → **Analyzing photo** → Creating tags → **completed**; real description in Library/Detail |
-| D2 | Photo types | ON | D1 with A, B, C | Each completes; description mentions scene and/or visible text where relevant |
-| D3 | No vision model | OFF | Add New → Photo → save | Fast **completed**; placeholder description; **no** Analyze again |
+| D1 | New photo — happy path | ON | Add New → Photo → save | Stages: Preparing → **Analyzing photo** → Creating tags → **completed**; vision description in Detail **Source Content** (not header); Library teaser unchanged; **no Summary** section |
+| D2 | Photo types | ON | D1 with A, B, C | Each completes; Source Content description mentions scene and/or visible text where relevant |
+| D3 | No vision model | OFF | Add New → Photo → save | Fast **completed**; placeholder in Detail **Source Content** (not header); **no** Analyze again |
 | D4 | Add New copy | ON / OFF | Photo mode footnote | ON: on-device Vision hint; OFF: Settings prompt for Vision model |
-| D5 | Analyze again | ON | Completed photo → Detail → **Analyze again** | Clears description/tags; re-runs stages; **completed** again |
+| D5 | Analyze again | ON | Completed photo → Detail → **Analyze again** | Clears Source Content description/tags; re-runs stages; **completed** again; still no Summary section |
 | D6 | Library search | ON | After D1, search unique word from description | Item in matching results |
 | D7 | Search tags | ON | If tags present, search tag name | Item found |
 | D8 | Share extension | ON | Share image from Photos → open app | Same queue/complete as Add New (may need foreground) |
-| D9 | Share degrade | OFF | Share image | Placeholder + completed, no failure |
+| D9 | Share degrade | OFF | Share image | Placeholder in **Source Content** + **completed**, no failure |
 | D10 | Failed retry | ON | Provoke or use failed media row | Detail **Retry** enabled; re-queues or completes |
 | D11 | Failed retry gate | OFF | Failed media (if any) | **Retry** disabled |
 | D12 | Background / kill | ON | Save photo; background or kill during **Analyzing photo**; relaunch | Resumes or rewinds to Preparing — not stuck forever |

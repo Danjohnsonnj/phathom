@@ -73,7 +73,9 @@ struct DetailView: View {
 
                 tagsSection
 
-                summarySection
+                if item.kind != .media {
+                    summarySection
+                }
 
                 extractsSection
 
@@ -198,7 +200,7 @@ struct DetailView: View {
 
     @ViewBuilder
     private var extractsSection: some View {
-        if !item.decodedExtracts.isEmpty {
+        if item.kind != .media, !item.decodedExtracts.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 DetailAISubsectionHeader(title: "Key Figures")
                 ExtractsSection(extracts: item.decodedExtracts)
@@ -350,10 +352,7 @@ struct DetailView: View {
     }
 
     private var summarySnippetPlain: String? {
-        if item.kind == .media, let md = item.mediaDescription, !md.isEmpty {
-            let clean = SummaryLineSanitization.sanitizedBullet(md)
-            if !clean.isEmpty { return clean }
-        }
+        guard item.kind != .media else { return nil }
         if let raw = item.rawText,
            let preview = SummaryLineSanitization.sourcePreview(raw, maxWords: 50)
         {
@@ -703,6 +702,71 @@ struct DetailView: View {
         return ceil(font.lineHeight * 8)
     }
 
+    private var mediaSourceContentInFlight: Bool {
+        switch item.status {
+        case .completed, .failed:
+            return false
+        case .pending, .scraping, .embedding, .summarizing, .extracting, .tagging:
+            return true
+        }
+    }
+
+    @ViewBuilder
+    private var mediaSourceContentBody: some View {
+        switch item.status {
+        case .failed:
+            Text("Not available until processing succeeds.")
+                .font(.subheadline)
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(AppPalette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+        default:
+            if mediaSourceContentInFlight {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(0 ..< 4, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(AppPalette.surfaceNested)
+                            .frame(height: 14)
+                            .frame(maxWidth: .infinity)
+                            .redacted(reason: .placeholder)
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppPalette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+                let desc = (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !desc.isEmpty {
+                    Group {
+                        if sourceExpanded {
+                            Text(desc)
+                                .font(.subheadline)
+                                .foregroundStyle(AppPalette.textSecondary)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                        } else {
+                            Text(desc)
+                                .font(.subheadline)
+                                .foregroundStyle(AppPalette.textSecondary)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(4)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                } else {
+                    Text("No description generated")
+                        .font(.subheadline)
+                        .foregroundStyle(AppPalette.textSecondary)
+                }
+            }
+        }
+    }
+
     private func createHighlightFromWebView(offset: Int, length: Int, quotedText: String) {
         guard item.kind == .web, let md = item.sourceMarkdown, !md.isEmpty else { return }
         let maxLen = md.utf16.count
@@ -775,6 +839,8 @@ struct DetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(AppPalette.textSecondary)
                 }
+            } else if item.kind == .media {
+                mediaSourceContentBody
             } else if let html = item.sourceContentHTML, !html.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     HighlightableMarkdownWebView(
