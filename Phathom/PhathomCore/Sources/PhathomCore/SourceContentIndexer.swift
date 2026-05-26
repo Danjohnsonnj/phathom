@@ -3,7 +3,7 @@ import Markdown
 
 /// Converts canonical `sourceMarkdown` to themed HTML with `data-md-*` UTF-16 offset spans.
 public enum SourceContentIndexer {
-    public static let currentVersion: Int = 1
+    public static let currentVersion: Int = 2
 
     public struct Result: Sendable {
         public let html: String
@@ -196,7 +196,12 @@ private struct HTMLVisitor: MarkupVisitor {
     }
 
     mutating func visitSoftBreak(_ softBreak: SoftBreak) -> Void {
-        html += " "
+        if let range = softBreak.range {
+            let (start, end) = utf16Offsets(for: range)
+            html += "<span data-md-start=\"\(start)\" data-md-end=\"\(end)\"> </span>"
+        } else {
+            html += " "
+        }
     }
 
     mutating func visitLineBreak(_ lineBreak: LineBreak) -> Void {

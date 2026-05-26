@@ -769,9 +769,20 @@ struct DetailView: View {
 
     private func createHighlightFromWebView(offset: Int, length: Int, quotedText: String) {
         guard item.kind == .web, let md = item.sourceMarkdown, !md.isEmpty else { return }
-        let maxLen = md.utf16.count
-        guard offset >= 0, length > 0, offset + length <= maxLen else { return }
-        let h = Highlight(sourceMarkdownOffset: offset, sourceMarkdownLength: length, quotedText: quotedText)
+        guard let anchor = HighlightMarkdownAnchor.resolve(
+            markdown: md,
+            proposedOffset: offset,
+            proposedLength: length,
+            quotedText: quotedText
+        ) else {
+            print("[DetailView] highlight anchor unresolved — skip save (offset=\(offset) length=\(length))")
+            return
+        }
+        let h = Highlight(
+            sourceMarkdownOffset: anchor.offset,
+            sourceMarkdownLength: anchor.length,
+            quotedText: quotedText
+        )
         modelContext.insert(h)
         item.highlights.append(h)
         guard DetailModelSave.save(modelContext, operation: "createHighlight") == nil else { return }

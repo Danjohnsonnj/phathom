@@ -219,29 +219,51 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         }
 
         private func processSelectionMessageBody(_ body: Any?) {
-            if body is NSNull || body == nil {
+            guard let payload = Self.parseSelectionPayloadBody(body) else {
                 lastSelectionPayload = nil
                 selectionActive.wrappedValue = false
                 return
             }
+            lastSelectionPayload = payload
+            selectionActive.wrappedValue = true
+        }
+
+        /// Reads live DOM selection when the user commits Highlight (selection may have cleared from cache).
+        func commitHighlightFromLiveSelection(fallback: SelectionPayload? = nil) {
+            guard let webView else {
+                if let fallback { deliverHighlightPayload(fallback) }
+                return
+            }
+            webView.evaluateJavaScript("phathomSelectionPayload()") { [weak self] body, _ in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    if let payload = Self.parseSelectionPayloadBody(body) {
+                        self.deliverHighlightPayload(payload)
+                    } else if let fallback {
+                        self.deliverHighlightPayload(fallback)
+                    }
+                }
+            }
+        }
+
+        private func deliverHighlightPayload(_ payload: SelectionPayload) {
+            guard payload.end > payload.start, !payload.text.isEmpty else { return }
+            onCreateHighlight(payload.start, payload.end - payload.start, payload.text)
+        }
+
+        static func parseSelectionPayloadBody(_ body: Any?) -> SelectionPayload? {
+            if body is NSNull || body == nil { return nil }
             guard let raw = body as? String,
                   let data = raw.data(using: .utf8),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                lastSelectionPayload = nil
-                selectionActive.wrappedValue = false
-                return
-            }
-            guard let start = Self.intValue(json["start"]),
-                  let end = Self.intValue(json["end"]),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let start = intValue(json["start"]),
+                  let end = intValue(json["end"]),
                   end > start,
                   let text = json["text"] as? String,
-                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                lastSelectionPayload = nil
-                selectionActive.wrappedValue = false
-                return
-            }
-            lastSelectionPayload = SelectionPayload(start: start, end: end, text: text)
-            selectionActive.wrappedValue = true
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  end - start == text.utf16.count
+            else { return nil }
+            return SelectionPayload(start: start, end: end, text: text)
         }
 
         private static func intValue(_ any: Any?) -> Int? {
@@ -254,9 +276,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         }
 
         func applyCachedHighlightIfPossible() {
-            guard let p = lastSelectionPayload, !p.text.isEmpty, p.end > p.start else { return }
-            let length = p.end - p.start
-            onCreateHighlight(p.start, length, p.text)
+            commitHighlightFromLiveSelection(fallback: lastSelectionPayload)
         }
 
         func applyHighlightOverlay(webView: WKWebView, highlightKey: String) {
@@ -345,8 +365,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             if let payload = lastSelectionPayload, !payload.text.isEmpty {
                 let captured = payload
                 let action = UIAction(title: "Highlight") { [weak self] _ in
-                    let length = captured.end - captured.start
-                    self?.onCreateHighlight(captured.start, length, captured.text)
+                    self?.commitHighlightFromLiveSelection(fallback: captured)
                 }
                 children.append(action)
             }
@@ -357,36 +376,12 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
 
 private enum HighlightableMarkdownWebViewScript {
     static let javaScript: String = """
-    function phathomExpandSpanHits(initial) {
-      if (initial.length === 0) return initial;
-      let start = Infinity;
-      let end = -1;
-      for (const el of initial) {
-        const s = parseInt(el.getAttribute('data-md-start'), 10);
-        const e = parseInt(el.getAttribute('data-md-end'), 10);
-        if (Number.isNaN(s) || Number.isNaN(e)) continue;
-        start = Math.min(start, s);
-        end = Math.max(end, e);
-      }
-      if (start === Infinity || end <= start) return initial;
-      const expanded = Array.from(document.querySelectorAll('[data-md-start]')).filter((el) => {
-        const s = parseInt(el.getAttribute('data-md-start'), 10);
-        const e = parseInt(el.getAttribute('data-md-end'), 10);
-        return !Number.isNaN(s) && !Number.isNaN(e) && s < end && e > start;
-      });
-      expanded.sort((a, b) => {
-        return parseInt(a.getAttribute('data-md-start'), 10) - parseInt(b.getAttribute('data-md-start'), 10);
-      });
-      return expanded;
-    }
-
     function phathomCollectSpansInRange(range) {
       const root = range.commonAncestorContainer.nodeType === 1
         ? range.commonAncestorContainer
         : range.commonAncestorContainer.parentElement;
       if (!root) return [];
       const hits = [];
-      // querySelectorAll returns descendants only; common ancestor may be a leaf [data-md-start] span.
       if (root.nodeType === 1 && root.hasAttribute && root.hasAttribute('data-md-start')) {
         try {
           if (range.intersectsNode(root)) hits.push(root);
@@ -398,29 +393,75 @@ private enum HighlightableMarkdownWebViewScript {
           if (range.intersectsNode(el)) hits.push(el);
         } catch (_) {}
       }
-      return phathomExpandSpanHits(hits);
+      return hits;
+    }
+
+    function phathomLocalOffsetInSpan(span, container, offset) {
+      const r = document.createRange();
+      try {
+        r.setStart(span, 0);
+        r.setEnd(container, offset);
+      } catch (_) {
+        return null;
+      }
+      return r.toString().length;
+    }
+
+    function phathomSelectionBoundsForSpan(span, range) {
+      const spanStart = parseInt(span.getAttribute('data-md-start'), 10);
+      const spanEnd = parseInt(span.getAttribute('data-md-end'), 10);
+      if (Number.isNaN(spanStart) || Number.isNaN(spanEnd) || spanEnd <= spanStart) return null;
+
+      const spanRange = document.createRange();
+      try {
+        spanRange.selectNodeContents(span);
+      } catch (_) {
+        return null;
+      }
+
+      let mdStart = spanStart;
+      let mdEnd = spanEnd;
+
+      if (range.compareBoundaryPoints(Range.START_TO_START, spanRange) > 0) {
+        const local = phathomLocalOffsetInSpan(span, range.startContainer, range.startOffset);
+        if (local === null) return null;
+        mdStart = spanStart + local;
+      }
+      if (range.compareBoundaryPoints(Range.END_TO_END, spanRange) < 0) {
+        const local = phathomLocalOffsetInSpan(span, range.endContainer, range.endOffset);
+        if (local === null) return null;
+        mdEnd = spanStart + local;
+      }
+
+      if (mdStart >= mdEnd) return null;
+      return { start: mdStart, end: mdEnd };
     }
 
     function phathomSelectionPayload() {
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
       const range = sel.getRangeAt(0);
-      const nodes = phathomCollectSpansInRange(range);
-      if (nodes.length === 0) return null;
+      const text = sel.toString();
+      if (!text.trim()) return null;
+
+      const spans = phathomCollectSpansInRange(range);
+      if (spans.length === 0) return null;
+
       let start = Infinity;
       let end = -1;
-      for (const el of nodes) {
-        const s = parseInt(el.getAttribute('data-md-start'), 10);
-        const e = parseInt(el.getAttribute('data-md-end'), 10);
-        if (Number.isNaN(s) || Number.isNaN(e)) continue;
-        start = Math.min(start, s);
-        end = Math.max(end, e);
+      for (const span of spans) {
+        const bounds = phathomSelectionBoundsForSpan(span, range);
+        if (!bounds) continue;
+        start = Math.min(start, bounds.start);
+        end = Math.max(end, bounds.end);
       }
       if (start === Infinity || end <= start) return null;
+      if (end - start !== text.length) return null;
+
       return JSON.stringify({
         start: start,
         end: end,
-        text: sel.toString()
+        text: text
       });
     }
 
@@ -430,25 +471,38 @@ private enum HighlightableMarkdownWebViewScript {
           const s = parseInt(el.getAttribute('data-md-start'), 10);
           const e = parseInt(el.getAttribute('data-md-end'), 10);
           return !Number.isNaN(s) && !Number.isNaN(e) && s < end && e > start;
-        })
-        .sort((a, b) => parseInt(a.getAttribute('data-md-start'), 10) - parseInt(b.getAttribute('data-md-start'), 10));
-      if (spans.length === 0) return;
-
-      const blockSelector = 'p, li, h1, h2, h3, h4, blockquote, td, pre';
-      let i = 0;
-      while (i < spans.length) {
-        const block = spans[i].closest(blockSelector);
-        let j = i + 1;
-        while (j < spans.length && spans[j].closest(blockSelector) === block) j += 1;
-        const group = spans.slice(i, j);
+        });
+      for (const span of spans) {
+        const s = parseInt(span.getAttribute('data-md-start'), 10);
+        const tn = span.firstChild;
         const mark = document.createElement('mark');
         mark.className = 'phathom-highlight';
         mark.dataset.highlightId = id;
-        const parent = group[0].parentNode;
-        if (!parent) { i = j; continue; }
-        parent.insertBefore(mark, group[0]);
-        for (const node of group) mark.appendChild(node);
-        i = j;
+        const wrapWholeSpan = () => {
+          const parent = span.parentNode;
+          if (!parent) return;
+          parent.insertBefore(mark, span);
+          mark.appendChild(span);
+        };
+        if (!tn || tn.nodeType !== Node.TEXT_NODE || span.childNodes.length !== 1) {
+          wrapWholeSpan();
+          continue;
+        }
+        const localStart = Math.max(0, start - s);
+        const localEnd = Math.min(tn.length, end - s);
+        if (localEnd <= localStart) continue;
+        if (localStart === 0 && localEnd === tn.length) {
+          wrapWholeSpan();
+          continue;
+        }
+        const range = document.createRange();
+        try {
+          range.setStart(tn, localStart);
+          range.setEnd(tn, localEnd);
+          range.surroundContents(mark);
+        } catch (_) {
+          wrapWholeSpan();
+        }
       }
     }
 
@@ -464,6 +518,7 @@ private enum HighlightableMarkdownWebViewScript {
         if (!parent) return;
         while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
         parent.removeChild(mark);
+        parent.normalize();
       });
     }
 

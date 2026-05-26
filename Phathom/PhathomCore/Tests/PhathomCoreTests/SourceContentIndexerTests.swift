@@ -123,6 +123,13 @@ final class SourceContentIndexerTests: XCTestCase {
         XCTAssertEqual(result.version, SourceContentIndexer.currentVersion)
     }
 
+    func testSoftBreak_emitsAnchoredSpan() throws {
+        let md = "Line one\nLine two"
+        let result = try XCTUnwrap(SourceContentIndexer.index(markdown: md))
+        XCTAssertTrue(result.html.contains("data-md-start"))
+        try assertAllSpansValid(html: result.html, markdown: md)
+    }
+
     // MARK: - Spike fixture parity
 
     func testSpikeFixtureMarkdown() throws {
