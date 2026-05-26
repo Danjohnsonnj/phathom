@@ -767,13 +767,15 @@ struct DetailView: View {
         }
     }
 
-    private func createHighlightFromWebView(offset: Int, length: Int, quotedText: String) {
+    private func createHighlightFromWebView(offset: Int, length: Int, quotedText: String, segmentsJSON: String?) {
         guard item.kind == .web, let md = item.sourceMarkdown, !md.isEmpty else { return }
+        let segments = Self.parseHighlightSegmentsJSON(segmentsJSON)
         guard let anchor = HighlightMarkdownAnchor.resolve(
             markdown: md,
             proposedOffset: offset,
             proposedLength: length,
-            quotedText: quotedText
+            quotedText: quotedText,
+            segments: segments
         ) else {
             print("[DetailView] highlight anchor unresolved — skip save (offset=\(offset) length=\(length))")
             return
@@ -781,13 +783,19 @@ struct DetailView: View {
         let h = Highlight(
             sourceMarkdownOffset: anchor.offset,
             sourceMarkdownLength: anchor.length,
-            quotedText: quotedText
+            quotedText: quotedText,
+            sourceMarkdownSegmentsJSON: segmentsJSON
         )
         modelContext.insert(h)
         item.highlights.append(h)
         guard DetailModelSave.save(modelContext, operation: "createHighlight") == nil else { return }
         LibraryContentChangeNotifier.postLibraryContentDidChange()
         noteEditHighlight = h
+    }
+
+    private static func parseHighlightSegmentsJSON(_ json: String?) -> [HighlightMarkdownAnchor.Segment]? {
+        guard let json, let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode([HighlightMarkdownAnchor.Segment].self, from: data)
     }
 
     /// Backfills or refreshes `sourceContentHTML` when markdown exists but HTML is missing or indexer version is stale.
@@ -860,8 +868,13 @@ struct DetailView: View {
                         sourceHTML: html,
                         highlights: item.highlightsSortedByOffset,
                         collapsed: !sourceExpanded,
-                        onCreateHighlight: { offset, length, quotedText in
-                            createHighlightFromWebView(offset: offset, length: length, quotedText: quotedText)
+                        onCreateHighlight: { offset, length, quotedText, segmentsJSON in
+                            createHighlightFromWebView(
+                                offset: offset,
+                                length: length,
+                                quotedText: quotedText,
+                                segmentsJSON: segmentsJSON
+                            )
                         },
                         onTapHighlight: { noteEditHighlight = $0 }
                     )

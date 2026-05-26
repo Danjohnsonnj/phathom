@@ -40,7 +40,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
     var sourceHTML: String
     var highlights: [Highlight]
     var collapsed: Bool
-    var onCreateHighlight: (Int, Int, String) -> Void
+    var onCreateHighlight: (Int, Int, String, String?) -> Void
     var onTapHighlight: (Highlight) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -158,7 +158,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
 
         var collapsed: Bool = false
         var highlights: [Highlight]
-        var onCreateHighlight: (Int, Int, String) -> Void
+        var onCreateHighlight: (Int, Int, String, String?) -> Void
         var onTapHighlight: (Highlight) -> Void
 
         weak var webView: WKWebView?
@@ -177,7 +177,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             selectionActive: Binding<Bool>,
             highlightApplyToken: Binding<Int>,
             highlights: [Highlight],
-            onCreateHighlight: @escaping (Int, Int, String) -> Void,
+            onCreateHighlight: @escaping (Int, Int, String, String?) -> Void,
             onTapHighlight: @escaping (Highlight) -> Void
         ) {
             self.selectionActive = selectionActive
@@ -195,6 +195,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             var start: Int
             var end: Int
             var text: String
+            var segmentsJSON: String?
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -218,10 +219,22 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             }
         }
 
+        private static let selectionActiveOnlySentinel = "active"
+
         private func processSelectionMessageBody(_ body: Any?) {
-            guard let payload = Self.parseSelectionPayloadBody(body) else {
+            if body is NSNull || body == nil {
                 lastSelectionPayload = nil
                 selectionActive.wrappedValue = false
+                return
+            }
+            if let raw = body as? String, raw == Self.selectionActiveOnlySentinel {
+                lastSelectionPayload = nil
+                selectionActive.wrappedValue = true
+                return
+            }
+            guard let payload = Self.parseSelectionPayloadBody(body) else {
+                lastSelectionPayload = nil
+                selectionActive.wrappedValue = true
                 return
             }
             lastSelectionPayload = payload
@@ -248,7 +261,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
 
         private func deliverHighlightPayload(_ payload: SelectionPayload) {
             guard payload.end > payload.start, !payload.text.isEmpty else { return }
-            onCreateHighlight(payload.start, payload.end - payload.start, payload.text)
+            onCreateHighlight(payload.start, payload.end - payload.start, payload.text, payload.segmentsJSON)
         }
 
         static func parseSelectionPayloadBody(_ body: Any?) -> SelectionPayload? {
@@ -260,10 +273,19 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
                   let end = intValue(json["end"]),
                   end > start,
                   let text = json["text"] as? String,
-                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  end - start == text.utf16.count
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else { return nil }
-            return SelectionPayload(start: start, end: end, text: text)
+            let segmentsJSON = encodeSegmentsJSON(json["segments"])
+            return SelectionPayload(start: start, end: end, text: text, segmentsJSON: segmentsJSON)
+        }
+
+        private static func encodeSegmentsJSON(_ value: Any?) -> String? {
+            guard let segments = value as? [[String: Any]], !segments.isEmpty else { return nil }
+            guard JSONSerialization.isValidJSONObject(segments),
+                  let data = try? JSONSerialization.data(withJSONObject: segments),
+                  let json = String(data: data, encoding: .utf8)
+            else { return nil }
+            return json
         }
 
         private static func intValue(_ any: Any?) -> Int? {
@@ -283,8 +305,18 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             highlightOverlayGeneration += 1
             let generation = highlightOverlayGeneration
             pendingHighlightOverlayKey = highlightKey
-            let ranges: [[String: Any]] = highlights.map {
-                ["start": $0.sourceMarkdownOffset, "end": $0.sourceMarkdownOffset + $0.sourceMarkdownLength, "id": $0.id.uuidString]
+            let ranges: [[String: Any]] = highlights.map { highlight in
+                var entry: [String: Any] = [
+                    "start": highlight.sourceMarkdownOffset,
+                    "end": highlight.sourceMarkdownOffset + highlight.sourceMarkdownLength,
+                    "id": highlight.id.uuidString,
+                ]
+                if let segmentsJSON = highlight.sourceMarkdownSegmentsJSON,
+                   let data = segmentsJSON.data(using: .utf8),
+                   let segments = try? JSONSerialization.jsonObject(with: data) {
+                    entry["segments"] = segments
+                }
+                return entry
             }
             guard let data = try? JSONSerialization.data(withJSONObject: ranges),
                   let json = String(data: data, encoding: .utf8)
@@ -362,10 +394,10 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             suggestedActions: [UIMenuElement]
         ) -> UIMenu? {
             var children = suggestedActions
-            if let payload = lastSelectionPayload, !payload.text.isEmpty {
-                let captured = payload
+            if selectionActive.wrappedValue {
+                let fallback = lastSelectionPayload
                 let action = UIAction(title: "Highlight") { [weak self] _ in
-                    self?.commitHighlightFromLiveSelection(fallback: captured)
+                    self?.commitHighlightFromLiveSelection(fallback: fallback)
                 }
                 children.append(action)
             }
@@ -393,18 +425,53 @@ private enum HighlightableMarkdownWebViewScript {
           if (range.intersectsNode(el)) hits.push(el);
         } catch (_) {}
       }
-      return hits;
+      const seen = new Set();
+      return hits
+        .sort((a, b) => parseInt(a.getAttribute('data-md-start'), 10) - parseInt(b.getAttribute('data-md-start'), 10))
+        .filter((el) => {
+          const key = el.getAttribute('data-md-start') + ':' + el.getAttribute('data-md-end');
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+    }
+
+    function phathomTextNodeInSpan(span) {
+      if (span.firstChild && span.firstChild.nodeType === Node.TEXT_NODE && span.childNodes.length === 1) {
+        return span.firstChild;
+      }
+      const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+      return walker.nextNode();
     }
 
     function phathomLocalOffsetInSpan(span, container, offset) {
-      const r = document.createRange();
+      const spanRange = document.createRange();
       try {
-        r.setStart(span, 0);
-        r.setEnd(container, offset);
+        spanRange.selectNodeContents(span);
       } catch (_) {
         return null;
       }
-      return r.toString().length;
+      const boundary = document.createRange();
+      try {
+        boundary.setStart(container, offset);
+        boundary.collapse(true);
+      } catch (_) {
+        return null;
+      }
+      if (boundary.compareBoundaryPoints(Range.START_TO_START, spanRange) <= 0) {
+        return 0;
+      }
+      if (boundary.compareBoundaryPoints(Range.START_TO_END, spanRange) >= 0) {
+        return spanRange.toString().length;
+      }
+      const measure = document.createRange();
+      try {
+        measure.setStart(spanRange.startContainer, spanRange.startOffset);
+        measure.setEnd(boundary.startContainer, boundary.startOffset);
+      } catch (_) {
+        return null;
+      }
+      return measure.toString().length;
     }
 
     function phathomSelectionBoundsForSpan(span, range) {
@@ -447,22 +514,38 @@ private enum HighlightableMarkdownWebViewScript {
       const spans = phathomCollectSpansInRange(range);
       if (spans.length === 0) return null;
 
+      const segments = [];
       let start = Infinity;
       let end = -1;
       for (const span of spans) {
         const bounds = phathomSelectionBoundsForSpan(span, range);
         if (!bounds) continue;
+        segments.push({ start: bounds.start, end: bounds.end });
         start = Math.min(start, bounds.start);
         end = Math.max(end, bounds.end);
       }
-      if (start === Infinity || end <= start) return null;
-      if (end - start !== text.length) return null;
+      if (start === Infinity || end <= start || segments.length === 0) return null;
 
       return JSON.stringify({
         start: start,
         end: end,
-        text: text
+        text: text,
+        segments: segments
       });
+    }
+
+    function phathomPostSelectionMessage() {
+      const payload = phathomSelectionPayload();
+      if (payload) {
+        window.webkit.messageHandlers.phathomSelection.postMessage(payload);
+        return;
+      }
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim()) {
+        window.webkit.messageHandlers.phathomSelection.postMessage('active');
+        return;
+      }
+      window.webkit.messageHandlers.phathomSelection.postMessage(null);
     }
 
     function phathomWrapMarkdownRange(start, end, id) {
@@ -506,9 +589,22 @@ private enum HighlightableMarkdownWebViewScript {
       }
     }
 
+    function phathomWrapMarkdownSegments(segments, id) {
+      for (const seg of segments) {
+        const start = parseInt(seg.start, 10);
+        const end = parseInt(seg.end, 10);
+        if (Number.isNaN(start) || Number.isNaN(end) || end <= start) continue;
+        phathomWrapMarkdownRange(start, end, id);
+      }
+    }
+
     function phathomApplyHighlights(ranges) {
       for (const r of ranges) {
-        phathomWrapMarkdownRange(r.start, r.end, r.id);
+        if (r.segments && r.segments.length > 0) {
+          phathomWrapMarkdownSegments(r.segments, r.id);
+        } else {
+          phathomWrapMarkdownRange(r.start, r.end, r.id);
+        }
       }
     }
 
@@ -524,8 +620,7 @@ private enum HighlightableMarkdownWebViewScript {
 
     document.addEventListener('selectionchange', () => {
       try {
-        const payload = phathomSelectionPayload();
-        window.webkit.messageHandlers.phathomSelection.postMessage(payload);
+        phathomPostSelectionMessage();
       } catch (_) {}
     });
 

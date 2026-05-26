@@ -33,6 +33,7 @@ public enum LibraryBackupService {
         public var createdAt: Date
         public var sourceMarkdownOffset: Int
         public var sourceMarkdownLength: Int
+        public var sourceMarkdownSegmentsJSON: String?
         public var quotedText: String
         public var userNote: String?
 
@@ -42,12 +43,14 @@ public enum LibraryBackupService {
             sourceMarkdownOffset: Int,
             sourceMarkdownLength: Int,
             quotedText: String,
-            userNote: String? = nil
+            userNote: String? = nil,
+            sourceMarkdownSegmentsJSON: String? = nil
         ) {
             self.id = id
             self.createdAt = createdAt
             self.sourceMarkdownOffset = sourceMarkdownOffset
             self.sourceMarkdownLength = sourceMarkdownLength
+            self.sourceMarkdownSegmentsJSON = sourceMarkdownSegmentsJSON
             self.quotedText = quotedText
             self.userNote = userNote
         }
@@ -290,7 +293,8 @@ public enum LibraryBackupService {
                     sourceMarkdownOffset: h.sourceMarkdownOffset,
                     sourceMarkdownLength: h.sourceMarkdownLength,
                     quotedText: h.quotedText,
-                    userNote: h.userNote
+                    userNote: h.userNote,
+                    sourceMarkdownSegmentsJSON: h.sourceMarkdownSegmentsJSON
                 )
             }
             return ItemRecord(
@@ -533,7 +537,8 @@ public enum LibraryBackupService {
                 sourceMarkdownOffset: hr.sourceMarkdownOffset,
                 sourceMarkdownLength: hr.sourceMarkdownLength,
                 quotedText: hr.quotedText,
-                userNote: hr.userNote
+                userNote: hr.userNote,
+                sourceMarkdownSegmentsJSON: hr.sourceMarkdownSegmentsJSON
             )
             highlight.id = hr.id
             highlight.createdAt = hr.createdAt
