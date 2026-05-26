@@ -45,7 +45,7 @@ private final class UserPipelineResetFlag: @unchecked Sendable {
     nonisolated static let shared = UserPipelineResetFlag()
 }
 
-private enum SingleAnalyzeOutcome: Sendable {
+enum SingleAnalyzeOutcome: Sendable, Equatable {
     case noItemToProcess
     case finished(taskSuccess: Bool)
     case cancelled
@@ -260,20 +260,25 @@ enum BackgroundPipeline: Sendable {
             predicate: #Predicate<ContentItem> { item in
                 !item.isArchived
                     && item.contentKind == "media"
-                    && (item.processingStatus == "embedding"
-                        || item.processingStatus == "summarizing"
+                    && (item.processingStatus == "summarizing"
                         || item.processingStatus == "tagging")
             }
         )
         if let items = try? ctx.fetch(mediaStuck) {
             for item in items {
-                item.processingStatus = ProcessingStatus.completed.rawValue
-                item.processingDetail = nil
-                item.failureReason = nil
-                if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    item.mediaDescription = ShareCapture.mediaPlaceholderDescription
+                if ModelManager.hasReadableVisionSelection {
+                    item.processingStatus = ProcessingStatus.embedding.rawValue
+                    item.processingDetail = "Preparing analysis…"
+                    item.failureReason = nil
+                } else {
+                    item.processingStatus = ProcessingStatus.completed.rawValue
+                    item.processingDetail = nil
+                    item.failureReason = nil
+                    if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        item.mediaDescription = ShareCapture.mediaPlaceholderDescription
+                    }
+                    item.indexInSpotlight()
                 }
-                item.indexInSpotlight()
             }
         }
         saveAndNotify(ctx)
@@ -290,6 +295,15 @@ enum BackgroundPipeline: Sendable {
     nonisolated static func _test_processNextPendingWebItem(modelContainer: ModelContainer) async -> Bool {
         await processNextPendingWebItem(modelContainer: modelContainer) { false }
     }
+
+    /// Test-only seam: one analyze/embedding step (including media degrade path).
+    internal nonisolated static func _test_processNextEmbeddingItem(modelContainer: ModelContainer) async -> SingleAnalyzeOutcome {
+        await processNextEmbeddingItem(modelContainer: modelContainer, cancel: { false })
+    }
+
+    internal nonisolated static func _test_reviveAbortedPipelineItems(modelContainer: ModelContainer) {
+        reviveAbortedPipelineItems(modelContainer: modelContainer)
+    }
     #endif
 
     fileprivate nonisolated static func runForegroundDrainBody(modelContainer container: ModelContainer) async {
@@ -301,6 +315,7 @@ enum BackgroundPipeline: Sendable {
         reviveAbortedPipelineItems(modelContainer: container)
 
         ModelManager.validateSelection()
+        ModelManager.validateVisionSelection()
 
         while true {
             if ThermalMonitor.shouldThrottle {
@@ -316,7 +331,7 @@ enum BackgroundPipeline: Sendable {
                 continue
             }
 
-            guard ModelManager.hasReadableSelection else {
+            guard ModelManager.hasReadableSelection || ModelManager.hasReadableVisionSelection else {
                 scheduleAll()
                 return
             }
@@ -380,8 +395,9 @@ enum BackgroundPipeline: Sendable {
         }
 
         ModelManager.validateSelection()
+        ModelManager.validateVisionSelection()
 
-        guard ModelManager.hasReadableSelection else {
+        guard ModelManager.hasReadableSelection || ModelManager.hasReadableVisionSelection else {
             task.setTaskCompleted(success: false)
             scheduleAnalyze()
             return
@@ -533,15 +549,8 @@ enum BackgroundPipeline: Sendable {
         cancel: @Sendable @escaping () -> Bool
     ) async -> SingleAnalyzeOutcome {
         let ctx = ModelContext(modelContainer)
-        var desc = FetchDescriptor<ContentItem>(
-            predicate: #Predicate<ContentItem> { item in
-                !item.isArchived && item.processingStatus == "embedding"
-            },
-            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
-        )
-        desc.fetchLimit = 1
 
-        guard let item = try? ctx.fetch(desc).first else {
+        guard let item = firstEmbeddingItemReadyForAnalyze(in: ctx) else {
             return .noItemToProcess
         }
 
@@ -559,15 +568,13 @@ enum BackgroundPipeline: Sendable {
         }
 
         if item.kind == .media {
-            item.processingStatus = ProcessingStatus.completed.rawValue
-            item.processingDetail = nil
-            item.failureReason = nil
-            if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                item.mediaDescription = ShareCapture.mediaPlaceholderDescription
-            }
-            saveAndNotify(ctx)
-            item.indexInSpotlight()
-            return .finished(taskSuccess: true)
+            return await processMediaEmbeddingItem(
+                item: item,
+                itemID: itemID,
+                context: ctx,
+                aborting: aborting,
+                cancel: cancel
+            )
         }
 
         guard let raw = item.rawText, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -817,6 +824,200 @@ enum BackgroundPipeline: Sendable {
     }
 
     /// Applies Llama-derived tags from summary + extracts (and optional user highlights).
+    /// Returns the oldest `embedding` row this process can analyze now (skips web/note when primary GGUF missing).
+    fileprivate nonisolated static func firstEmbeddingItemReadyForAnalyze(in ctx: ModelContext) -> ContentItem? {
+        var desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived && item.processingStatus == "embedding"
+            },
+            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+        )
+        desc.fetchLimit = 32
+        guard let items = try? ctx.fetch(desc) else { return nil }
+        for candidate in items where embeddingItemReadyForAnalyze(candidate) {
+            return candidate
+        }
+        return nil
+    }
+
+    fileprivate nonisolated static func embeddingItemReadyForAnalyze(_ item: ContentItem) -> Bool {
+        switch item.kind {
+        case .media:
+            return true
+        case .web, .note:
+            return ModelManager.hasReadableSelection
+        }
+    }
+
+    fileprivate nonisolated static func completeMediaWithPlaceholder(item: ContentItem, context: ModelContext) {
+        item.processingStatus = ProcessingStatus.completed.rawValue
+        item.processingDetail = nil
+        item.failureReason = nil
+        if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            item.mediaDescription = ShareCapture.mediaPlaceholderDescription
+        }
+        saveAndNotify(context)
+        item.indexInSpotlight()
+    }
+
+    fileprivate nonisolated static func processMediaEmbeddingItem(
+        item: ContentItem,
+        itemID: UUID,
+        context: ModelContext,
+        aborting: @escaping () -> Bool,
+        cancel: @Sendable @escaping () -> Bool
+    ) async -> SingleAnalyzeOutcome {
+        guard let thumb = item.thumbnailData, !thumb.isEmpty else {
+            guard !aborting() else { return .cancelled }
+            item.processingStatus = ProcessingStatus.failed.rawValue
+            item.failureReason = "Missing photo data."
+            item.processingDetail = nil
+            saveAndNotify(context)
+            return .finished(taskSuccess: false)
+        }
+
+        if !ModelManager.hasReadableVisionSelection {
+            completeMediaWithPlaceholder(item: item, context: context)
+            return .finished(taskSuccess: true)
+        }
+
+        do {
+            var description = ""
+            try await SharedLlamaInference.shared.withSession(role: .vision, unloadOnExit: true, rewarmPrimaryAfterVision: false) { session in
+                if aborting() {
+                    await session.cancelInFlight()
+                    if cancel(), !isItemArchived(itemID, in: context) {
+                        checkpointAfterCancel(item: item)
+                        saveAndNotify(context)
+                    }
+                    throw PipelineLlmCancelled()
+                }
+
+                item.processingStatus = ProcessingStatus.summarizing.rawValue
+                item.processingDetail = "Analyzing photo…"
+                saveAndNotify(context)
+
+                let visionStart = Date()
+                description = try await session.describeImage(jpegData: thumb)
+                PipelineMetrics.logSyncElapsed("vision_describe", itemID: itemID, start: visionStart)
+
+                item.mediaDescription = description
+
+                if aborting() {
+                    await session.cancelInFlight()
+                    if cancel(), !isItemArchived(itemID, in: context) {
+                        checkpointAfterCancel(item: item)
+                        saveAndNotify(context)
+                    }
+                    throw PipelineLlmCancelled()
+                }
+            }
+
+            if aborting() {
+                throw PipelineLlmCancelled()
+            }
+
+            item.processingStatus = ProcessingStatus.tagging.rawValue
+            item.processingDetail = "Auto-tagging…"
+            saveAndNotify(context)
+
+            do {
+                try await SharedLlamaInference.shared.withSession(role: .taggingPreferred, unloadOnExit: true, pipelineItemID: itemID) { session in
+                    if aborting() {
+                        await session.cancelInFlight()
+                        if cancel(), !isItemArchived(itemID, in: context) {
+                            checkpointAfterCancel(item: item)
+                            saveAndNotify(context)
+                        }
+                        throw PipelineLlmCancelled()
+                    }
+                    try await applyMediaTaggingForPipelineItem(
+                        item: item,
+                        itemID: itemID,
+                        description: description,
+                        session: session,
+                        context: context
+                    )
+                }
+            } catch is PipelineLlmCancelled {
+                throw PipelineLlmCancelled()
+            } catch {
+                if isItemArchived(itemID, in: context) {
+                    throw PipelineLlmCancelled()
+                }
+                print("[PhathomPipeline] media_tags_failed item=\(itemID.uuidString) error=\(error.localizedDescription)")
+                item.processingStatus = ProcessingStatus.failed.rawValue
+                item.failureReason = "Tag generation failed: \(error.localizedDescription)"
+                item.processingDetail = nil
+                saveAndNotify(context)
+                throw error
+            }
+
+            guard !aborting() else {
+                throw PipelineLlmCancelled()
+            }
+
+            item.processingStatus = ProcessingStatus.completed.rawValue
+            item.processingDetail = nil
+            item.failureReason = nil
+            saveAndNotify(context)
+
+            if !isItemArchived(itemID, in: context) {
+                item.indexInSpotlight()
+            }
+
+            return .finished(taskSuccess: true)
+        } catch is PipelineLlmCancelled {
+            return .cancelled
+        } catch {
+            if isItemArchived(itemID, in: context) {
+                return .cancelled
+            }
+            if item.status != .failed {
+                item.processingStatus = ProcessingStatus.failed.rawValue
+                item.failureReason = error.localizedDescription
+                item.processingDetail = nil
+                saveAndNotify(context)
+            }
+            return .finished(taskSuccess: false)
+        }
+    }
+
+    fileprivate nonisolated static func applyMediaTaggingForPipelineItem(
+        item: ContentItem,
+        itemID: UUID,
+        description: String,
+        session: ModelSession,
+        context: ModelContext
+    ) async throws {
+        if isItemArchived(itemID, in: context) {
+            item.processingDetail = nil
+            saveAndNotify(context)
+            return
+        }
+
+        let tagsLLMStart = Date()
+        let tagNames = try await session.tagsFromDerived(
+            summaryBullets: [description],
+            extracts: [],
+            highlights: []
+        )
+        PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: tagsLLMStart)
+
+        if isItemArchived(itemID, in: context) {
+            item.processingDetail = nil
+            saveAndNotify(context)
+            return
+        }
+
+        let tagDbStart = Date()
+        item.tags.removeAll()
+        upsertTagsOnItem(tagNames: tagNames, item: item, context: context)
+        PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
+        saveAndNotify(context)
+        item.processingDetail = nil
+    }
+
     ///
     /// **Threading:** Call only from the pipeline’s `ModelContext` isolation (same as other `item` mutations
     /// in this file). `item` and `context` must refer to the same store; highlights are read synchronously here.
@@ -865,6 +1066,11 @@ enum BackgroundPipeline: Sendable {
     }
 
     nonisolated private static func checkpointAfterCancel(item: ContentItem) {
+        if item.kind == .media {
+            item.processingStatus = ProcessingStatus.embedding.rawValue
+            item.processingDetail = "Preparing analysis…"
+            return
+        }
         if item.rawText != nil {
             item.processingStatus = ProcessingStatus.embedding.rawValue
         } else {

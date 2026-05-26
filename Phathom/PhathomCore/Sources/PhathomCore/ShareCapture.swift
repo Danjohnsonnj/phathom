@@ -22,24 +22,23 @@ public enum ShareCapture {
         case urlOnly
     }
 
-    /// Save a photo to the library (completed, no LLM). Caller should pass JPEG data (e.g. from `MediaImageEncoding` on iOS).
+    /// Save a photo to the library. Queues for on-device vision analysis when a vision model is configured (`BackgroundPipeline` degrades otherwise).
     public static func insertMediaItem(context: ModelContext, imageJPEGData: Data, title: String? = nil) throws {
         let item = ContentItem(contentKind: .media, originalURL: nil)
         let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines)
         item.title = (trimmed?.isEmpty == false) ? trimmed : nil
         item.titleUserSet = item.title != nil
         item.thumbnailData = imageJPEGData
-        item.mediaDescription = mediaPlaceholderDescription
+        item.mediaDescription = nil
         item.rawText = nil
-        item.processingStatus = ProcessingStatus.completed.rawValue
-        item.processingDetail = nil
+        item.processingStatus = ProcessingStatus.embedding.rawValue
+        item.processingDetail = "Preparing analysis…"
         item.failureReason = nil
         context.insert(item)
         try context.save()
         DispatchQueue.main.async {
             LibraryContentChangeNotifier.postLibraryContentDidChange()
         }
-        item.indexInSpotlight()
     }
 
     public static func insertFromShare(

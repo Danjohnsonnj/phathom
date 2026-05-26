@@ -294,7 +294,11 @@ struct AddNewTab: View {
         case .note:
             "We'll index your note and process it with AI"
         case .media:
-            "We'll analyze the photo and process it with AI"
+            if ModelManager.hasReadableVisionSelection {
+                "We'll analyze the photo on device with your Vision model"
+            } else {
+                "Photo saves to your library; add a Vision model in Settings for AI analysis"
+            }
         }
     }
 

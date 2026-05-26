@@ -7,6 +7,19 @@ enum ModelSessionRole: Sendable {
     case primary
     /// Optional tagging bookmark first; falls back to primary when tagging missing or load fails.
     case taggingPreferred
+    /// Vision VLM text GGUF + mmproj — unloads primary/tagging before session (8 GB memory policy).
+    case vision
+}
+
+extension ModelSessionRole: Equatable {
+    nonisolated static func == (lhs: ModelSessionRole, rhs: ModelSessionRole) -> Bool {
+        switch (lhs, rhs) {
+        case (.primary, .primary), (.taggingPreferred, .taggingPreferred), (.vision, .vision):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 /// Serializes load → inference → unload so concurrent callers (pipeline, Settings test, warmup) cannot unload mid-generation.
@@ -71,6 +84,16 @@ struct ModelSession: Sendable {
         try await inference.sessionRunQuickTest()
     }
 
+    /// Settings smoke: describe a JPEG via production vision bookmarks (`ModelSessionRole.vision`).
+    func runVisionSmokeTest(jpegData: Data) async throws -> String {
+        try await inference.sessionRunVisionSmokeTest(jpegData: jpegData)
+    }
+
+    /// Pipeline / recovery: describe photo bytes via `ModelSessionRole.vision` session.
+    func describeImage(jpegData: Data) async throws -> String {
+        try await inference.sessionDescribeImage(jpegData: jpegData)
+    }
+
     func cancelInFlight() async {
         await inference.sessionCancelBridgeGeneration()
     }
@@ -80,13 +103,20 @@ struct ModelSession: Sendable {
 actor SharedLlamaInference {
     static let shared = SharedLlamaInference()
 
-    private let analyzer = LlamaContentAnalyzer()
+    private let llamaRuntime = LlamaCppRuntime()
+    private let analyzer: LlamaContentAnalyzer
+    private let visionAnalyzer: VisionContentAnalyzer
     private let lifecycleLock = AsyncLock()
     private var loadedPath: String?
     /// Active security-scoped access for `loadedPath`; released in `unload()`.
     private var scopedAccess: ModelManager.ScopedAccess?
     /// Set during `ensureLoadedLocked(role: .taggingPreferred)` so Settings can report fallback after `runQuickTest`.
     private(set) var lastTaggingPreferredUsedPrimaryFallback = false
+
+    private init() {
+        analyzer = LlamaContentAnalyzer(bridge: llamaRuntime)
+        visionAnalyzer = VisionContentAnalyzer(runtime: llamaRuntime)
+    }
 
     /// If the user previously picked a GGUF that still exists, load it in the background shortly after launch (skipped when thermally throttled).
     nonisolated static func scheduleWarmFromPersistedSelection() {
@@ -97,7 +127,8 @@ actor SharedLlamaInference {
             try? await SharedLlamaInference.shared.withSession(
                 role: .primary,
                 unloadOnExit: false,
-                pipelineItemID: nil
+                pipelineItemID: nil,
+                rewarmPrimaryAfterVision: true
             ) { _ in }
         }
     }
@@ -112,8 +143,19 @@ actor SharedLlamaInference {
         role: ModelSessionRole = .primary,
         unloadOnExit: Bool = true,
         pipelineItemID: UUID?,
+        rewarmPrimaryAfterVision: Bool = true,
         _ work: @escaping (ModelSession) async throws -> R
     ) async throws -> R {
+        if role == .vision {
+            return try await withExclusiveVisionWorkload(
+                unloadOnExit: unloadOnExit,
+                rewarmPrimaryAfterVision: rewarmPrimaryAfterVision
+            ) {
+                try await ensureVisionBookmarksReadableLocked()
+                return try await work(ModelSession(self))
+            }
+        }
+
         await lifecycleLock.acquire()
         do {
             if let itemID = pipelineItemID {
@@ -138,9 +180,16 @@ actor SharedLlamaInference {
     func withSession<R: Sendable>(
         role: ModelSessionRole = .primary,
         unloadOnExit: Bool = true,
+        rewarmPrimaryAfterVision: Bool = true,
         _ work: @escaping (ModelSession) async throws -> R
     ) async throws -> R {
-        try await withSession(role: role, unloadOnExit: unloadOnExit, pipelineItemID: nil, work)
+        try await withSession(
+            role: role,
+            unloadOnExit: unloadOnExit,
+            pipelineItemID: nil,
+            rewarmPrimaryAfterVision: rewarmPrimaryAfterVision,
+            work
+        )
     }
 
     // MARK: - Session entry points (only valid while lifecycle lock is held)
@@ -165,6 +214,40 @@ actor SharedLlamaInference {
                 lastTaggingPreferredUsedPrimaryFallback = true
             }
             try await ensureLoadedFromPrimaryBookmarkLocked()
+        case .vision:
+            break
+        }
+    }
+
+    private func ensureVisionBookmarksReadableLocked() throws {
+        guard ModelManager.hasReadableVisionSelection else {
+            throw SharedLlamaInferenceError.noVisionModelSelected
+        }
+    }
+
+    /// Unloads primary/tagging weights and holds the lifecycle lock for vision-only work (VLM loads elsewhere).
+    private func withExclusiveVisionWorkload<R: Sendable>(
+        unloadOnExit: Bool = true,
+        rewarmPrimaryAfterVision: Bool = true,
+        _ work: @Sendable () async throws -> R
+    ) async throws -> R {
+        await lifecycleLock.acquire()
+        await unloadLocked()
+        do {
+            let result = try await work()
+            if unloadOnExit { await unloadLocked() }
+            await lifecycleLock.release()
+            if rewarmPrimaryAfterVision {
+                Self.scheduleWarmFromPersistedSelection()
+            }
+            return result
+        } catch {
+            if unloadOnExit { await unloadLocked() }
+            await lifecycleLock.release()
+            if rewarmPrimaryAfterVision {
+                Self.scheduleWarmFromPersistedSelection()
+            }
+            throw error
         }
     }
 
@@ -205,6 +288,7 @@ actor SharedLlamaInference {
 
     private func unloadLocked() async {
         await analyzer.unloadModel()
+        await visionAnalyzer.unloadModel()
         loadedPath = nil
         scopedAccess?.end()
         scopedAccess = nil
@@ -245,6 +329,46 @@ actor SharedLlamaInference {
         try await analyzer.runQuickTest()
     }
 
+    fileprivate func sessionRunVisionSmokeTest(jpegData: Data) async throws -> String {
+        guard let textAccess = ModelManager.openVisionTextSelection(),
+              let mmprojAccess = ModelManager.openVisionMmprojSelection()
+        else {
+            throw SharedLlamaInferenceError.noVisionModelSelected
+        }
+        defer {
+            textAccess.end()
+            mmprojAccess.end()
+        }
+        let result = try await visionAnalyzer.describeImage(
+            jpegData: jpegData,
+            textModelPath: textAccess.path,
+            mmprojPath: mmprojAccess.path
+        )
+        return result.description
+    }
+
+    fileprivate func sessionDescribeImage(jpegData: Data) async throws -> String {
+        let result = try await sessionDescribeImageResult(jpegData: jpegData)
+        return result.description
+    }
+
+    fileprivate func sessionDescribeImageResult(jpegData: Data) async throws -> VisionDescribeResult {
+        guard let textAccess = ModelManager.openVisionTextSelection(),
+              let mmprojAccess = ModelManager.openVisionMmprojSelection()
+        else {
+            throw SharedLlamaInferenceError.noVisionModelSelected
+        }
+        defer {
+            textAccess.end()
+            mmprojAccess.end()
+        }
+        return try await visionAnalyzer.describeImage(
+            jpegData: jpegData,
+            textModelPath: textAccess.path,
+            mmprojPath: mmprojAccess.path
+        )
+    }
+
     fileprivate func sessionRankAdjacentItems(
         tappedTag: String,
         sourceTagNames: [String],
@@ -269,6 +393,7 @@ actor SharedLlamaInference {
 
     fileprivate func sessionCancelBridgeGeneration() async {
         await analyzer.cancelBridgeGeneration()
+        await visionAnalyzer.cancelGeneration()
     }
 
     /// Same FIFO mutual exclusion as `withSession`, without loading a GGUF — for unit tests (e.g. simulators with no model file).
@@ -285,34 +410,18 @@ actor SharedLlamaInference {
             throw error
         }
     }
-
-    #if DEBUG
-    /// Drops the primary GGUF (warm/pipeline model) and holds the lifecycle lock while a **vision spike** runs elsewhere.
-    /// Releases the lock and kicks `scheduleWarmFromPersistedSelection()` afterward so the app can reload the user's model.
-    func withVisionSpikeSession<R: Sendable>(_ work: @Sendable () async throws -> R) async rethrows -> R {
-        await lifecycleLock.acquire()
-        await unloadLocked()
-        do {
-            let result = try await work()
-            await lifecycleLock.release()
-            Self.scheduleWarmFromPersistedSelection()
-            return result
-        } catch {
-            await lifecycleLock.release()
-            Self.scheduleWarmFromPersistedSelection()
-            throw error
-        }
-    }
-    #endif
 }
 
 enum SharedLlamaInferenceError: LocalizedError {
     case noModelSelected
+    case noVisionModelSelected
 
     var errorDescription: String? {
         switch self {
         case .noModelSelected:
             return "No model is selected or the file is not reachable."
+        case .noVisionModelSelected:
+            return "No vision model is selected or the text GGUF and mmproj files are not reachable."
         }
     }
 }

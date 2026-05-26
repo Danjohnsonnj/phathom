@@ -17,11 +17,60 @@ private actor OrderLog {
     func append(_ v: Int) { values.append(v) }
 }
 
-/// Keys must stay aligned with `ModelManager` for save/restore around `clearSelection()` / `clearTaggingSelection()`.
+/// Keys must stay aligned with `ModelManager` for save/restore around `clearSelection()` / `clearTaggingSelection()` / `clearVisionSelection()`.
 private enum TestModelUserDefaultsKeys {
     static let bookmark = "phathom.selectedGGUFBookmark"
     static let taggingBookmark = "phathom.selectedGGUFBookmark.tagging"
+    static let visionTextBookmark = "phathom.selectedGGUFBookmark.vision.text"
+    static let visionMmprojBookmark = "phathom.selectedGGUFBookmark.vision.mmproj"
     static let legacyPath = "phathom.selectedGGUFPath"
+}
+
+/// Parallel suites mutate vision bookmarks; serialize those tests across the module.
+private let visionSelectionTestGate = DispatchQueue(label: "phathom.tests.vision-selection")
+
+private func restoreVisionBookmarks(text savedText: Data?, mmproj savedMmproj: Data?) {
+    let defaults = UserDefaults.standard
+    if let savedText {
+        defaults.set(savedText, forKey: TestModelUserDefaultsKeys.visionTextBookmark)
+    } else {
+        defaults.removeObject(forKey: TestModelUserDefaultsKeys.visionTextBookmark)
+    }
+    if let savedMmproj {
+        defaults.set(savedMmproj, forKey: TestModelUserDefaultsKeys.visionMmprojBookmark)
+    } else {
+        defaults.removeObject(forKey: TestModelUserDefaultsKeys.visionMmprojBookmark)
+    }
+}
+
+private func withSavedVisionBookmarks<T>(_ body: () throws -> T) rethrows -> T {
+    try visionSelectionTestGate.sync {
+        let defaults = UserDefaults.standard
+        let savedText = defaults.data(forKey: TestModelUserDefaultsKeys.visionTextBookmark)
+        let savedMmproj = defaults.data(forKey: TestModelUserDefaultsKeys.visionMmprojBookmark)
+        defer { restoreVisionBookmarks(text: savedText, mmproj: savedMmproj) }
+        return try body()
+    }
+}
+
+private func withSavedVisionBookmarks<T>(_ body: @escaping () async throws -> T) async throws -> T {
+    try await withCheckedThrowingContinuation { continuation in
+        visionSelectionTestGate.async {
+            let defaults = UserDefaults.standard
+            let savedText = defaults.data(forKey: TestModelUserDefaultsKeys.visionTextBookmark)
+            let savedMmproj = defaults.data(forKey: TestModelUserDefaultsKeys.visionMmprojBookmark)
+            Task {
+                do {
+                    let result = try await body()
+                    restoreVisionBookmarks(text: savedText, mmproj: savedMmproj)
+                    continuation.resume(returning: result)
+                } catch {
+                    restoreVisionBookmarks(text: savedText, mmproj: savedMmproj)
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
 }
 
 struct PhathomTests {
@@ -435,6 +484,22 @@ struct PhathomTests {
         #expect(try ctx.fetch(fb).first?.readState == .filed)
     }
 
+    @Test func visionProfileResolver_detectsSmolAsCompact() {
+        let profile = VisionProfileResolver.autoDetectedProfile(
+            textGGUFPath: "/tmp/SmolVLM-500M-Instruct-Q8_0.gguf",
+            fileSizeBytes: 900_000_000
+        )
+        #expect(profile == .compact)
+    }
+
+    @Test func visionProfileResolver_detectsQwenVLAsCapable() {
+        let profile = VisionProfileResolver.autoDetectedProfile(
+            textGGUFPath: "/tmp/Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf",
+            fileSizeBytes: 2_000_000_000
+        )
+        #expect(profile == .capable)
+    }
+
     @Test func clearTaggingSelectionRemovesOptionalBookmarkData() {
         let defaults = UserDefaults.standard
         let key = TestModelUserDefaultsKeys.taggingBookmark
@@ -450,6 +515,19 @@ struct PhathomTests {
         #expect(ModelManager.hasTaggingBookmark)
         ModelManager.clearTaggingSelection()
         #expect(!ModelManager.hasTaggingBookmark)
+    }
+
+    @Test func shareCaptureInsertMediaItemQueuesEmbedding() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        try ShareCapture.insertMediaItem(context: ctx, imageJPEGData: jpeg)
+        let rows = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let item = try #require(rows.first)
+        #expect(item.kind == .media)
+        #expect(item.status == .embedding)
+        #expect(item.processingDetail == "Preparing analysis…")
+        #expect(item.mediaDescription == nil)
     }
 
     @Test func activeWebQueueReset_rewindsSummarizingClearsAIDerived() async throws {
@@ -551,6 +629,326 @@ struct PhathomTests {
     }
 }
 
+@Suite("ProcessingRecovery media analyze again")
+struct ProcessingRecoveryMediaTests {
+    @Test @MainActor func canSummarizeAgainFalseForMediaWithoutVisionModel() {
+        withSavedVisionBookmarks {
+            ModelManager.clearVisionSelection()
+            let item = ContentItem(contentKind: .media, originalURL: nil)
+            item.thumbnailData = Data([0xFF, 0xD8, 0xFF, 0xD9])
+            item.processingStatus = ProcessingStatus.completed.rawValue
+            item.mediaDescription = "A sunset over water"
+            #expect(!ProcessingRecovery.canSummarizeAgain(item))
+        }
+    }
+
+    @Test @MainActor func canRetryFailedFalseForMediaWithoutVisionModel() {
+        withSavedVisionBookmarks {
+            ModelManager.clearVisionSelection()
+            let item = ContentItem(contentKind: .media, originalURL: nil)
+            item.thumbnailData = Data([0x01])
+            item.processingStatus = ProcessingStatus.failed.rawValue
+            item.failureReason = "Vision failed"
+            #expect(!ProcessingRecovery.canRetryFailed(item))
+        }
+    }
+
+    @Test @MainActor func canRetryFailedFalseForMediaWithoutThumbnail() {
+        let item = ContentItem(contentKind: .media, originalURL: nil)
+        item.processingStatus = ProcessingStatus.failed.rawValue
+        item.failureReason = "Vision failed"
+        #expect(!ProcessingRecovery.canRetryFailed(item))
+    }
+
+    @Test @MainActor func summarizeAgainReturnsFalseForCompletedMediaWithoutVision() throws {
+        try withSavedVisionBookmarks {
+            ModelManager.clearVisionSelection()
+            let container = try makeInMemoryContainer()
+            let ctx = ModelContext(container)
+            let media = ContentItem(contentKind: .media, originalURL: nil)
+            media.thumbnailData = Data([0xFF, 0xD8, 0xFF, 0xD9])
+            media.processingStatus = ProcessingStatus.completed.rawValue
+            media.mediaDescription = "Caption"
+            ctx.insert(media)
+            try ctx.save()
+
+            #expect(!ProcessingRecovery.summarizeAgain(media, modelContext: ctx))
+            #expect(media.mediaDescription == "Caption")
+        }
+    }
+}
+
+@Suite("ProcessingStatusPresentation media labels")
+struct ProcessingStatusPresentationMediaTests {
+    @Test func summarizingLabelUsesAnalyzingPhotoForMedia() {
+        let label = ProcessingStatusPresentation.label(for: .summarizing, contentKind: .media)
+        #expect(label == "Analyzing photo")
+    }
+
+    @Test func summarizingLabelUsesGeneratingSummaryForWeb() {
+        let label = ProcessingStatusPresentation.label(for: .summarizing, contentKind: .web)
+        #expect(label == "Generating summary")
+    }
+}
+
+@Suite("VisionContentAnalyzer prompt")
+struct VisionContentAnalyzerTests {
+    @Test func defaultDescribePromptTargetsKnowledgeLibrary() {
+        let prompt = VisionContentAnalyzer.defaultDescribePrompt
+        #expect(!prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        #expect(prompt.localizedCaseInsensitiveContains("knowledge library"))
+        #expect(prompt.localizedCaseInsensitiveContains("visible text"))
+    }
+}
+
+@Suite("LibrarySearchService media discovery")
+struct LibrarySearchMediaTests {
+    @Test func librarySearch_matchesMediaDescription() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let media = ContentItem(contentKind: .media, originalURL: nil)
+        media.mediaDescription = "Golden retriever on a beach at sunset"
+        media.processingStatus = ProcessingStatus.completed.rawValue
+        ctx.insert(media)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let sections = LibrarySearchService.bucket(
+            query: "retriever",
+            items: all,
+            filterKind: nil,
+            filterStatus: nil,
+            filterCategory: nil
+        )
+        #expect(sections.matching.count == 1)
+        #expect(sections.matching.first?.id == media.id)
+    }
+
+    @Test func librarySearch_matchesMediaTagNames() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let tag = Tag(name: "landscape")
+        ctx.insert(tag)
+        let media = ContentItem(contentKind: .media, originalURL: nil)
+        media.mediaDescription = "Hills"
+        media.tags.append(tag)
+        media.processingStatus = ProcessingStatus.completed.rawValue
+        ctx.insert(media)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let sections = LibrarySearchService.bucket(query: "landscape", items: all, filterKind: nil, filterStatus: nil, filterCategory: nil)
+        #expect(sections.matching.contains { $0.id == media.id })
+    }
+}
+
+@Suite("BackgroundPipeline mediaStuck revive", .serialized)
+struct BackgroundPipelineMediaStuckTests {
+    @Test func reviveAbortedRewindsMediaSummarizingToEmbedding() throws {
+        try withSavedVisionBookmarks {
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            let textURL = tempDir.appendingPathComponent("vision-text.gguf")
+            let mmprojURL = tempDir.appendingPathComponent("vision-mmproj.gguf")
+            try Data([0x01]).write(to: textURL)
+            try Data([0x02]).write(to: mmprojURL)
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+            ModelManager.clearVisionSelection()
+            try ModelManager.setVisionTextSelection(from: textURL)
+            try ModelManager.setVisionMmprojSelection(from: mmprojURL)
+            #expect(ModelManager.hasReadableVisionSelection)
+
+            let container = try makeInMemoryContainer()
+            let ctx = ModelContext(container)
+            let media = ContentItem(contentKind: .media, originalURL: nil)
+            media.thumbnailData = Data([0xFF, 0xD8, 0xFF, 0xD9])
+            media.processingStatus = ProcessingStatus.summarizing.rawValue
+            media.processingDetail = "Analyzing photo…"
+            ctx.insert(media)
+            try ctx.save()
+            let id = media.id
+
+            BackgroundPipeline._test_reviveAbortedPipelineItems(modelContainer: container)
+
+            let after = ModelContext(container)
+            let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == id })).first)
+            #expect(row.status == .embedding)
+            #expect(row.processingDetail == "Preparing analysis…")
+            #expect(row.failureReason == nil)
+        }
+    }
+
+    @Test func reviveMediaStuckSummarizingWithoutVisionCompletesWithPlaceholder() throws {
+        try withSavedVisionBookmarks {
+            ModelManager.clearVisionSelection()
+
+            let container = try makeInMemoryContainer()
+            let ctx = ModelContext(container)
+            let media = ContentItem(contentKind: .media, originalURL: nil)
+            media.thumbnailData = Data([0x01])
+            media.processingStatus = ProcessingStatus.summarizing.rawValue
+            media.processingDetail = "Analyzing photo…"
+            ctx.insert(media)
+            try ctx.save()
+            let id = media.id
+
+            BackgroundPipeline._test_reviveAbortedPipelineItems(modelContainer: container)
+
+            let after = ModelContext(container)
+            let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == id })).first)
+            #expect(row.status == .completed)
+            #expect(row.mediaDescription == ShareCapture.mediaPlaceholderDescription)
+        }
+    }
+
+    @Test func reviveMediaStuckWithoutVisionCompletesWithPlaceholder() throws {
+        try withSavedVisionBookmarks {
+            ModelManager.clearVisionSelection()
+
+            let container = try makeInMemoryContainer()
+            let ctx = ModelContext(container)
+            let media = ContentItem(contentKind: .media, originalURL: nil)
+            media.thumbnailData = Data([0x01])
+            media.processingStatus = ProcessingStatus.tagging.rawValue
+            media.processingDetail = "Auto-tagging…"
+            ctx.insert(media)
+            try ctx.save()
+            let id = media.id
+
+            BackgroundPipeline._test_reviveAbortedPipelineItems(modelContainer: container)
+
+            let after = ModelContext(container)
+            let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == id })).first)
+            #expect(row.status == .completed)
+            #expect(row.mediaDescription == ShareCapture.mediaPlaceholderDescription)
+            #expect(row.processingDetail == nil)
+        }
+    }
+
+    @Test func reviveMediaStuckTaggingWithoutReadableVisionCompletesWithPlaceholder() throws {
+        try withSavedVisionBookmarks {
+            let defaults = UserDefaults.standard
+            let textKey = TestModelUserDefaultsKeys.visionTextBookmark
+            let mmprojKey = TestModelUserDefaultsKeys.visionMmprojBookmark
+            defaults.set(Data([0x01]), forKey: textKey)
+            defaults.set(Data([0x02]), forKey: mmprojKey)
+            #expect(ModelManager.hasVisionBookmark)
+            #expect(!ModelManager.hasReadableVisionSelection)
+
+            let container = try makeInMemoryContainer()
+            let ctx = ModelContext(container)
+            let media = ContentItem(contentKind: .media, originalURL: nil)
+            media.processingStatus = ProcessingStatus.tagging.rawValue
+            media.processingDetail = "Auto-tagging…"
+            ctx.insert(media)
+            try ctx.save()
+            let id = media.id
+
+            BackgroundPipeline._test_reviveAbortedPipelineItems(modelContainer: container)
+
+            let after = ModelContext(container)
+            let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == id })).first)
+            #expect(row.status == .completed)
+            #expect(row.mediaDescription == ShareCapture.mediaPlaceholderDescription)
+        }
+    }
+}
+
+@Suite("ModelManager + media pipeline bookmarks", .serialized)
+struct ModelManagerVisionPipelineBookmarkTests {
+
+    @Test func clearVisionSelectionRemovesBothVisionBookmarkData() {
+        withSavedVisionBookmarks {
+            let defaults = UserDefaults.standard
+            let textKey = TestModelUserDefaultsKeys.visionTextBookmark
+            let mmprojKey = TestModelUserDefaultsKeys.visionMmprojBookmark
+            defaults.set(Data([0x01]), forKey: textKey)
+            defaults.set(Data([0x02]), forKey: mmprojKey)
+            #expect(ModelManager.hasVisionBookmark)
+            #expect(!ModelManager.hasReadableVisionSelection)
+            ModelManager.clearVisionSelection()
+            #expect(!ModelManager.hasVisionBookmark)
+            #expect(!ModelManager.hasReadableVisionSelection)
+        }
+    }
+
+    @Test func mediaEmbeddingDegradesWithoutVisionModel() async throws {
+        try await withSavedVisionBookmarks {
+            ModelManager.clearVisionSelection()
+
+            let container = try makeInMemoryContainer()
+            let ctx = ModelContext(container)
+            let media = ContentItem(contentKind: .media, originalURL: nil)
+            media.thumbnailData = Data([0xFF, 0xD8, 0xFF, 0xD9])
+            media.processingStatus = ProcessingStatus.embedding.rawValue
+            media.processingDetail = "Preparing analysis…"
+            ctx.insert(media)
+            try ctx.save()
+            let id = media.id
+
+            let outcome = await BackgroundPipeline._test_processNextEmbeddingItem(modelContainer: container)
+            #expect(outcome == .finished(taskSuccess: true))
+
+            let after = ModelContext(container)
+            let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == id })).first)
+            #expect(row.status == .completed)
+            #expect(row.mediaDescription == ShareCapture.mediaPlaceholderDescription)
+        }
+    }
+
+    @Test func embeddingQueueSkipsWebWithoutPrimaryWhenMediaReady() async throws {
+        try await withSavedVisionBookmarks {
+            let defaults = UserDefaults.standard
+            let savedBookmark = defaults.data(forKey: TestModelUserDefaultsKeys.bookmark)
+            let savedLegacy = defaults.string(forKey: TestModelUserDefaultsKeys.legacyPath)
+            ModelManager.clearSelection()
+            ModelManager.clearVisionSelection()
+            defer {
+                if let savedBookmark {
+                    defaults.set(savedBookmark, forKey: TestModelUserDefaultsKeys.bookmark)
+                } else {
+                    defaults.removeObject(forKey: TestModelUserDefaultsKeys.bookmark)
+                }
+                if let savedLegacy {
+                    defaults.set(savedLegacy, forKey: TestModelUserDefaultsKeys.legacyPath)
+                } else {
+                    defaults.removeObject(forKey: TestModelUserDefaultsKeys.legacyPath)
+                }
+            }
+
+            let container = try makeInMemoryContainer()
+            let ctx = ModelContext(container)
+            let web = ContentItem(
+                createdAt: Date(timeIntervalSince1970: 10),
+                contentKind: .web,
+                originalURL: URL(string: "https://media-gate.test/a")!
+            )
+            web.rawText = "article"
+            web.processingStatus = ProcessingStatus.embedding.rawValue
+            let media = ContentItem(
+                createdAt: Date(timeIntervalSince1970: 20),
+                contentKind: .media,
+                originalURL: nil
+            )
+            media.thumbnailData = Data([0xFF, 0xD8, 0xFF, 0xD9])
+            media.processingStatus = ProcessingStatus.embedding.rawValue
+            ctx.insert(web)
+            ctx.insert(media)
+            try ctx.save()
+            let webID = web.id
+            let mediaID = media.id
+
+            _ = await BackgroundPipeline._test_processNextEmbeddingItem(modelContainer: container)
+
+            let after = ModelContext(container)
+            let webRow = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == webID })).first)
+            let mediaRow = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == mediaID })).first)
+            #expect(webRow.status == .embedding)
+            #expect(mediaRow.status == .completed)
+        }
+    }
+}
+
 private func makeInMemoryContainer() throws -> ModelContainer {
     let schema = PhathomModelContainer.currentSchema
     let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
@@ -640,5 +1038,17 @@ struct SharedLlamaInferenceWithSessionTests {
         _ = await waiter.value
         let order = await log.values
         #expect(order == [1, 2, 3])
+    }
+
+    @Test func withVisionSessionReleasesLockWhenNoVisionModelSelected() async throws {
+        try await withSavedVisionBookmarks {
+            ModelManager.clearVisionSelection()
+
+            await #expect(throws: SharedLlamaInferenceError.noVisionModelSelected) {
+                try await SharedLlamaInference.shared.withSession(role: .vision) { _ in }
+            }
+
+            await SharedLlamaInference.shared._test_withExclusiveLifecycleLock { }
+        }
     }
 }

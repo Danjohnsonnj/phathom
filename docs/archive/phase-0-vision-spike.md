@@ -1,3 +1,5 @@
+> **RETIRED —** DEBUG spike harness removed from the app. Production media vision uses Settings **Vision model** + [`media-vision-v1-qa.md`](../handoff/media-vision-v1-qa.md). Historical reference only.
+
 # Phase 0 — Vision VLM spike (handoff)
 
 > **Status:** DEBUG harness + **dual-profile** spike (`compact` vs `capable`) on-device. Validates llama.cpp + **libmtmd** before Phase 1 production bookmark / pipeline wiring.
@@ -15,18 +17,20 @@ Prove on a **physical iPhone** that vendored **llama.cpp + libmtmd** can load a 
 2. **Debug** build on device (simulator CPU-only — slow/OOM for larger VLMs).
 3. Matching **text GGUF + mmproj** pair per Hugging Face / ggml-org release notes.
 
-### Code touchpoints
+### Code touchpoints (removed — historical)
 
-| Piece | Path |
+| Piece | Path (at spike time) |
 |-------|------|
 | mtmd xcframework rebuild | [`scripts/rebuild-llama-xcframework-with-mtmd.sh`](../../scripts/rebuild-llama-xcframework-with-mtmd.sh) |
-| Spike runtime | [`LlamaVisionSpike.swift`](../../Phathom/Phathom/Inference/LlamaVisionSpike.swift) |
-| Profile heuristics + tunables | [`VisionSpikeProfileResolver.swift`](../../Phathom/Phathom/Services/VisionSpikeProfileResolver.swift) |
-| Exclusive unload / lock | [`SharedLlamaInference.withVisionSpikeSession`](../../Phathom/Phathom/Services/SharedLlamaInference.swift) |
-| DEBUG Settings UI | [`VisionSpikeSettingsSection.swift`](../../Phathom/Phathom/Views/Settings/VisionSpikeSettingsSection.swift) |
-| Bookmarks | [`VisionSpikeStorage.swift`](../../Phathom/Phathom/Services/VisionSpikeStorage.swift) |
+| Spike result types | `LlamaVisionSpike.swift` (deleted) |
+| Profile heuristics + tunables | [`VisionProfileConfiguration.swift`](../../Phathom/Phathom/Services/VisionProfileConfiguration.swift) |
+| Exclusive unload / lock | `SharedLlamaInference.withVisionSpikeSession` (removed) |
+| DEBUG Settings UI | `VisionSpikeSettingsSection.swift` (deleted) |
+| Spike bookmarks | `VisionSpikeStorage.swift` (deleted) |
 
-## Run spike (in app)
+Production equivalents: [`VisionModelSettingsSection.swift`](../../Phathom/Phathom/Views/Settings/VisionModelSettingsSection.swift), [`ModelManager`](../../Phathom/Phathom/Services/ModelManager.swift), [`VisionContentAnalyzer`](../../Phathom/Phathom/Inference/VisionContentAnalyzer.swift).
+
+## Run spike (in app) — historical
 
 1. Settings → **Vision spike (Phase 0)** — DEBUG builds only.
 2. **Pick** text GGUF and **mmproj** (same document picker pattern as AI models — security-scoped bookmarks).
@@ -37,7 +41,7 @@ Prove on a **physical iPhone** that vendored **llama.cpp + libmtmd** can load a 
 4. Choose test photo → **Run vision describe**.
 5. Record **Load / Eval / Generate / Total** from the inline report plus short quality note.
 
-**Memory isolation:** the spike calls `SharedLlamaInference.withVisionSpikeSession`, which **unloads** the user’s primary pipeline GGUF before load and restores warm behavior afterward — avoids false Jetsam from **two GGUFs** resident.
+**Memory isolation:** the spike called `withVisionSpikeSession`, which **unloaded** the user’s primary pipeline GGUF before load.
 
 ### Harness checklist
 
@@ -90,4 +94,4 @@ Capable path performs **one** automatic tightened retry with smaller JPEG + caps
 
 ## After spike
 
-Finalize [`docs/decisions.md`](../decisions.md) **2026-05-24** row — **done** (2026-05-25). Phase 1+ waits explicit user approval per master plan.
+Finalize [`docs/decisions.md`](../decisions.md) **2026-05-24** row — **done** (2026-05-25). Production v1 shipped; spike UI removed 2026-05-25.

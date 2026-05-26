@@ -93,7 +93,7 @@ When you believe the work is done:
 
 ### Build and simulator destinations (agents)
 
-Use **iPhone 16 Pro or newer** (simulator or device), matching **`[AGENTS.md](../../AGENTS.md)`** guidance. Prefer **`bash scripts/build-phathom.sh all`** for CLI verification.
+Use **iPhone 16 Pro or newer** (simulator or device), matching **`[AGENTS.md](../../AGENTS.md)`** guidance. Routine CLI verification: **`bash scripts/build-phathom.sh sim`** and **`bash scripts/test-phathom.sh`**; reserve **`bash scripts/build-phathom.sh all`** per AGENTS (**xcframework refresh / pre-release**). See **`### Verification ladder (token-efficient)`** in AGENTS.md and [`.cursor/rules/simulator-verify.mdc`](../../.cursor/rules/simulator-verify.mdc).
 
 ---
 

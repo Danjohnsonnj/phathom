@@ -57,10 +57,27 @@ To save tokens, **do not** scan the entire `/Phathom` directory. Use these speci
 > Yes: "Bug in auth middleware. Token expiry check use `<` not `<=`. Fix:"
 
 - **Check Environment:** Verify `Phathom/vendor/llama/llama.xcframework` exists. If not, run `bash scripts/setup-llama-xcframework.sh`.
-- **Build targets:** Use **iPhone 16 Pro or newer** simulator or device in Xcode. For CLI verification, run `bash scripts/build-phathom.sh all` (simulator uses the first available device from a Pro-first list; device build uses `generic/platform=iOS`). The project sets **`EXCLUDED_ARCHS[sdk=iphonesimulator*]=x86_64`** so simulator builds match the arm64-only `llama.xcframework` slices.
+- **Build targets:** Use **iPhone 16 Pro or newer** simulator or device in Xcode. For routine CLI verification, run **`bash scripts/build-phathom.sh sim`** (first available simulator from Pro-first preference list in [`scripts/phathom-xcode-common.sh`](scripts/phathom-xcode-common.sh)); use **`bash scripts/build-phathom.sh device`** for generic `iphoneos`; reserve **`bash scripts/build-phathom.sh all`** for **xcframework refresh**, pre-release, or intentional device-signing checks. Project sets **`EXCLUDED_ARCHS[sdk=iphonesimulator*]=x86_64`** so simulator builds match arm64-only `llama.xcframework` slices.
+- **Simulator verify (token-efficient):** Follow **`### Verification ladder (token-efficient)`** below and the requestable Cursor rule **[`.cursor/rules/simulator-verify.mdc`](.cursor/rules/simulator-verify.mdc)** (`alwaysApply: false`). Tests: **`bash scripts/test-phathom.sh`** (`--grep`, `--test`, `--list`; skips `PhathomUITests`).
 - **Verify GGUF Path:** The app uses security-scoped bookmarks. If testing in Simulator, remember it is **CPU-only**; don't optimize for GPU/ANE performance unless targeting a physical device.
 - **Active Task:** Pipeline + on-device ingest shipped. Remaining roadmap: **RAG Chat** (`docs/handoff/phase-3-rag-chat.md`) and **ongoing UI polish** (`docs/handoff/ui-design-refresh.md`). Do **not** implement RAG or expand Chat tab unless explicitly directed.
 - **Confirm With User:** Indicate understanding by saying "Read and ready" at the beginning of a new session.
+
+### Verification ladder (token-efficient)
+
+Goal: same confidence as a full raw `xcodebuild` dump, **minimal tokens** in agent context (see [`.cursor/rules/simulator-verify.mdc`](.cursor/rules/simulator-verify.mdc)).
+
+1. **ReadLints** on touched Swift files (and **xcode-tools** issue list when Xcode is open).
+2. **Compile on simulator:** **`bash scripts/build-phathom.sh sim`** or XcodeBuildMCP **`build_sim`** (prefer **incremental**, no **`clean`** unless DerivedData corruption).
+3. **Warnings (hybrid):** Routine edits — Tier 1 is enough when clean. Also surface **warnings on touched `.swift`** (MCP / `rg '\\.swift:.*warning:'` on sim build **`fullLogPath`**; **cap ~40 lines** in chat) when **pre-merge** *or* the diff touches **`@MainActor`/strict concurrency**, **`BackgroundPipeline.swift`**, **`SharedLlamaInference.swift`**, or other inference/pipeline paths (Cursor rule expands).
+4. **Tests:** Prefer **`bash scripts/test-phathom.sh --test`** / **`--grep`** for localized changes; run **full `test-phathom.sh`** once per logical feature / before merge. **Never paste** full build or test logs—**failure / warning snippets only** (≤40 lines default).
+5. **Device / `all`:** **`bash scripts/build-phathom.sh device`** only for signing or device-specific code; **`all`** reserved for xcframework refresh / release-style verification—not after every edit.
+
+**Copy-paste shortcuts**
+
+- Small non-behavioral Swift fix — ReadLints → **`bash scripts/build-phathom.sh sim`** → on failure grep **`error:`** only (≤40 lines).
+- Behavioral fix — above + **`bash scripts/test-phathom.sh --test <name>`** or **`--grep <pattern>`**.
+- Pre-merge — sim build → Tier 2b warnings when policy says so → **`bash scripts/test-phathom.sh`**.
 
 ## Agentmemory (long-term context)
 
@@ -89,7 +106,7 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 | Bulk library select | batch archive undo, notifications | [`docs/handoff/library-bulk-selection.md`](docs/handoff/library-bulk-selection.md), `MainTabView` |
 | Archived docs (**opt‑in**) | `history`, Phase 1–2 snapshots | [`docs/archive/README.md`](docs/archive/README.md) — read **only** per **Source of truth** rules |
 | Scope | `Phase-3`, `no-RAG`, `guardrails` | `docs/handoff/phase-3-rag-chat.md` |
-| Dev bootstrap | `build`, `xcframework` | `scripts/build-phathom.sh`, `AGENTS.md` |
+| Dev bootstrap | `build`, `xcframework`, `test` | `scripts/build-phathom.sh`, [`scripts/test-phathom.sh`](scripts/test-phathom.sh), `scripts/phathom-xcode-common.sh`, [`scripts/phathom-tests-discover.py`](scripts/phathom-tests-discover.py), `AGENTS.md` |
 | App versioning | `version`, `semver`, `MARKETING_VERSION`, `0.x.y` | `Phathom.xcodeproj/project.pbxproj`, `SettingsTab.swift`, `PhathomShare/Info.plist` |
 
 ### User phrase → agent action
@@ -145,4 +162,4 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 - [ ] Ensure all SwiftData changes include a migration plan or a "Clear Library" debug option.
 - [ ] Update `docs/decisions.md` if changing the inference lifecycle.
 - [ ] Verify that new ingest paths support `sourceMarkdown` fallback.
-- [ ] After landing plan-driven changes: check **linter/IDE diagnostics** and **`xcodebuild` compiler warnings** on touched files (clean build + grep `*.swift:` in build log), not only `BUILD SUCCEEDED` — Swift 6 / default MainActor issues often appear as warnings only.
+- [ ] After landing plan-driven changes: **linter / IDE diagnostics** on touched files plus **incremental sim build**; add **warning grep on touched `.swift`** when **pre-merge** *or* the diff touches **`@MainActor`/concurrency**, **`BackgroundPipeline.swift`**, **`SharedLlamaInference.swift`**, or inference/pipeline paths — Swift 6 / default `MainActor` issues often appear as warnings only. See **`### Verification ladder (token-efficient)`** and [`.cursor/rules/simulator-verify.mdc`](.cursor/rules/simulator-verify.mdc).

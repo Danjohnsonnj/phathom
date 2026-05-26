@@ -364,7 +364,7 @@ struct DetailView: View {
 
     @ViewBuilder
     private var detailStatusChip: some View {
-        ProcessingStatusBadge(status: item.status, onTap: detailChipTapAction)
+        ProcessingStatusBadge(status: item.status, contentKind: item.kind, onTap: detailChipTapAction)
     }
 
     private var readingStatusSection: some View {
@@ -558,12 +558,27 @@ struct DetailView: View {
 
     private var summarizeAgainButtonVisible: Bool {
         guard !item.isArchived else { return false }
+        guard item.status != .failed else { return false }
         switch item.kind {
         case .media:
-            return false
+            return ModelManager.hasReadableVisionSelection
+                && item.thumbnailData.map { !$0.isEmpty } == true
         case .web, .note:
             guard let raw = item.rawText else { return false }
             return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private var analyzeAgainButtonTitle: String {
+        item.kind == .media ? "Analyze again" : "Summarize again"
+    }
+
+    private var analyzeAgainAccessibilityHint: String {
+        switch item.kind {
+        case .media:
+            "Clears the current description and tags, then runs photo analysis again."
+        case .web, .note:
+            "Clears the current summary, tags, and extracts, then runs the full pipeline again: summary, tagging, and key extracts."
         }
     }
 
@@ -576,7 +591,7 @@ struct DetailView: View {
     }
 
     private var regenerateTagsButtonVisible: Bool {
-        summarizeAgainButtonVisible
+        item.kind != .media && summarizeAgainButtonVisible
     }
 
     private var regenerateTagsButtonDisabled: Bool {
@@ -592,7 +607,7 @@ struct DetailView: View {
                 delaySummarizeDisable = false
             }
         } label: {
-            Text("Summarize again")
+            Text(analyzeAgainButtonTitle)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(summarizeAgainButtonDisabled ? AppPalette.textSecondary : AppPalette.accent)
                 .multilineTextAlignment(.center)
@@ -604,9 +619,7 @@ struct DetailView: View {
         }
         .buttonStyle(.plain)
         .disabled(summarizeAgainButtonDisabled)
-        .accessibilityHint(
-            "Clears the current summary, tags, and extracts, then runs the full pipeline again: summary, tagging, and key extracts."
-        )
+        .accessibilityHint(analyzeAgainAccessibilityHint)
     }
 
     private var regenerateTagsButton: some View {

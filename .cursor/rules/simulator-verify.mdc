@@ -1,0 +1,49 @@
+---
+description: Token-efficient Phathom simulator build, warning grep, and PhathomTests runs for agents (request when verifying Swift changes).
+alwaysApply: false
+---
+
+# Simulator verify — token-efficient
+
+**Scope:** Routine agent verification without dumping full `xcodebuild` / test transcripts into chat. Canonical repo commands: **`bash scripts/build-phathom.sh`** (sim/device/all), **`bash scripts/test-phathom.sh`**, **`scripts/phathom-tests-discover.py`**; shared paths/sim picker: **`scripts/phathom-xcode-common.sh`**.
+
+## Tier order
+
+| Tier | Action | Avoid |
+|:---:|:---|:---|
+| 1 | Cursor **ReadLints** / **xcode-tools** navigator issues (`severity: error`, optional `glob` on touched `.swift`) | Raw full logs in replies |
+| 2 | **`bash scripts/build-phathom.sh sim`** or XcodeBuildMCP **`build_sim`** (`preferXcodebuild: false`; incremental unless DerivedData corrupt) | `build-phathom.sh all` after every edit; unnecessary **`clean`**; **`build_run_sim`** unless manually exercising UI |
+| 2b | **Hybrid warnings:** grep **≤ ~40 lines** when **pre-merge** *or* diff touches **`@MainActor`/strict concurrency**, **`BackgroundPipeline.swift`**, **`SharedLlamaInference.swift`**, or inference/pipeline paths | Demanding clean full builds for copy-only edits |
+| 3 | **`bash scripts/test-phathom.sh`** — default full `PhathomTests`; **`--test`**, **`--grep`**, **`--list`** (`PhathomUITests` skipped always) | Full `UITests`; entire 62-test log dumps per tiny edit |
+
+**Parse failures:** from MCP **`fullLogPath`** or Tee’d log: `grep -E 'error:' log \| head -40` (warnings: `\\.swift:.*warning:`). Never paste unlimited tool output into chat.
+
+## XcodeBuildMCP one-shot defaults (session)
+
+Do **not** commit `.xcodebuildmcp/config.yaml` unless the team adopts it globally. Prefer per-session tooling:
+
+`session_set_defaults`: `projectPath` → `<repo>/Phathom/Phathom.xcodeproj`, `scheme` → `Phathom`, `simulatorName` → `iPhone 17 Pro` or `iPhone 16 Pro` per install, **`suppressWarnings: true`** trims MCP payloads (warnings remain in **`fullLogPath`**), **`preferXcodebuild: false`**.
+
+Then **`build_sim`** (compile-only). On failure read **errors-only** excerpt.
+
+## Test helpers
+
+```bash
+bash scripts/test-phathom.sh --list
+bash scripts/test-phathom.sh --test shareCaptureInsertMediaItemQueuesEmbedding
+bash scripts/test-phathom.sh --grep media
+bash scripts/test-phathom.sh                             # full PhathomTests bundle
+```
+
+**Swift Testing IDs** use `PhathomTests/<Struct>/<fn>()` or suite-wide `PhathomTests/<Struct>` (matches `xcodebuild -only-testing:`).
+
+## Never by default
+
+- `build-phathom.sh all` for routine iteration (reserve for xcframework / pre-release / intentional dual-slice checks).
+- Booting a fresh simulator every run (reuse booted sim / MCP defaults).
+- Streaming sim logs unless debugging one failure.
+- Pasting full build or test logs into agent context.
+
+## Simulator vs device
+
+Simulator = **CPU-only Llama**. Good for **`PhathomTests`** and degrade paths; **not** Metal vision perf QA — device matrix stays manual per product hand-offs.

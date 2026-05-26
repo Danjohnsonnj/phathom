@@ -55,7 +55,11 @@
 **Command-line checks** (same targets the project expects):
 
 ```bash
-bash scripts/build-phathom.sh all   # Simulator (preferred Pro-line sim) + generic iOS device build
+bash scripts/build-phathom.sh sim   # Routine: iOS Simulator (Pro-first destination list)
+# bash scripts/build-phathom.sh device   # generic iphoneos — device signing / device-only checks
+# bash scripts/build-phathom.sh all      # sim then device — xcframework refresh / pre-release only
+
+bash scripts/test-phathom.sh            # PhathomTests on simulator (--list / --grep / --test)
 ```
 
 The repo expects a vendored framework at:

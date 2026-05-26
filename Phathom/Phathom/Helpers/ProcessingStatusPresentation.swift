@@ -3,7 +3,7 @@ import Foundation
 
 /// User-facing labels and icons for `ProcessingStatus`, shared by Library badge and Detail chip.
 enum ProcessingStatusPresentation {
-    nonisolated static func label(for status: ProcessingStatus) -> String? {
+    nonisolated static func label(for status: ProcessingStatus, contentKind: ContentKind? = nil) -> String? {
         switch status {
         case .pending:
             return "Queued"
@@ -12,6 +12,9 @@ enum ProcessingStatusPresentation {
         case .embedding:
             return "Preparing analysis"
         case .summarizing:
+            if contentKind == .media {
+                return "Analyzing photo"
+            }
             return "Generating summary"
         case .extracting:
             return "Extracting details"

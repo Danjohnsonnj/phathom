@@ -12,15 +12,21 @@ struct SettingsContent: View {
     @State private var activeWebProcessingQueueCount: Int = 0
     @State private var selectionState: ModelManager.SelectionDisplayState = .noSelection
     @State private var taggingSelectionState: ModelManager.SelectionDisplayState = .noSelection
+    @State private var visionTextSelectionState: ModelManager.SelectionDisplayState = .noSelection
+    @State private var visionMmprojSelectionState: ModelManager.SelectionDisplayState = .noSelection
     @State private var primaryTestPhase: ModelTestPhase = .idle
     @State private var taggingTestPhase: ModelTestPhase = .idle
+    @State private var visionTestPhase: VisionModelSettingsSection.TestPhase = .idle
     @State private var requestedImporter: ImportPickerMode?
     @State private var callbackImporter: ImportPickerMode?
     @State private var importerError: String?
     @State private var showPrimaryTestResponse = false
     @State private var showTaggingTestResponse = false
+    @State private var showVisionTestResponse = false
     @State private var primaryModelDisclosureExpanded: Bool = true
     @State private var taggingModelDisclosureExpanded: Bool = false
+    @State private var visionModelDisclosureExpanded: Bool = false
+    @State private var visionTestJPEG: Data?
     @State private var showBackupExporter = false
     @State private var backupDocument = BackupJSONDocument()
     @State private var backupDefaultFilename = "phathom-library-backup.json"
@@ -34,9 +40,6 @@ struct SettingsContent: View {
     @State private var backupBusy = false
     @State private var showResetWebProcessingConfirm = false
     @State private var isResettingWebProcessingQueue = false
-#if DEBUG
-    @State private var visionSpikeRevision: Int = 0
-#endif
 
     private enum ModelTestPhase {
         case idle
@@ -48,15 +51,13 @@ struct SettingsContent: View {
     enum ImportPickerMode: String {
         case primaryModel
         case taggingModel
+        case visionTextModel
+        case visionMmprojModel
         case backup
-#if DEBUG
-        case visionSpikeText
-        case visionSpikeMmproj
-#endif
     }
 
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.6.0"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.7.0"
     }
 
     private var build: String {
@@ -75,6 +76,11 @@ struct SettingsContent: View {
         return false
     }
 
+    private var canRunVisionTest: Bool {
+        ModelManager.hasReadableVisionSelection
+            && visionTestJPEG.map { !$0.isEmpty } == true
+    }
+
     private var importerBinding: Binding<Bool> {
         Binding(
             get: { requestedImporter != nil },
@@ -88,13 +94,8 @@ struct SettingsContent: View {
 
     private var importerAllowedTypes: [UTType] {
         switch requestedImporter {
-#if DEBUG
-        case .primaryModel, .taggingModel, .visionSpikeText, .visionSpikeMmproj:
+        case .primaryModel, .taggingModel, .visionTextModel, .visionMmprojModel:
             return [UTType(filenameExtension: "gguf") ?? .data, .data]
-#else
-        case .primaryModel, .taggingModel:
-            return [UTType(filenameExtension: "gguf") ?? .data, .data]
-#endif
         case .backup:
             return [.json]
         case nil:
@@ -133,14 +134,12 @@ struct SettingsContent: View {
                     handlePrimaryModelImportSelection(result)
                 case .taggingModel:
                     handleTaggingModelImportSelection(result)
+                case .visionTextModel:
+                    handleVisionTextModelImportSelection(result)
+                case .visionMmprojModel:
+                    handleVisionMmprojModelImportSelection(result)
                 case .backup:
                     handleBackupImportSelection(result)
-#if DEBUG
-                case .visionSpikeText:
-                    handleVisionSpikeTextImportSelection(result)
-                case .visionSpikeMmproj:
-                    handleVisionSpikeMmprojImportSelection(result)
-#endif
                 case nil:
                     return
                 }
@@ -232,6 +231,7 @@ struct SettingsContent: View {
                 if phase == .active {
                     ModelManager.validateSelection()
                     ModelManager.validateTaggingSelection()
+                    ModelManager.validateVisionSelection()
                     refreshSelectionState()
                     refreshArchivedCount()
                     refreshActiveWebProcessingQueueCount()
@@ -265,17 +265,6 @@ struct SettingsContent: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Self.sectionVerticalGap) {
                 aiModelsGroupedSection
-#if DEBUG
-                VisionSpikeSettingsSection(
-                    onPickTextGGUF: {
-                        requestedImporter = .visionSpikeText
-                    },
-                    onPickMmproj: {
-                        requestedImporter = .visionSpikeMmproj
-                    }
-                )
-                .id(visionSpikeRevision)
-#endif
                 libraryGroupedSection
                 dataGroupedSection
                 settingsScreenFooter
@@ -291,7 +280,7 @@ struct SettingsContent: View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(
                 title: "AI Models",
-                subtitle: "On-device models for summarization and tagging"
+                subtitle: "On-device models for summarization, tagging, and photo vision"
             )
             settingsGroupedSurface {
                 VStack(spacing: 0) {
@@ -369,6 +358,34 @@ struct SettingsContent: View {
                     }
                     .padding(.horizontal, SettingsCardCell.horizontalPadding)
                     .tint(AppPalette.accent)
+
+                    settingsGroupedDivider
+
+                    VisionModelSettingsSection(
+                        textState: visionTextSelectionState,
+                        mmprojState: visionMmprojSelectionState,
+                        testPhase: visionTestPhase,
+                        showTestResponse: $showVisionTestResponse,
+                        hasAnyBookmark: ModelManager.hasVisionTextBookmark || ModelManager.hasVisionMmprojBookmark,
+                        isTestRunning: isVisionTestRunning,
+                        canRunTest: canRunVisionTest,
+                        disclosureExpanded: $visionModelDisclosureExpanded,
+                        testJPEG: $visionTestJPEG,
+                        onPickTextGGUF: {
+                            requestedImporter = .visionTextModel
+                        },
+                        onPickMmproj: {
+                            requestedImporter = .visionMmprojModel
+                        },
+                        onTest: { runVisionModelTest() },
+                        onForget: {
+                            ModelManager.clearVisionSelection()
+                            visionTestPhase = .idle
+                            showVisionTestResponse = false
+                            visionTestJPEG = nil
+                            refreshSelectionState()
+                        }
+                    )
                 }
             }
         }
@@ -735,9 +752,12 @@ struct SettingsContent: View {
     private func refreshSelectionState() {
         ModelManager.validateSelection()
         ModelManager.validateTaggingSelection()
+        ModelManager.validateVisionSelection()
         let next = ModelManager.selectionDisplayState()
         selectionState = next
         taggingSelectionState = ModelManager.taggingSelectionDisplayState()
+        visionTextSelectionState = ModelManager.visionTextSelectionDisplayState()
+        visionMmprojSelectionState = ModelManager.visionMmprojSelectionDisplayState()
         switch next {
         case .ready:
             primaryModelDisclosureExpanded = false
@@ -751,6 +771,15 @@ struct SettingsContent: View {
             taggingModelDisclosureExpanded = false
         case .missingFile:
             taggingModelDisclosureExpanded = true
+        }
+        switch (visionTextSelectionState, visionMmprojSelectionState) {
+        case (.ready, .ready):
+            visionModelDisclosureExpanded = false
+        case (.noSelection, .noSelection):
+            visionModelDisclosureExpanded = false
+        default:
+            if case .missingFile = visionTextSelectionState { visionModelDisclosureExpanded = true }
+            if case .missingFile = visionMmprojSelectionState { visionModelDisclosureExpanded = true }
         }
     }
 
@@ -776,6 +805,70 @@ struct SettingsContent: View {
                     primaryTestPhase = .failed(message: error.localizedDescription)
                 }
             }
+        }
+    }
+
+    private func runVisionModelTest() {
+        guard let jpeg = visionTestJPEG, !jpeg.isEmpty else { return }
+        visionTestPhase = .running
+        showVisionTestResponse = false
+        Task {
+            do {
+                let description = try await VisionModelSmokeTest.describe(jpegData: jpeg)
+                await MainActor.run {
+                    visionTestPhase = .succeeded(
+                        summary: "Vision model responded successfully.",
+                        raw: description
+                    )
+                }
+            } catch {
+                await MainActor.run {
+                    visionTestPhase = .failed(message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private var isVisionTestRunning: Bool {
+        if case .running = visionTestPhase {
+            return true
+        }
+        return false
+    }
+
+    private func handleVisionTextModelImportSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let src = urls.first else { return }
+            do {
+                try ModelManager.setVisionTextSelection(from: src)
+                visionTestPhase = .idle
+                showVisionTestResponse = false
+                refreshSelectionState()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } catch {
+                importerError = error.localizedDescription
+            }
+        case .failure(let error):
+            importerError = error.localizedDescription
+        }
+    }
+
+    private func handleVisionMmprojModelImportSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let src = urls.first else { return }
+            do {
+                try ModelManager.setVisionMmprojSelection(from: src)
+                visionTestPhase = .idle
+                showVisionTestResponse = false
+                refreshSelectionState()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } catch {
+                importerError = error.localizedDescription
+            }
+        case .failure(let error):
+            importerError = error.localizedDescription
         }
     }
 
@@ -924,40 +1017,6 @@ struct SettingsContent: View {
         }
     }
 
-#if DEBUG
-    private func handleVisionSpikeTextImportSelection(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let src = urls.first else { return }
-            do {
-                try VisionSpikeStorage.setTextBookmark(from: src)
-                visionSpikeRevision &+= 1
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            } catch {
-                importerError = error.localizedDescription
-            }
-        case .failure(let error):
-            importerError = error.localizedDescription
-        }
-    }
-
-    private func handleVisionSpikeMmprojImportSelection(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let src = urls.first else { return }
-            do {
-                try VisionSpikeStorage.setMmprojBookmark(from: src)
-                visionSpikeRevision &+= 1
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            } catch {
-                importerError = error.localizedDescription
-            }
-        case .failure(let error):
-            importerError = error.localizedDescription
-        }
-    }
-#endif
-
     private func handleBackupExportResult(_ result: Result<URL, Error>) {
         backupBusy = false
         switch result {
@@ -1053,7 +1112,7 @@ private enum SettingsModelIcons {
     static let symbolFontSize: CGFloat = 14
 }
 
-private struct SettingsModelActionRow: View {
+struct SettingsModelActionRow: View {
     let title: String
     let iconName: String
     let iconTint: Color
@@ -1080,7 +1139,7 @@ private struct SettingsModelActionRow: View {
     }
 }
 
-private struct SettingsModelFileInfoBlock: View {
+struct SettingsModelFileInfoBlock: View {
     let fileName: String
     let byteString: String
 
@@ -1104,7 +1163,7 @@ private struct SettingsModelFileInfoBlock: View {
     }
 }
 
-private struct SettingsModelInfoFooter: View {
+struct SettingsModelInfoFooter: View {
     let text: String
 
     var body: some View {
@@ -1122,7 +1181,7 @@ private struct SettingsModelInfoFooter: View {
     }
 }
 
-private enum SettingsCardCell {
+enum SettingsCardCell {
     static let horizontalPadding: CGFloat = 16
     static let verticalPadding: CGFloat = 12
 }

@@ -1,10 +1,8 @@
-#if DEBUG
-
 import CoreGraphics
 import Foundation
 
-/// User-facing spike profile knob (persisted via `AppStorage`).
-enum VisionSpikeProfileOverride: String, CaseIterable, Sendable {
+/// User-facing profile knob (`VisionContentAnalyzer` accepts overrides; production uses `.automatic` + `VisionProfileResolver` heuristics).
+enum VisionProfileOverride: String, CaseIterable, Sendable {
     case automatic = "auto"
     case compact = "compact"
     case capable = "capable"
@@ -18,8 +16,8 @@ enum VisionSpikeProfileOverride: String, CaseIterable, Sendable {
     }
 }
 
-/// Auto-detected or overridden device spike profile (`compact` vs `capable`).
-enum VisionSpikeProfile: String, Sendable {
+/// Auto-detected or overridden VLM profile (`compact` vs `capable`).
+enum VisionProfile: String, Sendable {
     /// Smaller VLMs — default 1600px image side, permissive mtmd image token caps.
     case compact
     /// Larger VLMs (e.g. Qwen2.5-VL) — tighter image + token budgets for 8 GB class devices.
@@ -30,10 +28,10 @@ enum VisionSpikeProfile: String, Sendable {
     }
 }
 
-/// Which configured attempt ran (logged in `VisionSpikeResult`).
-enum VisionSpikeRuntimeAttempt: String, Sendable {
+/// Which configured attempt ran (logged in spike reports / diagnostics).
+enum VisionRuntimeAttempt: String, Sendable {
     case primary
-    /// Only used for `.capable` when the primary attempt threw and spike retried tightened settings.
+    /// Only used for `.capable` when the primary attempt threw and describe retried tightened settings.
     case tightenedRetry
 
     nonisolated var labelForReport: String {
@@ -41,33 +39,33 @@ enum VisionSpikeRuntimeAttempt: String, Sendable {
     }
 }
 
-/// Resolved runtime tuning for one spike attempt (`LlamaVisionSpike`).
-struct VisionSpikeRunConfiguration: Sendable, Equatable {
-    let profile: VisionSpikeProfile
-    let runtimeAttempt: VisionSpikeRuntimeAttempt
+/// Resolved runtime tuning for one vision describe attempt.
+struct VisionRunConfiguration: Sendable, Equatable {
+    let profile: VisionProfile
+    let runtimeAttempt: VisionRuntimeAttempt
     let imageMaxDimensionPixels: CGFloat
-    let spikeContextWindow: UInt32
+    let contextWindow: UInt32
     let physicalBatchUBatch: UInt32
     /// When `nil`, `mtmd_context_params` keeps bundled defaults for vision token caps.
     let imageMaxTokens: Int?
 
-    nonisolated static func primary(for profile: VisionSpikeProfile) -> VisionSpikeRunConfiguration {
+    nonisolated static func primary(for profile: VisionProfile) -> VisionRunConfiguration {
         switch profile {
         case .compact:
-            VisionSpikeRunConfiguration(
+            VisionRunConfiguration(
                 profile: profile,
                 runtimeAttempt: .primary,
                 imageMaxDimensionPixels: 1600,
-                spikeContextWindow: 4096,
+                contextWindow: 4096,
                 physicalBatchUBatch: 512,
                 imageMaxTokens: nil
             )
         case .capable:
-            VisionSpikeRunConfiguration(
+            VisionRunConfiguration(
                 profile: profile,
                 runtimeAttempt: .primary,
                 imageMaxDimensionPixels: 768,
-                spikeContextWindow: 2048,
+                contextWindow: 2048,
                 physicalBatchUBatch: 512,
                 imageMaxTokens: 1024
             )
@@ -75,40 +73,40 @@ struct VisionSpikeRunConfiguration: Sendable, Equatable {
     }
 
     /// Tighter budget for `.capable` only; `nil` for `.compact`.
-    nonisolated static func tightenedFallback(for profile: VisionSpikeProfile) -> VisionSpikeRunConfiguration? {
+    nonisolated static func tightenedFallback(for profile: VisionProfile) -> VisionRunConfiguration? {
         guard profile == .capable else { return nil }
-        return VisionSpikeRunConfiguration(
+        return VisionRunConfiguration(
             profile: profile,
             runtimeAttempt: .tightenedRetry,
             imageMaxDimensionPixels: 512,
-            spikeContextWindow: 2048,
+            contextWindow: 2048,
             physicalBatchUBatch: 512,
             imageMaxTokens: 768
         )
     }
 
     nonisolated static func resolveProfile(
-        override: VisionSpikeProfileOverride,
+        override: VisionProfileOverride,
         textGGUFPath: String,
         fileSizeBytes: UInt64?
-    ) -> VisionSpikeProfile {
+    ) -> VisionProfile {
         switch override {
         case .compact:
             return .compact
         case .capable:
             return .capable
         case .automatic:
-            return VisionSpikeProfileResolver.autoDetectedProfile(textGGUFPath: textGGUFPath, fileSizeBytes: fileSizeBytes)
+            return VisionProfileResolver.autoDetectedProfile(textGGUFPath: textGGUFPath, fileSizeBytes: fileSizeBytes)
         }
     }
 }
 
-/// Heuristics for choosing `VisionSpikeProfile` when UI override is **auto**.
-nonisolated enum VisionSpikeProfileResolver {
+/// Heuristics for choosing `VisionProfile` when override is **automatic**.
+nonisolated enum VisionProfileResolver {
     /// ~1.2 GiB: favor compact on disk when name is ambiguous (smaller GGUF heuristic).
     private static let compactIfSmallerThanBytes: UInt64 = 1_300_000_000
 
-    nonisolated static func autoDetectedProfile(textGGUFPath: String, fileSizeBytes: UInt64?) -> VisionSpikeProfile {
+    nonisolated static func autoDetectedProfile(textGGUFPath: String, fileSizeBytes: UInt64?) -> VisionProfile {
         let leaf = URL(fileURLWithPath: textGGUFPath).lastPathComponent.lowercased()
         if leaf.contains("smol") || leaf.contains("smolvlm") {
             return .compact
@@ -123,5 +121,3 @@ nonisolated enum VisionSpikeProfileResolver {
         return sz < Self.compactIfSmallerThanBytes ? .compact : .capable
     }
 }
-
-#endif

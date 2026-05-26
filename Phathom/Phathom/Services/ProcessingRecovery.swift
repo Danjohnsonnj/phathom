@@ -58,18 +58,20 @@ enum ProcessingRecovery {
         switch item.kind {
         case .note:
             return rawTextNonEmpty(item)
-        case .web, .media:
+        case .web:
             return true
+        case .media:
+            return ModelManager.hasReadableVisionSelection && mediaHasAnalyzableImage(item)
         }
     }
 
-    /// Whether the user can re-run LLM analysis from the detail screen (completed web/note with body text).
+    /// Whether the user can re-run LLM analysis from the detail screen (completed web/note with body text; completed media with vision model).
     @MainActor
     static func canSummarizeAgain(_ item: ContentItem) -> Bool {
         guard !item.isArchived, item.status == .completed else { return false }
         switch item.kind {
         case .media:
-            return false
+            return ModelManager.hasReadableVisionSelection && mediaHasAnalyzableImage(item)
         case .web, .note:
             return rawTextNonEmpty(item)
         }
@@ -101,6 +103,9 @@ enum ProcessingRecovery {
     static func summarizeAgain(_ item: ContentItem, modelContext: ModelContext) -> Bool {
         guard canSummarizeAgain(item) else { return false }
         clearAIDerivedFields(item)
+        if item.kind == .media {
+            item.mediaDescription = nil
+        }
         item.failureReason = nil
         item.processingDetail = "Preparing analysis…"
         item.processingStatus = ProcessingStatus.embedding.rawValue
@@ -118,6 +123,11 @@ enum ProcessingRecovery {
         return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private static func mediaHasAnalyzableImage(_ item: ContentItem) -> Bool {
+        guard let data = item.thumbnailData else { return false }
+        return !data.isEmpty
+    }
+
     /// Clears LLM-derived fields shared by retries, summarize-again, and archive-during-processing.
     @MainActor
     internal static func clearAIDerivedFields(_ item: ContentItem) {
@@ -127,6 +137,11 @@ enum ProcessingRecovery {
     }
 
     private static func normalizeFailedMedia(_ item: ContentItem) {
+        if ModelManager.hasReadableVisionSelection {
+            item.processingStatus = ProcessingStatus.embedding.rawValue
+            item.processingDetail = "Preparing analysis…"
+            return
+        }
         item.processingStatus = ProcessingStatus.completed.rawValue
         if (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             item.mediaDescription = ShareCapture.mediaPlaceholderDescription

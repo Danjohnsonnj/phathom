@@ -5,6 +5,9 @@ enum ModelManager {
     private nonisolated static let bookmarkKey = "phathom.selectedGGUFBookmark"
     /// Optional second GGUF used only for derived tagging when set and readable.
     private nonisolated static let taggingBookmarkKey = "phathom.selectedGGUFBookmark.tagging"
+    /// Optional vision VLM text GGUF + mmproj pair for media photo inference.
+    private nonisolated static let visionTextBookmarkKey = "phathom.selectedGGUFBookmark.vision.text"
+    private nonisolated static let visionMmprojBookmarkKey = "phathom.selectedGGUFBookmark.vision.mmproj"
     /// Legacy path-only storage from before bookmarks; migrated once into `bookmarkKey`.
     private nonisolated static let legacyPathKey = "phathom.selectedGGUFPath"
     /// Persisted probe for Library icon state: set by `SharedLlamaInference.withSession` / load path.
@@ -153,6 +156,81 @@ enum ModelManager {
         validateBookmark(forKey: taggingBookmarkKey, clear: clearTaggingSelection)
     }
 
+    // MARK: - Vision model selection (optional; text GGUF + mmproj)
+
+    enum VisionFileKind: Sendable {
+        case textGGUF
+        case mmproj
+    }
+
+    nonisolated static var hasVisionTextBookmark: Bool {
+        guard let data = UserDefaults.standard.data(forKey: visionTextBookmarkKey) else { return false }
+        return !data.isEmpty
+    }
+
+    nonisolated static var hasVisionMmprojBookmark: Bool {
+        guard let data = UserDefaults.standard.data(forKey: visionMmprojBookmarkKey) else { return false }
+        return !data.isEmpty
+    }
+
+    /// `true` when both vision bookmarks exist (either may still be `.missingFile` on disk).
+    nonisolated static var hasVisionBookmark: Bool {
+        hasVisionTextBookmark && hasVisionMmprojBookmark
+    }
+
+    /// Cheap probe for pipeline drain gates and Settings smoke — both files must open and read.
+    nonisolated static var hasReadableVisionSelection: Bool {
+        guard let textAccess = openVisionTextSelection(),
+              let mmprojAccess = openVisionMmprojSelection()
+        else {
+            return false
+        }
+        textAccess.end()
+        mmprojAccess.end()
+        return true
+    }
+
+    nonisolated static func clearVisionSelection() {
+        UserDefaults.standard.removeObject(forKey: visionTextBookmarkKey)
+        UserDefaults.standard.removeObject(forKey: visionMmprojBookmarkKey)
+        notifyModelAvailabilityChanged()
+    }
+
+    nonisolated static func setVisionTextSelection(from pickedURL: URL) throws {
+        try setVisionBookmark(from: pickedURL, key: visionTextBookmarkKey)
+    }
+
+    nonisolated static func setVisionMmprojSelection(from pickedURL: URL) throws {
+        try setVisionBookmark(from: pickedURL, key: visionMmprojBookmarkKey)
+    }
+
+    nonisolated static func openVisionTextSelection() -> ScopedAccess? {
+        openBookmark(forKey: visionTextBookmarkKey)
+    }
+
+    nonisolated static func openVisionMmprojSelection() -> ScopedAccess? {
+        openBookmark(forKey: visionMmprojBookmarkKey)
+    }
+
+    nonisolated static func visionTextSelectionDisplayState() -> SelectionDisplayState {
+        selectionDisplayState(forKey: visionTextBookmarkKey)
+    }
+
+    nonisolated static func visionMmprojSelectionDisplayState() -> SelectionDisplayState {
+        selectionDisplayState(forKey: visionMmprojBookmarkKey)
+    }
+
+    nonisolated static func validateVisionSelection() {
+        validateBookmark(forKey: visionTextBookmarkKey) {
+            UserDefaults.standard.removeObject(forKey: visionTextBookmarkKey)
+            notifyModelAvailabilityChanged()
+        }
+        validateBookmark(forKey: visionMmprojBookmarkKey) {
+            UserDefaults.standard.removeObject(forKey: visionMmprojBookmarkKey)
+            notifyModelAvailabilityChanged()
+        }
+    }
+
     // MARK: - Shared helpers
 
     /// For Library's unobtrusive settings gear indicator.
@@ -263,6 +341,22 @@ enum ModelManager {
             return "—"
         }
         return ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .file)
+    }
+
+    nonisolated private static func setVisionBookmark(from pickedURL: URL, key: String) throws {
+        let accessed = pickedURL.startAccessingSecurityScopedResource()
+        defer {
+            if accessed {
+                pickedURL.stopAccessingSecurityScopedResource()
+            }
+        }
+        let data = try pickedURL.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        UserDefaults.standard.set(data, forKey: key)
+        notifyModelAvailabilityChanged()
     }
 
     private nonisolated static func selectionReachability(url: URL) -> (Bool, String) {

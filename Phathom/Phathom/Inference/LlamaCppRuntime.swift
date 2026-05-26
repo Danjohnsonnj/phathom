@@ -44,6 +44,10 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
     private var lastSampledToken: llama_token = 0
     private var hasActiveGeneration: Bool = false
 
+    private var mtmdCtx: OpaquePointer?
+    private var visionSampler: UnsafeMutablePointer<llama_sampler>?
+    private var backendSlotHeld = false
+
     private static let abortTrampoline: @convention(c) (UnsafeMutableRawPointer?) -> Bool = { data in
         guard let data else { return false }
         let runtime = Unmanaged<LlamaCppRuntime>.fromOpaque(data).takeUnretainedValue()
@@ -57,27 +61,148 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
 
     deinit {
         releaseGenerationState(freeContext: true)
-        llama_backend_free()
+        releaseVisionState()
+        Self.releaseBackendSlot(&backendSlotHeld)
+    }
+
+    struct VisionDescribeOutput: Sendable {
+        let text: String
+        let loadDuration: TimeInterval
+        let evalDuration: TimeInterval
+        let generateDuration: TimeInterval
+    }
+
+    /// Loads a vision-capable text GGUF + mmproj pair. Uses vision-specific context params (FA off, `n_seq_max = 1`).
+    func loadVisionStack(
+        textModelPath: String,
+        mmprojPath: String,
+        configuration: VisionRunConfiguration
+    ) throws {
+        releaseGenerationState(freeContext: true)
+        releaseVisionState()
+        shouldCancel = false
+
+        try validateModelFile(at: textModelPath)
+
+        Self.acquireBackendSlot(&backendSlotHeld)
+
+        let loadStart = CFAbsoluteTimeGetCurrent()
+        try loadVisionTextModel(path: textModelPath, configuration: configuration)
+        var loadDuration = CFAbsoluteTimeGetCurrent() - loadStart
+
+        let visionStart = CFAbsoluteTimeGetCurrent()
+        try loadVisionProjector(mmprojPath: mmprojPath, configuration: configuration)
+        loadDuration += CFAbsoluteTimeGetCurrent() - visionStart
+        _ = loadDuration
+    }
+
+    /// Assumes `loadVisionStack` succeeded. Downscales JPEG per `configuration`, runs mtmd eval + caption decode.
+    func describeLoadedVisionImage(
+        jpegData: Data,
+        configuration: VisionRunConfiguration,
+        userPrompt: String?,
+        maxNewTokens: Int = 384,
+        temperature: Float = 0.2
+    ) throws -> VisionDescribeOutput {
+        guard let resizedJPEG = MediaImageEncoding.normalizedJPEG(
+            from: jpegData,
+            maxDimension: configuration.imageMaxDimensionPixels,
+            quality: 0.82
+        ), !resizedJPEG.isEmpty else {
+            throw VisionInferenceError.imageDecodeFailed
+        }
+
+        guard let vision = mtmdCtx, mtmd_support_vision(vision) else {
+            throw VisionInferenceError.visionNotSupported
+        }
+
+        let marker = String(cString: mtmd_default_marker())
+        let basePrompt =
+            userPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? userPrompt!.trimmingCharacters(in: .whitespacesAndNewlines)
+            : VisionContentAnalyzer.defaultDescribePrompt
+        let userBody = "\(marker)\n\(basePrompt)"
+        guard let mdl = model else {
+            throw VisionInferenceError.generationFailed("Missing llama model.")
+        }
+        let formatted = makeFormattedChatPrompt(userText: userBody, model: mdl)
+
+        guard let bitmap = resizedJPEG.withUnsafeBytes({ raw -> OpaquePointer? in
+            guard let base = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
+            return mtmd_helper_bitmap_init_from_buf(vision, base, raw.count)
+        }) else {
+            throw VisionInferenceError.imageDecodeFailed
+        }
+        defer { mtmd_bitmap_free(bitmap) }
+
+        guard let chunks = mtmd_input_chunks_init() else {
+            throw VisionInferenceError.tokenizeFailed(-1)
+        }
+        defer { mtmd_input_chunks_free(chunks) }
+
+        let tokenizeResult: Int32 = formatted.withCString { formattedC in
+            var text = mtmd_input_text(
+                text: formattedC,
+                add_special: true,
+                parse_special: true
+            )
+            var bmpPtr: OpaquePointer? = bitmap
+            return withUnsafePointer(to: &text) { textPtr in
+                withUnsafeMutablePointer(to: &bmpPtr) { bmpArray in
+                    mtmd_tokenize(vision, chunks, textPtr, bmpArray, 1)
+                }
+            }
+        }
+        guard tokenizeResult == 0 else {
+            throw VisionInferenceError.tokenizeFailed(tokenizeResult)
+        }
+
+        guard let ctx = context else {
+            throw VisionInferenceError.generationFailed("Missing llama context.")
+        }
+        let nBatch = Int32(min(512, configuration.contextWindow))
+        var nPast: llama_pos = 0
+
+        let evalStart = CFAbsoluteTimeGetCurrent()
+        let evalCode = mtmd_helper_eval_chunks(
+            vision,
+            ctx,
+            chunks,
+            nPast,
+            0,
+            nBatch,
+            true,
+            &nPast
+        )
+        let evalDuration = CFAbsoluteTimeGetCurrent() - evalStart
+        guard evalCode == 0 else {
+            throw VisionInferenceError.evalFailed(evalCode)
+        }
+
+        let genStart = CFAbsoluteTimeGetCurrent()
+        let description = try generateVisionDescription(
+            nPast: nPast,
+            maxTokens: maxNewTokens,
+            temperature: temperature
+        )
+        let generateDuration = CFAbsoluteTimeGetCurrent() - genStart
+
+        return VisionDescribeOutput(
+            text: description,
+            loadDuration: 0,
+            evalDuration: evalDuration,
+            generateDuration: generateDuration
+        )
     }
 
     func loadModel(path: String) throws {
         releaseGenerationState(freeContext: true)
+        releaseVisionState()
         shouldCancel = false
 
-        let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: path) else {
-            throw LlamaInferenceError.modelLoadFailed("Model file not found on disk.")
-        }
-        guard fileManager.isReadableFile(atPath: path) else {
-            throw LlamaInferenceError.modelLoadFailed("Model file is not readable.")
-        }
-        let attributes = try fileManager.attributesOfItem(atPath: path)
-        let size = attributes[.size] as? UInt64 ?? 0
-        guard size > 0 else {
-            throw LlamaInferenceError.modelLoadFailed("Model file is empty.")
-        }
+        try validateModelFile(at: path)
 
-        llama_backend_init()
+        Self.acquireBackendSlot(&backendSlotHeld)
 
         var modelParams = llama_model_default_params()
 #if targetEnvironment(simulator)
@@ -135,6 +260,7 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
 
     func unloadModel() {
         releaseGenerationState(freeContext: true)
+        releaseVisionState()
     }
 
     func countTemplatedUserPromptTokens(_ user: String) throws -> Int {
@@ -430,6 +556,195 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
             llama_memory_seq_rm(mem, taskSeqId, -1, -1)
 
             onPartial(output)
+        }
+    }
+
+    private func validateModelFile(at path: String) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: path) else {
+            throw LlamaInferenceError.modelLoadFailed("Model file not found on disk.")
+        }
+        guard fileManager.isReadableFile(atPath: path) else {
+            throw LlamaInferenceError.modelLoadFailed("Model file is not readable.")
+        }
+        let attributes = try fileManager.attributesOfItem(atPath: path)
+        let size = attributes[.size] as? UInt64 ?? 0
+        guard size > 0 else {
+            throw LlamaInferenceError.modelLoadFailed("Model file is empty.")
+        }
+    }
+
+    private static var backendUsers = 0
+    private static let backendLock = NSLock()
+
+    private static func acquireBackendSlot(_ held: inout Bool) {
+        backendLock.lock()
+        defer { backendLock.unlock() }
+        if !held {
+            if backendUsers == 0 {
+                llama_backend_init()
+            }
+            backendUsers += 1
+            held = true
+        }
+    }
+
+    private static func releaseBackendSlot(_ held: inout Bool) {
+        backendLock.lock()
+        defer { backendLock.unlock() }
+        guard held else { return }
+        backendUsers = max(0, backendUsers - 1)
+        if backendUsers == 0 {
+            llama_backend_free()
+        }
+        held = false
+    }
+
+    private func loadVisionTextModel(path: String, configuration: VisionRunConfiguration) throws {
+        var modelParams = llama_model_default_params()
+#if targetEnvironment(simulator)
+        modelParams.n_gpu_layers = 0
+#else
+        modelParams.n_gpu_layers = -1
+#endif
+
+        guard let loadedModel = llama_model_load_from_file(path, modelParams) else {
+            throw VisionInferenceError.modelLoadFailed("llama.cpp could not load text GGUF.")
+        }
+
+        var contextParams = llama_context_default_params()
+        let trainCtx = Int(llama_model_n_ctx_train(loadedModel))
+        let requestedCtx = configuration.contextWindow
+        let effectiveCtx: UInt32
+        if trainCtx > 0 {
+            effectiveCtx = min(requestedCtx, UInt32(clamping: trainCtx))
+        } else {
+            effectiveCtx = requestedCtx
+        }
+
+        contextParams.n_ctx = effectiveCtx
+        contextParams.n_batch = effectiveCtx
+        contextParams.n_ubatch = min(configuration.physicalBatchUBatch, effectiveCtx)
+        contextParams.n_seq_max = 1
+        contextParams.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED
+        contextParams.offload_kqv = true
+        contextParams.kv_unified = false
+
+        let nThreads = max(1, min(8, ProcessInfo.processInfo.processorCount - 2))
+        contextParams.n_threads = Int32(nThreads)
+        contextParams.n_threads_batch = Int32(nThreads)
+
+        guard let loadedContext = llama_init_from_model(loadedModel, contextParams) else {
+            llama_model_free(loadedModel)
+            throw VisionInferenceError.modelLoadFailed("Unable to initialize llama context.")
+        }
+        model = loadedModel
+        context = loadedContext
+        contextLimitTokens = Int(effectiveCtx)
+    }
+
+    private func loadVisionProjector(mmprojPath: String, configuration: VisionRunConfiguration) throws {
+        guard let mdl = model else {
+            throw VisionInferenceError.modelLoadFailed("Text model not loaded.")
+        }
+        var params = mtmd_context_params_default()
+
+#if targetEnvironment(simulator)
+        params.use_gpu = false
+#else
+        params.use_gpu = true
+#endif
+        params.print_timings = false
+        params.n_threads = Int32(max(1, ProcessInfo.processInfo.processorCount - 2))
+        params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED
+        params.warmup = false
+
+        if let cap = configuration.imageMaxTokens {
+            params.image_max_tokens = Int32(cap)
+        }
+
+        guard let ctx = mtmd_init_from_file(mmprojPath, mdl, params) else {
+            throw VisionInferenceError.visionInitFailed(
+                "mtmd_init_from_file returned nil — check mmproj matches text GGUF."
+            )
+        }
+        mtmdCtx = ctx
+    }
+
+    private func generateVisionDescription(
+        nPast: llama_pos,
+        maxTokens: Int,
+        temperature: Float
+    ) throws -> String {
+        guard let ctx = context, let mdl = model else {
+            throw VisionInferenceError.generationFailed("Context not ready.")
+        }
+        let vocab = llama_model_get_vocab(mdl)
+        try setupVisionSampler(temperature: temperature)
+
+        var output = ""
+        var pos = nPast
+        var generated = 0
+
+        while generated < maxTokens {
+            if shouldCancel { break }
+            guard let smpl = visionSampler else { break }
+            let token = llama_sampler_sample(smpl, ctx, -1)
+            if llama_vocab_is_eog(vocab, token) { break }
+
+            var piece = [CChar](repeating: 0, count: 512)
+            var n = llama_token_to_piece(vocab, token, &piece, Int32(piece.count), 0, true)
+            if n < 0 {
+                let need = -Int(n)
+                piece = [CChar](repeating: 0, count: need + 1)
+                n = llama_token_to_piece(vocab, token, &piece, Int32(piece.count), 0, true)
+            }
+            if n > 0 {
+                let clen = min(Int(n), piece.count)
+                if clen < piece.count { piece[clen] = 0 } else { piece[clen - 1] = 0 }
+                if let chunk = String(validatingUTF8: piece) {
+                    output += chunk
+                }
+            }
+
+            var tokenBuf = token
+            let batch = llama_batch_get_one(&tokenBuf, 1)
+            let dret = llama_decode(ctx, batch)
+            if dret != 0 { break }
+            pos += 1
+            generated += 1
+            llama_sampler_accept(smpl, token)
+        }
+
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw VisionInferenceError.generationFailed("Model returned empty description.")
+        }
+        return trimmed
+    }
+
+    private func setupVisionSampler(temperature: Float) throws {
+        if visionSampler != nil { return }
+        var sp = llama_sampler_chain_default_params()
+        sp.no_perf = true
+        guard let smpl = llama_sampler_chain_init(sp) else {
+            throw VisionInferenceError.generationFailed("Failed to create sampler.")
+        }
+        llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40))
+        llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.9, 1))
+        llama_sampler_chain_add(smpl, llama_sampler_init_temp(temperature))
+        llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED))
+        visionSampler = smpl
+    }
+
+    private func releaseVisionState() {
+        if let s = visionSampler {
+            llama_sampler_free(s)
+            visionSampler = nil
+        }
+        if let v = mtmdCtx {
+            mtmd_free(v)
+            mtmdCtx = nil
         }
     }
 
