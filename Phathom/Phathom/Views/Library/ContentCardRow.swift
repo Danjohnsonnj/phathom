@@ -62,7 +62,12 @@ struct ContentCardRow: View {
 
 
                 if item.status != .completed {
-                    ProcessingStatusBadge(status: item.status, contentKind: item.kind, onTap: chipAction(for: item))
+                    ProcessingStatusBadge(
+                        status: item.status,
+                        contentKind: item.kind,
+                        processingDetail: item.processingDetail,
+                        onTap: chipAction(for: item)
+                    )
                 } else {
                     Text(secondaryText)
                         .font(.subheadline)
@@ -116,10 +121,15 @@ struct ContentCardRow: View {
 struct ProcessingStatusBadge: View {
     let status: ProcessingStatus
     var contentKind: ContentKind? = nil
+    var processingDetail: String? = nil
     var onTap: (() -> Void)? = nil
 
     var body: some View {
-        if let label = ProcessingStatusPresentation.label(for: status, contentKind: contentKind) {
+        if let label = ProcessingStatusPresentation.chipLabel(
+            for: status,
+            contentKind: contentKind,
+            processingDetail: processingDetail
+        ) {
             let chip = chipContent(label: label)
             if let onTap {
                 Button(action: onTap) {

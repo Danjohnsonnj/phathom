@@ -127,7 +127,7 @@ Defined today in [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.s
 |----------|------------|
 | `pending` | Queued |
 | `scraping` | Fetching source |
-| `embedding` | Preparing analysis |
+| `embedding` | Ready to analyze |
 | `summarizing` | Generating summary |
 | `extracting` | Extracting details |
 | `tagging` | Creating tags |

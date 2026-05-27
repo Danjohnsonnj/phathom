@@ -224,7 +224,7 @@ struct PhathomTests {
         ctx.insert(t)
         let item = ContentItem(contentKind: .web, originalURL: URL(string: "https://archive-pause.test/x")!)
         item.processingStatus = ProcessingStatus.embedding.rawValue
-        item.processingDetail = "Preparing analysis…"
+        item.processingDetail = ProcessingStatusCopy.embeddingProcessingDetail
         item.summaryBullets = "[]"
         item.tags.append(t)
         ctx.insert(item)
@@ -526,7 +526,7 @@ struct PhathomTests {
         let item = try #require(rows.first)
         #expect(item.kind == .media)
         #expect(item.status == .embedding)
-        #expect(item.processingDetail == "Preparing analysis…")
+        #expect(item.processingDetail == ProcessingStatusCopy.embeddingProcessingDetail)
         #expect(item.mediaDescription == nil)
     }
 
@@ -556,7 +556,7 @@ struct PhathomTests {
         #expect(row.extracts == nil)
         #expect(row.tags.isEmpty)
         #expect(row.failureReason == nil)
-        #expect(row.processingDetail == "Preparing analysis…")
+        #expect(row.processingDetail == ProcessingStatusCopy.embeddingProcessingDetail)
         #expect(row.rawText == "article body text")
     }
 
@@ -581,7 +581,7 @@ struct PhathomTests {
         #expect(row.processingDetail == "Queued for capture")
     }
 
-    @Test func activeWebQueueReset_doesNotTouchCompletedFailedNoteOrMediaEmbedding() async throws {
+    @Test func activeQueueReset_doesNotTouchCompletedOrFailed() async throws {
         let container = try makeInMemoryContainer()
         let ctx = ModelContext(container)
         let completed = ContentItem(contentKind: .web, originalURL: URL(string: "https://reset-queue.test/c")!)
@@ -596,17 +596,23 @@ struct PhathomTests {
         note.rawText = "note md"
         note.processingStatus = ProcessingStatus.tagging.rawValue
         note.processingDetail = "Auto-tagging…"
+        note.summaryBullets = "[\"n\"]"
 
         let mediaStuck = ContentItem(contentKind: .media, originalURL: nil)
-        mediaStuck.processingStatus = ProcessingStatus.embedding.rawValue
+        mediaStuck.thumbnailData = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        mediaStuck.processingStatus = ProcessingStatus.summarizing.rawValue
+        mediaStuck.mediaDescription = "partial"
+        mediaStuck.summaryBullets = "[\"m\"]"
 
         ctx.insert(completed)
         ctx.insert(failed)
         ctx.insert(note)
         ctx.insert(mediaStuck)
         try ctx.save()
+        let noteID = note.id
+        let mediaID = mediaStuck.id
 
-        await BackgroundPipeline._test_performActiveWebQueueReset(modelContainer: container)
+        await BackgroundPipeline._test_performActiveQueueReset(modelContainer: container)
 
         let after = ModelContext(container)
         let all = FetchDescriptor<ContentItem>()
@@ -621,11 +627,134 @@ struct PhathomTests {
         #expect(f.status == .failed)
         #expect(f.failureReason == "x")
 
-        let n = try #require(byID[note.id])
-        #expect(n.status == .tagging)
+        let n = try #require(byID[noteID])
+        #expect(n.status == .embedding)
+        #expect(n.summaryBullets == nil)
+        #expect(n.processingDetail == ProcessingStatusCopy.embeddingProcessingDetail)
 
-        let m = try #require(byID[mediaStuck.id])
+        let m = try #require(byID[mediaID])
         #expect(m.status == .embedding)
+        #expect(m.mediaDescription == nil)
+        #expect(m.summaryBullets == nil)
+    }
+}
+
+@Suite("Pipeline user pause", .serialized)
+struct PipelineUserPauseTests {
+    @Test func pipelineUserPause_persistsInUserDefaults() {
+        defer { PipelineUserPause._test_clearPause() }
+        PipelineUserPause.setPaused(true)
+        #expect(PipelineUserPause.isPaused)
+        #expect(UserDefaults.standard.bool(forKey: PipelineUserPause.defaultsKey))
+        PipelineUserPause.setPaused(false)
+        #expect(!PipelineUserPause.isPaused)
+    }
+
+    @Test func runForegroundDrain_noOpWhenUserPaused() async throws {
+        defer { PipelineUserPause._test_clearPause() }
+        PipelineUserPause.setPaused(true)
+        let container = try makeInMemoryContainer()
+        BackgroundPipeline._test_setModelContainer(container)
+        let ctx = ModelContext(container)
+        let web = ContentItem(contentKind: .web, originalURL: URL(string: "https://pause-drain.test/a")!)
+        web.processingStatus = ProcessingStatus.pending.rawValue
+        web.processingDetail = "Queued for capture"
+        ctx.insert(web)
+        try ctx.save()
+        let webID = web.id
+
+        await BackgroundPipeline.runForegroundDrain()
+
+        #expect(!BackgroundPipeline.isForegroundDrainActive)
+        let after = ModelContext(container)
+        let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == webID })).first)
+        #expect(row.status == .pending)
+    }
+
+    @Test func backgroundIngest_noOpWhenUserPaused() async throws {
+        defer { PipelineUserPause._test_clearPause() }
+        PipelineUserPause.setPaused(true)
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let web = ContentItem(contentKind: .web, originalURL: URL(string: "https://pause-bg.test/a")!)
+        web.processingStatus = ProcessingStatus.pending.rawValue
+        ctx.insert(web)
+        try ctx.save()
+        let webID = web.id
+
+        await BackgroundPipeline._test_performBackgroundIngest(modelContainer: container)
+
+        let after = ModelContext(container)
+        let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == webID })).first)
+        #expect(row.status == .pending)
+    }
+
+    @Test func pauseAllProcessing_setsUserPausedFlag() async throws {
+        defer { PipelineUserPause._test_clearPause() }
+        let container = try makeInMemoryContainer()
+        BackgroundPipeline._test_setModelContainer(container)
+        #expect(!PipelineUserPause.isPaused)
+        await BackgroundPipeline.pauseAllProcessing()
+        #expect(PipelineUserPause.isPaused)
+    }
+
+    @Test func markStoppingBeforeRewind_setsStoppingDetailOnEligibleRows() async throws {
+        defer { PipelineUserPause._test_clearPause() }
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let active = ContentItem(contentKind: .web, originalURL: URL(string: "https://pause-stop.test/a")!)
+        active.processingStatus = ProcessingStatus.summarizing.rawValue
+        active.processingDetail = "Generating summary…"
+        active.rawText = "body"
+        let completed = ContentItem(contentKind: .web, originalURL: URL(string: "https://pause-stop.test/b")!)
+        completed.processingStatus = ProcessingStatus.completed.rawValue
+        ctx.insert(active)
+        ctx.insert(completed)
+        try ctx.save()
+        let activeID = active.id
+
+        BackgroundPipeline._test_markActiveQueueItemsStopping(modelContainer: container)
+
+        let after = ModelContext(container)
+        let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == activeID })).first)
+        #expect(row.processingDetail == ProcessingStatusCopy.pauseStoppingDetail)
+    }
+
+    @Test func pauseAllProcessing_marksStoppingThenRewindsToReadyToAnalyze() async throws {
+        defer { PipelineUserPause._test_clearPause() }
+        let container = try makeInMemoryContainer()
+        BackgroundPipeline._test_setModelContainer(container)
+        let ctx = ModelContext(container)
+        let active = ContentItem(contentKind: .web, originalURL: URL(string: "https://pause-stop.test/c")!)
+        active.processingStatus = ProcessingStatus.summarizing.rawValue
+        active.processingDetail = "Generating summary…"
+        active.rawText = "article body text"
+        ctx.insert(active)
+        try ctx.save()
+        let id = active.id
+
+        await BackgroundPipeline.pauseAllProcessing()
+
+        let after = ModelContext(container)
+        let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == id })).first)
+        #expect(row.status == .embedding)
+        #expect(row.processingDetail == ProcessingStatusCopy.embeddingProcessingDetail)
+        #expect(PipelineUserPause.isPaused)
+    }
+
+    @Test @MainActor
+    func processingRecovery_noOpWhenUserPaused() throws {
+        defer { PipelineUserPause._test_clearPause() }
+        PipelineUserPause.setPaused(true)
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let failed = ContentItem(contentKind: .web, originalURL: URL(string: "https://pause-retry.test/a")!)
+        failed.processingStatus = ProcessingStatus.failed.rawValue
+        failed.failureReason = "x"
+        ctx.insert(failed)
+        try ctx.save()
+        #expect(!ProcessingRecovery.retryFailedItemIfNeeded(failed, modelContext: ctx))
+        #expect(failed.status == .failed)
     }
 }
 
@@ -688,6 +817,28 @@ struct ProcessingStatusPresentationMediaTests {
     @Test func summarizingLabelUsesGeneratingSummaryForWeb() {
         let label = ProcessingStatusPresentation.label(for: .summarizing, contentKind: .web)
         #expect(label == "Generating summary")
+    }
+
+    @Test func embeddingLabelIsReadyToAnalyze() {
+        let label = ProcessingStatusPresentation.label(for: .embedding, contentKind: .web)
+        #expect(label == ProcessingStatusPresentation.embeddingChipLabel)
+        #expect(ProcessingStatusPresentation.embeddingProcessingDetail == ProcessingStatusCopy.embeddingProcessingDetail)
+    }
+
+    @Test func chipLabelPrefersProcessingDetail() {
+        let label = ProcessingStatusPresentation.chipLabel(
+            for: .summarizing,
+            contentKind: .web,
+            processingDetail: "Generating summary…"
+        )
+        #expect(label == "Generating summary…")
+
+        let fallback = ProcessingStatusPresentation.chipLabel(
+            for: .embedding,
+            contentKind: .web,
+            processingDetail: nil
+        )
+        #expect(fallback == ProcessingStatusPresentation.embeddingChipLabel)
     }
 }
 
@@ -773,7 +924,7 @@ struct BackgroundPipelineMediaStuckTests {
             let after = ModelContext(container)
             let row = try #require(try after.fetch(FetchDescriptor<ContentItem>(predicate: #Predicate { $0.id == id })).first)
             #expect(row.status == .embedding)
-            #expect(row.processingDetail == "Preparing analysis…")
+            #expect(row.processingDetail == ProcessingStatusCopy.embeddingProcessingDetail)
             #expect(row.failureReason == nil)
         }
     }
@@ -881,7 +1032,7 @@ struct ModelManagerVisionPipelineBookmarkTests {
             let media = ContentItem(contentKind: .media, originalURL: nil)
             media.thumbnailData = Data([0xFF, 0xD8, 0xFF, 0xD9])
             media.processingStatus = ProcessingStatus.embedding.rawValue
-            media.processingDetail = "Preparing analysis…"
+            media.processingDetail = ProcessingStatusCopy.embeddingProcessingDetail
             ctx.insert(media)
             try ctx.save()
             let id = media.id

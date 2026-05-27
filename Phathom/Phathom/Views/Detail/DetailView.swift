@@ -363,7 +363,12 @@ struct DetailView: View {
 
     @ViewBuilder
     private var detailStatusChip: some View {
-        ProcessingStatusBadge(status: item.status, contentKind: item.kind, onTap: detailChipTapAction)
+        ProcessingStatusBadge(
+            status: item.status,
+            contentKind: item.kind,
+            processingDetail: item.processingDetail,
+            onTap: detailChipTapAction
+        )
     }
 
     private var readingStatusSection: some View {

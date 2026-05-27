@@ -403,7 +403,7 @@ struct AddNewTab: View {
             item.rawText = noteTrim
             item.mediaDescription = String(noteTrim.prefix(120))
             item.processingStatus = ProcessingStatus.embedding.rawValue
-            item.processingDetail = "Preparing analysis…"
+            item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
             modelContext.insert(item)
 
         case .media:

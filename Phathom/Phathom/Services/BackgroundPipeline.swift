@@ -74,6 +74,30 @@ private final class ActivePipelineItemIDBox: @unchecked Sendable {
     }
 }
 
+private final class ForegroundDrainActiveBox: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var active = false
+
+    nonisolated init() {}
+
+    nonisolated var isActive: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return active
+    }
+
+    nonisolated func setActive(_ value: Bool) {
+        lock.lock()
+        let changed = active != value
+        active = value
+        lock.unlock()
+        guard changed else { return }
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .phathomForegroundDrainActiveDidChange, object: nil)
+        }
+    }
+}
+
 // LLM load/generate/unload is serialized by `SharedLlamaInference`'s `AsyncLock` (`withSession`).
 // `PipelineWorkGate` additionally serializes `reviveAbortedPipelineItems` plus ingest/analyze passes so a second
 // foreground drain or BG task cannot rewind `summarizing`/`tagging` rows while another pass is still running
@@ -83,9 +107,18 @@ enum BackgroundPipeline: Sendable {
     nonisolated(unsafe) private static var containerRef: ModelContainer?
     /// `nonisolated`: default module isolation is MainActor; pipeline entry points are `nonisolated static` (BG + utility `Task`).
     nonisolated private static let activePipelineItemBox = ActivePipelineItemIDBox()
+    nonisolated private static let foregroundDrainActiveBox = ForegroundDrainActiveBox()
 
-    /// Web-only pipeline rows Settings “Reset processing queue” rewinds (`completed`/`failed`/notes/media excluded elsewhere).
-    nonisolated static let activeWebQueueResetEligibleStatuses: Set<ProcessingStatus> = [
+    nonisolated static var isForegroundDrainActive: Bool {
+        foregroundDrainActiveBox.isActive
+    }
+
+    fileprivate nonisolated static func setForegroundDrainActive(_ active: Bool) {
+        foregroundDrainActiveBox.setActive(active)
+    }
+
+    /// Pipeline rows Library Pause / Settings reset rewinds (`completed`/`failed` excluded).
+    nonisolated static let activeQueueResetEligibleStatuses: Set<ProcessingStatus> = [
         .pending,
         .scraping,
         .embedding,
@@ -94,27 +127,41 @@ enum BackgroundPipeline: Sendable {
         .tagging,
     ]
 
-    /// Count-only for Settings “Reset pending web processing” — matches `performActiveWebQueueRewindLocked` eligibility
-    /// without materializing full rows (SwiftUI `@Query` was syncing whole blobs on every form refresh).
+    /// Backward-compatible alias for tests and call sites during rename.
+    nonisolated static let activeWebQueueResetEligibleStatuses: Set<ProcessingStatus> = activeQueueResetEligibleStatuses
+
+    /// Count-only for Settings reset — matches `performActiveQueueRewindLocked` eligibility.
     @MainActor
-    static func activeWebQueueResetEligibleCount(in context: ModelContext) -> Int {
+    static func activeQueueResetEligibleCount(in context: ModelContext) -> Int {
         let pending = FetchDescriptor<ContentItem>(
-            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "pending" }
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived && item.processingStatus == "pending"
+            }
         )
         let scraping = FetchDescriptor<ContentItem>(
-            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "scraping" }
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived && item.processingStatus == "scraping"
+            }
         )
         let embedding = FetchDescriptor<ContentItem>(
-            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "embedding" }
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived && item.processingStatus == "embedding"
+            }
         )
         let summarizing = FetchDescriptor<ContentItem>(
-            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "summarizing" }
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived && item.processingStatus == "summarizing"
+            }
         )
         let extracting = FetchDescriptor<ContentItem>(
-            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "extracting" }
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived && item.processingStatus == "extracting"
+            }
         )
         let tagging = FetchDescriptor<ContentItem>(
-            predicate: #Predicate<ContentItem> { !$0.isArchived && $0.contentKind == "web" && $0.processingStatus == "tagging" }
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived && item.processingStatus == "tagging"
+            }
         )
         return ((try? context.fetchCount(pending)) ?? 0)
             + ((try? context.fetchCount(scraping)) ?? 0)
@@ -122,6 +169,20 @@ enum BackgroundPipeline: Sendable {
             + ((try? context.fetchCount(summarizing)) ?? 0)
             + ((try? context.fetchCount(extracting)) ?? 0)
             + ((try? context.fetchCount(tagging)) ?? 0)
+    }
+
+    /// Backward-compatible alias.
+    @MainActor
+    static func activeWebQueueResetEligibleCount(in context: ModelContext) -> Int {
+        activeQueueResetEligibleCount(in: context)
+    }
+
+    nonisolated private static var isUserPaused: Bool {
+        PipelineUserPause.isPaused
+    }
+
+    nonisolated private static func shouldBlockNewPipelineWork() -> Bool {
+        isUserPaused
     }
 
     private nonisolated static func saveAndNotify(_ ctx: ModelContext) {
@@ -170,6 +231,7 @@ enum BackgroundPipeline: Sendable {
     }
 
     nonisolated static func scheduleForegroundDrain() {
+        guard !shouldBlockNewPipelineWork() else { return }
         Task(priority: .utility) {
             guard let container = containerRef else { return }
             await PipelineWorkGate.shared.performForegroundDrain(modelContainer: container)
@@ -177,6 +239,7 @@ enum BackgroundPipeline: Sendable {
     }
 
     nonisolated static func scheduleRetag(itemID: UUID) {
+        guard !shouldBlockNewPipelineWork() else { return }
         Task(priority: .utility) {
             guard let container = containerRef else { return }
             await PipelineWorkGate.shared.performRetag(modelContainer: container, itemID: itemID)
@@ -184,6 +247,7 @@ enum BackgroundPipeline: Sendable {
     }
 
     nonisolated static func scheduleIngest() {
+        guard !shouldBlockNewPipelineWork() else { return }
         Task { @MainActor in
             let request = BGAppRefreshTaskRequest(identifier: "com.phathom.ingest")
             request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
@@ -192,6 +256,7 @@ enum BackgroundPipeline: Sendable {
     }
 
     nonisolated static func scheduleAnalyze() {
+        guard !shouldBlockNewPipelineWork() else { return }
         Task { @MainActor in
             let request = BGProcessingTaskRequest(identifier: "com.phathom.analyze")
             request.requiresExternalPower = false
@@ -201,26 +266,68 @@ enum BackgroundPipeline: Sendable {
     }
 
     nonisolated static func scheduleAll() {
+        guard !shouldBlockNewPipelineWork() else { return }
         scheduleIngest()
         scheduleAnalyze()
     }
 
-    /// Stops cooperative in-flight slices, gate-serialized bulk rewind for active **web** rows; does **not** `schedule*`.
-    nonisolated static func resetActiveWebQueue() async {
-        guard containerRef != nil else { return }
+    /// Library Pause: persist pause, cooperative cancel, all-kinds rewind; does **not** `schedule*`.
+    nonisolated static func pauseAllProcessing() async {
+        guard let container = containerRef else { return }
+        markActiveQueueItemsStopping(modelContainer: container)
+        PipelineUserPause.setPaused(true)
         UserPipelineResetFlag.shared.value = true
         SharedLlamaInference.signalCancelInFlight()
-        guard let container = containerRef else {
-            UserPipelineResetFlag.shared.value = false
-            return
-        }
-        await PipelineWorkGate.shared.performActiveWebQueueReset(modelContainer: container)
+        await PipelineWorkGate.shared.performActiveQueueReset(modelContainer: container)
     }
 
-    /// Same rewind as Settings reset path; tests need not wire `containerRef` or toggle `UserPipelineResetFlag`.
-    internal nonisolated static func _test_performActiveWebQueueReset(modelContainer: ModelContainer) async {
-        await PipelineWorkGate.shared.performActiveWebQueueReset(modelContainer: modelContainer)
+    fileprivate nonisolated static func markActiveQueueItemsStopping(modelContainer: ModelContainer) {
+        let ctx = ModelContext(modelContainer)
+        let desc = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { item in
+                !item.isArchived
+            }
+        )
+        guard let candidates = try? ctx.fetch(desc) else { return }
+
+        let eligible = activeQueueResetEligibleStatuses
+        var changed = false
+        for item in candidates {
+            guard eligible.contains(item.status) else { continue }
+            item.processingDetail = ProcessingStatusPresentation.pauseStoppingDetail
+            changed = true
+        }
+        if changed {
+            saveAndNotify(ctx)
+        }
     }
+
+    /// Test seam for immediate pause chip feedback before rewind.
+    internal nonisolated static func _test_markActiveQueueItemsStopping(modelContainer: ModelContainer) {
+        markActiveQueueItemsStopping(modelContainer: modelContainer)
+    }
+
+    /// Settings reset + Library Pause share this path: rewind all kinds and leave pipeline paused.
+    nonisolated static func resetActiveWebQueue() async {
+        await pauseAllProcessing()
+    }
+
+    /// Same rewind as pause/reset path; tests need not wire `containerRef` or toggle `UserPipelineResetFlag`.
+    internal nonisolated static func _test_performActiveQueueReset(modelContainer: ModelContainer) async {
+        await PipelineWorkGate.shared.performActiveQueueReset(modelContainer: modelContainer)
+    }
+
+    /// Backward-compatible test seam.
+    internal nonisolated static func _test_performActiveWebQueueReset(modelContainer: ModelContainer) async {
+        await _test_performActiveQueueReset(modelContainer: modelContainer)
+    }
+
+    #if DEBUG
+    /// Test-only: invoke BG ingest path without `BGTaskScheduler`.
+    internal nonisolated static func _test_performBackgroundIngest(modelContainer: ModelContainer) async {
+        await PipelineWorkGate.shared._test_performBackgroundIngest(modelContainer: modelContainer)
+    }
+    #endif
 
     /// After a crash mid-inference, rows can stay in `summarizing` / `tagging` / `scraping` forever because
     /// `processNextEmbeddingItem` only fetches `embedding`. Rewind those so the next drain can finish them.
@@ -236,7 +343,7 @@ enum BackgroundPipeline: Sendable {
         if let items = try? ctx.fetch(llmStuck) {
             for item in items {
                 item.processingStatus = ProcessingStatus.embedding.rawValue
-                item.processingDetail = "Preparing analysis…"
+                item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
             }
         }
         let scraping = FetchDescriptor<ContentItem>(
@@ -249,7 +356,7 @@ enum BackgroundPipeline: Sendable {
                 guard item.contentKind == ContentKind.web.rawValue else { continue }
                 if item.rawText != nil {
                     item.processingStatus = ProcessingStatus.embedding.rawValue
-                    item.processingDetail = "Preparing analysis…"
+                    item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
                 } else {
                     item.processingStatus = ProcessingStatus.pending.rawValue
                     item.processingDetail = "Queued for capture"
@@ -268,7 +375,7 @@ enum BackgroundPipeline: Sendable {
             for item in items {
                 if ModelManager.hasReadableVisionSelection {
                     item.processingStatus = ProcessingStatus.embedding.rawValue
-                    item.processingDetail = "Preparing analysis…"
+                    item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
                     item.failureReason = nil
                 } else {
                     item.processingStatus = ProcessingStatus.completed.rawValue
@@ -286,6 +393,7 @@ enum BackgroundPipeline: Sendable {
 
     /// Awaits the same serialized queue as `scheduleForegroundDrain` (tests or tooling may call this directly).
     nonisolated static func runForegroundDrain() async {
+        guard !shouldBlockNewPipelineWork() else { return }
         guard let container = containerRef else { return }
         await PipelineWorkGate.shared.performForegroundDrain(modelContainer: container)
     }
@@ -303,6 +411,10 @@ enum BackgroundPipeline: Sendable {
 
     internal nonisolated static func _test_reviveAbortedPipelineItems(modelContainer: ModelContainer) {
         reviveAbortedPipelineItems(modelContainer: modelContainer)
+    }
+
+    internal nonisolated static func _test_setModelContainer(_ container: ModelContainer) {
+        containerRef = container
     }
     #endif
 
@@ -359,6 +471,11 @@ enum BackgroundPipeline: Sendable {
             return
         }
 
+        if shouldBlockNewPipelineWork() {
+            task.setTaskCompleted(success: true)
+            return
+        }
+
         if ThermalMonitor.shouldThrottle {
             task.setTaskCompleted(success: false)
             scheduleIngest()
@@ -377,14 +494,21 @@ enum BackgroundPipeline: Sendable {
             )
 
             task.setTaskCompleted(success: true)
-            scheduleIngest()
-            scheduleAnalyze()
+            if !shouldBlockNewPipelineWork() {
+                scheduleIngest()
+                scheduleAnalyze()
+            }
         }
     }
 
     nonisolated private static func handleAnalyze(task: BGProcessingTask) {
         guard let container = containerRef else {
             task.setTaskCompleted(success: false)
+            return
+        }
+
+        if shouldBlockNewPipelineWork() {
+            task.setTaskCompleted(success: true)
             return
         }
 
@@ -425,7 +549,9 @@ enum BackgroundPipeline: Sendable {
                 task.setTaskCompleted(success: taskSuccess)
             }
 
-            scheduleAnalyze()
+            if !shouldBlockNewPipelineWork() {
+                scheduleAnalyze()
+            }
         }
     }
 
@@ -514,7 +640,7 @@ enum BackgroundPipeline: Sendable {
                     }
                 }
                 item.processingStatus = ProcessingStatus.embedding.rawValue
-                item.processingDetail = "Preparing analysis…"
+                item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
                 saveAndNotify(ctx)
                 print("[PhathomPipeline] pending_done item=\(item.id.uuidString) next=continue")
                 return true
@@ -1068,7 +1194,7 @@ enum BackgroundPipeline: Sendable {
     nonisolated private static func checkpointAfterCancel(item: ContentItem) {
         if item.kind == .media {
             item.processingStatus = ProcessingStatus.embedding.rawValue
-            item.processingDetail = "Preparing analysis…"
+            item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
             return
         }
         if item.rawText != nil {
@@ -1120,38 +1246,73 @@ enum BackgroundPipeline: Sendable {
         upsertTagsOnItem(tagNames: names, item: item, context: context)
     }
 
-    /// Gate-only: rewind active **web** queue; clears `UserPipelineResetFlag`; no Spotlight re-index (`docs/decisions.md`).
-    fileprivate nonisolated static func performActiveWebQueueRewindLocked(modelContainer: ModelContainer) {
+    /// Gate-only: rewind active queue (all kinds); clears `UserPipelineResetFlag`; no Spotlight re-index (`docs/decisions.md`).
+    fileprivate nonisolated static func performActiveQueueRewindLocked(modelContainer: ModelContainer) {
         defer { UserPipelineResetFlag.shared.value = false }
 
         let ctx = ModelContext(modelContainer)
         let desc = FetchDescriptor<ContentItem>(
             predicate: #Predicate<ContentItem> { item in
-                !item.isArchived && item.contentKind == "web"
+                !item.isArchived
             }
         )
 
         guard let candidates = try? ctx.fetch(desc) else { return }
 
-        let eligible = BackgroundPipeline.activeWebQueueResetEligibleStatuses
+        let eligible = BackgroundPipeline.activeQueueResetEligibleStatuses
 
         for item in candidates {
             guard eligible.contains(item.status) else { continue }
-            item.summaryBullets = nil
-            item.extracts = nil
-            item.tags.removeAll()
-            item.failureReason = nil
+            rewindEligibleItemForQueueReset(item)
+        }
+
+        saveAndNotify(ctx)
+    }
+
+    /// Backward-compatible name for tests.
+    fileprivate nonisolated static func performActiveWebQueueRewindLocked(modelContainer: ModelContainer) {
+        performActiveQueueRewindLocked(modelContainer: modelContainer)
+    }
+
+    nonisolated private static func rewindEligibleItemForQueueReset(_ item: ContentItem) {
+        item.summaryBullets = nil
+        item.extracts = nil
+        item.tags.removeAll()
+        item.failureReason = nil
+
+        switch item.kind {
+        case .web:
             let body = item.rawText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if !body.isEmpty {
                 item.processingStatus = ProcessingStatus.embedding.rawValue
-                item.processingDetail = "Preparing analysis…"
+                item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
             } else {
                 item.processingStatus = ProcessingStatus.pending.rawValue
                 item.processingDetail = "Queued for capture"
             }
-        }
 
-        saveAndNotify(ctx)
+        case .note:
+            let body = item.rawText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !body.isEmpty {
+                item.processingStatus = ProcessingStatus.embedding.rawValue
+                item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
+            } else {
+                item.processingStatus = ProcessingStatus.failed.rawValue
+                item.processingDetail = nil
+                item.failureReason = "No article text to analyze."
+            }
+
+        case .media:
+            item.mediaDescription = nil
+            if let thumb = item.thumbnailData, !thumb.isEmpty {
+                item.processingStatus = ProcessingStatus.embedding.rawValue
+                item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
+            } else {
+                item.processingStatus = ProcessingStatus.failed.rawValue
+                item.processingDetail = nil
+                item.failureReason = "Missing photo data."
+            }
+        }
     }
 }
 
@@ -1165,7 +1326,10 @@ private final class PipelineWorkGate: @unchecked Sendable {
     private let lock = AsyncLock()
 
     func performForegroundDrain(modelContainer: ModelContainer) async {
+        guard !PipelineUserPause.isPaused else { return }
         await lock.withLock { @Sendable [modelContainer] in
+            BackgroundPipeline.setForegroundDrainActive(true)
+            defer { BackgroundPipeline.setForegroundDrainActive(false) }
             await BackgroundPipeline.runForegroundDrainBody(modelContainer: modelContainer)
         }
     }
@@ -1174,6 +1338,7 @@ private final class PipelineWorkGate: @unchecked Sendable {
         modelContainer: ModelContainer,
         cancel: @Sendable @escaping () -> Bool
     ) async {
+        guard !PipelineUserPause.isPaused else { return }
         await lock.withLock { @Sendable [modelContainer] in
             await MainActor.run {
                 let purgeCtx = ModelContext(modelContainer)
@@ -1196,7 +1361,8 @@ private final class PipelineWorkGate: @unchecked Sendable {
         modelContainer: ModelContainer,
         cancel: @Sendable @escaping () -> Bool
     ) async -> SingleAnalyzeOutcome {
-        await lock.withLock { @Sendable [modelContainer] in
+        guard !PipelineUserPause.isPaused else { return .noItemToProcess }
+        return await lock.withLock { @Sendable [modelContainer] in
             BackgroundPipeline.reviveAbortedPipelineItems(modelContainer: modelContainer)
             return await BackgroundPipeline.processNextEmbeddingItem(
                 modelContainer: modelContainer,
@@ -1206,14 +1372,27 @@ private final class PipelineWorkGate: @unchecked Sendable {
     }
 
     func performRetag(modelContainer: ModelContainer, itemID: UUID) async {
+        guard !PipelineUserPause.isPaused else { return }
         await lock.withLock { @Sendable [modelContainer] in
             await BackgroundPipeline.performRetag(modelContainer: modelContainer, itemID: itemID)
         }
     }
 
-    func performActiveWebQueueReset(modelContainer: ModelContainer) async {
+    func performActiveQueueReset(modelContainer: ModelContainer) async {
         await lock.withLock { @Sendable [modelContainer] in
-            BackgroundPipeline.performActiveWebQueueRewindLocked(modelContainer: modelContainer)
+            BackgroundPipeline.performActiveQueueRewindLocked(modelContainer: modelContainer)
         }
     }
+
+    /// Backward-compatible name.
+    func performActiveWebQueueReset(modelContainer: ModelContainer) async {
+        await performActiveQueueReset(modelContainer: modelContainer)
+    }
+
+    #if DEBUG
+    /// Test-only: invoke BG ingest path without `BGTaskScheduler`.
+    func _test_performBackgroundIngest(modelContainer: ModelContainer) async {
+        await performBackgroundIngest(modelContainer: modelContainer, cancel: { false })
+    }
+    #endif
 }

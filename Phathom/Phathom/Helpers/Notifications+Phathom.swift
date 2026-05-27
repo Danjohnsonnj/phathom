@@ -9,6 +9,10 @@ extension Notification.Name {
     static let phathomArchivedItemsDidChange = Notification.Name("phathom.archivedItemsDidChange")
     /// Model file selection or load outcome changed; Library (and similar) should refresh lightweight indicators.
     static let phathomModelAvailabilityDidChange = Notification.Name("phathom.modelAvailabilityDidChange")
+    /// User toggled global pipeline pause (Library Pause / Resume).
+    static let phathomPipelinePauseDidChange = Notification.Name("phathom.pipelinePauseDidChange")
+    /// Foreground drain started or finished; Library Pause button visibility.
+    static let phathomForegroundDrainActiveDidChange = Notification.Name("phathom.foregroundDrainActiveDidChange")
 }
 
 /// Canonical `userInfo` keys + parsing for `phathomDidArchiveItem` (bulk + single archive).

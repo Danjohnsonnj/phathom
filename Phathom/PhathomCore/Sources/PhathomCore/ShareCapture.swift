@@ -32,7 +32,7 @@ public enum ShareCapture {
         item.mediaDescription = nil
         item.rawText = nil
         item.processingStatus = ProcessingStatus.embedding.rawValue
-        item.processingDetail = "Preparing analysis…"
+        item.processingDetail = ProcessingStatusCopy.embeddingProcessingDetail
         item.failureReason = nil
         context.insert(item)
         try context.save()
@@ -98,7 +98,7 @@ public enum ShareCapture {
         item.rawText = trimmed
         item.mediaDescription = String(trimmed.prefix(120))
         item.processingStatus = ProcessingStatus.embedding.rawValue
-        item.processingDetail = "Preparing analysis…"
+        item.processingDetail = ProcessingStatusCopy.embeddingProcessingDetail
         context.insert(item)
         try context.save()
         DispatchQueue.main.async {

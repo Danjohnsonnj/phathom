@@ -7,6 +7,7 @@ enum ProcessingRecovery {
     @MainActor
     @discardableResult
     static func retryFailedItemIfNeeded(_ item: ContentItem, modelContext: ModelContext) -> Bool {
+        guard !PipelineUserPause.isPaused else { return false }
         guard item.status == .failed, !item.isArchived else { return false }
 
         switch item.kind {
@@ -26,7 +27,7 @@ enum ProcessingRecovery {
             guard rawTextNonEmpty(item) else { return false }
             clearAIDerivedFields(item)
             item.processingStatus = ProcessingStatus.embedding.rawValue
-            item.processingDetail = "Preparing analysis…"
+            item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
             item.failureReason = nil
             try? modelContext.save()
             LibraryContentChangeNotifier.postLibraryContentDidChange()
@@ -39,7 +40,7 @@ enum ProcessingRecovery {
             item.failureReason = nil
             if rawTextNonEmpty(item) {
                 item.processingStatus = ProcessingStatus.embedding.rawValue
-                item.processingDetail = "Preparing analysis…"
+                item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
             } else {
                 item.processingStatus = ProcessingStatus.pending.rawValue
                 item.processingDetail = "Queued for capture"
@@ -88,6 +89,7 @@ enum ProcessingRecovery {
     @MainActor
     @discardableResult
     static func regenerateTags(_ item: ContentItem, modelContext: ModelContext) -> Bool {
+        guard !PipelineUserPause.isPaused else { return false }
         guard canRegenerateTags(item) else { return false }
         item.processingDetail = "Regenerating tags…"
         try? modelContext.save()
@@ -101,13 +103,14 @@ enum ProcessingRecovery {
     @MainActor
     @discardableResult
     static func summarizeAgain(_ item: ContentItem, modelContext: ModelContext) -> Bool {
+        guard !PipelineUserPause.isPaused else { return false }
         guard canSummarizeAgain(item) else { return false }
         clearAIDerivedFields(item)
         if item.kind == .media {
             item.mediaDescription = nil
         }
         item.failureReason = nil
-        item.processingDetail = "Preparing analysis…"
+        item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
         item.processingStatus = ProcessingStatus.embedding.rawValue
         item.lastProcessedChunk = 0
         try? modelContext.save()
@@ -139,7 +142,7 @@ enum ProcessingRecovery {
     private static func normalizeFailedMedia(_ item: ContentItem) {
         if ModelManager.hasReadableVisionSelection {
             item.processingStatus = ProcessingStatus.embedding.rawValue
-            item.processingDetail = "Preparing analysis…"
+            item.processingDetail = ProcessingStatusPresentation.embeddingProcessingDetail
             return
         }
         item.processingStatus = ProcessingStatus.completed.rawValue

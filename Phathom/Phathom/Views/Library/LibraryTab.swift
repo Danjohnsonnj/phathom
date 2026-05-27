@@ -84,6 +84,19 @@ struct LibraryTab: View {
     @State private var bulkCategoryHandled = false
     @State private var bulkPendingItemIDs = Set<UUID>()
 
+    @State private var userPaused = PipelineUserPause.isPaused
+    @State private var foregroundDrainActive = BackgroundPipeline.isForegroundDrainActive
+    @State private var isPauseInFlight = false
+
+    private enum LibraryPipelineControl {
+        case pause
+        case resume
+    }
+
+    private static let inFlightStatuses: Set<ProcessingStatus> = [
+        .scraping, .embedding, .summarizing, .extracting, .tagging,
+    ]
+
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
         _deepLinkItemID = deepLinkItemID
     }
@@ -126,8 +139,19 @@ struct LibraryTab: View {
         queuedItems.count + failedItems.count
     }
 
-    private var shouldShowManualKickoff: Bool {
-        manualKickoffItemCount > 0
+    private var inFlightItems: [ContentItem] {
+        items.filter { !$0.isArchived && Self.inFlightStatuses.contains($0.status) }
+    }
+
+    private var hasInFlightProcessing: Bool {
+        !inFlightItems.isEmpty
+    }
+
+    private var pipelineControl: LibraryPipelineControl? {
+        if userPaused { return .resume }
+        if hasInFlightProcessing || foregroundDrainActive { return .pause }
+        if manualKickoffItemCount > 0 { return .resume }
+        return nil
     }
 
     /// Number of skeleton rows shown in "Related by tags" while the expanded flow is running. Falls
@@ -246,8 +270,15 @@ struct LibraryTab: View {
         .onReceive(NotificationCenter.default.publisher(for: .phathomLibraryContentDidChange)) { _ in
             libraryContentRevision &+= 1
         }
+        .onReceive(NotificationCenter.default.publisher(for: .phathomPipelinePauseDidChange)) { _ in
+            refreshPipelineControlState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .phathomForegroundDrainActiveDidChange)) { _ in
+            refreshPipelineControlState()
+        }
         .onAppear {
             refreshModelIndicator()
+            refreshPipelineControlState()
         }
         .onReceive(NotificationCenter.default.publisher(for: .phathomModelAvailabilityDidChange)) { _ in
             refreshModelIndicator()
@@ -349,17 +380,33 @@ struct LibraryTab: View {
                     .font(.largeTitle.bold())
                     .foregroundStyle(AppPalette.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if shouldShowManualKickoff {
-                    Button {
-                        runManualKickoff()
-                    } label: {
-                        Image(systemName: "play.circle.fill")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppPalette.accent)
+                if let control = pipelineControl {
+                    switch control {
+                    case .pause:
+                        Button {
+                            runPipelinePause()
+                        } label: {
+                            Image(systemName: "pause.circle.fill")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(AppPalette.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isPauseInFlight)
+                        .accessibilityLabel("Pause processing")
+                        .accessibilityValue(isPauseInFlight ? "Stopping processing" : "")
+                        .accessibilityHint("Stop in-flight ingest and analysis")
+                    case .resume:
+                        Button {
+                            runPipelineResume()
+                        } label: {
+                            Image(systemName: "play.circle.fill")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(AppPalette.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(resumeAccessibilityLabel)
+                        .accessibilityHint(resumeAccessibilityHint)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Start queued and needs attention processing")
-                    .accessibilityHint("Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now")
                 }
             }
             LibraryFilterBar(
@@ -652,11 +699,39 @@ struct LibraryTab: View {
         isModelHealthyForIndicator = hasReadySelection && !ModelManager.didLastLoadFail
     }
 
-    private func runManualKickoff() {
-        if !queuedItems.isEmpty {
-            BackgroundPipeline.scheduleForegroundDrain()
-            BackgroundPipeline.scheduleIngest()
+    private var resumeAccessibilityLabel: String {
+        userPaused ? "Resume processing" : "Start queued and needs attention processing"
+    }
+
+    private var resumeAccessibilityHint: String {
+        if userPaused {
+            return "Resume ingest and analysis for paused items"
         }
+        return "Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now"
+    }
+
+    private func refreshPipelineControlState() {
+        userPaused = PipelineUserPause.isPaused
+        foregroundDrainActive = BackgroundPipeline.isForegroundDrainActive
+    }
+
+    private func runPipelinePause() {
+        guard !isPauseInFlight else { return }
+        isPauseInFlight = true
+        Task {
+            await BackgroundPipeline.pauseAllProcessing()
+            await MainActor.run {
+                isPauseInFlight = false
+                refreshPipelineControlState()
+            }
+        }
+    }
+
+    private func runPipelineResume() {
+        PipelineUserPause.setPaused(false)
+        refreshPipelineControlState()
+        BackgroundPipeline.scheduleAll()
+        BackgroundPipeline.scheduleForegroundDrain()
         for item in failedItems {
             _ = ProcessingRecovery.retryFailedItemIfNeeded(item, modelContext: modelContext)
         }

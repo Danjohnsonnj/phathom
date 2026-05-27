@@ -104,9 +104,9 @@ struct SettingsContent: View {
         }
     }
 
-    private var resetWebProcessingQueueConfirmationMessage: String {
+    private var resetProcessingQueueConfirmationMessage: String {
         """
-        Stops summaries and tagging in progress when possible (one fetch may finish). Rewinds \(activeWebProcessingQueueCount) web item\(activeWebProcessingQueueCount == 1 ? "" : "s") to queued or analyzing (clears incomplete AI outputs). Completed and failed rows are untouched. Tap the Library toolbar play button later to resume.
+        Stops summaries and tagging in progress when possible (one fetch may finish). Rewinds \(activeWebProcessingQueueCount) item\(activeWebProcessingQueueCount == 1 ? "" : "s") across web, notes, and photos to queued or analyzing (clears incomplete AI outputs). Completed and failed rows are untouched. Tap the Library play button later to resume.
         """
     }
 
@@ -213,7 +213,7 @@ struct SettingsContent: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text(resetWebProcessingQueueConfirmationMessage)
+                Text(resetProcessingQueueConfirmationMessage)
             }
     }
 
@@ -595,7 +595,7 @@ struct SettingsContent: View {
                                 .font(.body)
                                 .foregroundStyle(AppPalette.textPrimary)
                                 .multilineTextAlignment(.leading)
-                            Text("Clears processing data and retries incomplete items")
+                            Text("Clears processing data and retries incomplete web, note, and photo items")
                                 .font(.footnote)
                                 .foregroundStyle(AppPalette.textSecondary)
                                 .multilineTextAlignment(.leading)
@@ -747,7 +747,7 @@ struct SettingsContent: View {
     }
 
     private func refreshActiveWebProcessingQueueCount() {
-        activeWebProcessingQueueCount = BackgroundPipeline.activeWebQueueResetEligibleCount(in: modelContext)
+        activeWebProcessingQueueCount = BackgroundPipeline.activeQueueResetEligibleCount(in: modelContext)
     }
 
     private func refreshSelectionState() {
