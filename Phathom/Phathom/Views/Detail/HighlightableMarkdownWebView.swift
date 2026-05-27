@@ -40,7 +40,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
     var sourceHTML: String
     var highlights: [Highlight]
     var collapsed: Bool
-    var onCreateHighlight: (Int, Int, String, String?) -> Void
+    var onCreateHighlight: (String, Int?) -> Void
     var onTapHighlight: (Highlight) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -158,7 +158,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
 
         var collapsed: Bool = false
         var highlights: [Highlight]
-        var onCreateHighlight: (Int, Int, String, String?) -> Void
+        var onCreateHighlight: (String, Int?) -> Void
         var onTapHighlight: (Highlight) -> Void
 
         weak var webView: WKWebView?
@@ -177,7 +177,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             selectionActive: Binding<Bool>,
             highlightApplyToken: Binding<Int>,
             highlights: [Highlight],
-            onCreateHighlight: @escaping (Int, Int, String, String?) -> Void,
+            onCreateHighlight: @escaping (String, Int?) -> Void,
             onTapHighlight: @escaping (Highlight) -> Void
         ) {
             self.selectionActive = selectionActive
@@ -192,10 +192,8 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         }
 
         struct SelectionPayload {
-            var start: Int
-            var end: Int
             var text: String
-            var segmentsJSON: String?
+            var hint: Int?
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -260,8 +258,8 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         }
 
         private func deliverHighlightPayload(_ payload: SelectionPayload) {
-            guard payload.end > payload.start, !payload.text.isEmpty else { return }
-            onCreateHighlight(payload.start, payload.end - payload.start, payload.text, payload.segmentsJSON)
+            guard !payload.text.isEmpty else { return }
+            onCreateHighlight(payload.text, payload.hint)
         }
 
         static func parseSelectionPayloadBody(_ body: Any?) -> SelectionPayload? {
@@ -269,23 +267,11 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             guard let raw = body as? String,
                   let data = raw.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let start = intValue(json["start"]),
-                  let end = intValue(json["end"]),
-                  end > start,
                   let text = json["text"] as? String,
                   !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else { return nil }
-            let segmentsJSON = encodeSegmentsJSON(json["segments"])
-            return SelectionPayload(start: start, end: end, text: text, segmentsJSON: segmentsJSON)
-        }
-
-        private static func encodeSegmentsJSON(_ value: Any?) -> String? {
-            guard let segments = value as? [[String: Any]], !segments.isEmpty else { return nil }
-            guard JSONSerialization.isValidJSONObject(segments),
-                  let data = try? JSONSerialization.data(withJSONObject: segments),
-                  let json = String(data: data, encoding: .utf8)
-            else { return nil }
-            return json
+            let hint = intValue(json["hint"])
+            return SelectionPayload(text: text, hint: hint)
         }
 
         private static func intValue(_ any: Any?) -> Int? {
@@ -436,72 +422,15 @@ private enum HighlightableMarkdownWebViewScript {
         });
     }
 
-    function phathomTextNodeInSpan(span) {
-      if (span.firstChild && span.firstChild.nodeType === Node.TEXT_NODE && span.childNodes.length === 1) {
-        return span.firstChild;
+    function phathomSelectionHintForRange(range) {
+      const spans = phathomCollectSpansInRange(range);
+      if (spans.length === 0) return null;
+      let hint = Infinity;
+      for (const span of spans) {
+        const start = parseInt(span.getAttribute('data-md-start'), 10);
+        if (!Number.isNaN(start)) hint = Math.min(hint, start);
       }
-      const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
-      return walker.nextNode();
-    }
-
-    function phathomLocalOffsetInSpan(span, container, offset) {
-      const spanRange = document.createRange();
-      try {
-        spanRange.selectNodeContents(span);
-      } catch (_) {
-        return null;
-      }
-      const boundary = document.createRange();
-      try {
-        boundary.setStart(container, offset);
-        boundary.collapse(true);
-      } catch (_) {
-        return null;
-      }
-      if (boundary.compareBoundaryPoints(Range.START_TO_START, spanRange) <= 0) {
-        return 0;
-      }
-      if (boundary.compareBoundaryPoints(Range.START_TO_END, spanRange) >= 0) {
-        return spanRange.toString().length;
-      }
-      const measure = document.createRange();
-      try {
-        measure.setStart(spanRange.startContainer, spanRange.startOffset);
-        measure.setEnd(boundary.startContainer, boundary.startOffset);
-      } catch (_) {
-        return null;
-      }
-      return measure.toString().length;
-    }
-
-    function phathomSelectionBoundsForSpan(span, range) {
-      const spanStart = parseInt(span.getAttribute('data-md-start'), 10);
-      const spanEnd = parseInt(span.getAttribute('data-md-end'), 10);
-      if (Number.isNaN(spanStart) || Number.isNaN(spanEnd) || spanEnd <= spanStart) return null;
-
-      const spanRange = document.createRange();
-      try {
-        spanRange.selectNodeContents(span);
-      } catch (_) {
-        return null;
-      }
-
-      let mdStart = spanStart;
-      let mdEnd = spanEnd;
-
-      if (range.compareBoundaryPoints(Range.START_TO_START, spanRange) > 0) {
-        const local = phathomLocalOffsetInSpan(span, range.startContainer, range.startOffset);
-        if (local === null) return null;
-        mdStart = spanStart + local;
-      }
-      if (range.compareBoundaryPoints(Range.END_TO_END, spanRange) < 0) {
-        const local = phathomLocalOffsetInSpan(span, range.endContainer, range.endOffset);
-        if (local === null) return null;
-        mdEnd = spanStart + local;
-      }
-
-      if (mdStart >= mdEnd) return null;
-      return { start: mdStart, end: mdEnd };
+      return hint === Infinity ? null : hint;
     }
 
     function phathomSelectionPayload() {
@@ -511,27 +440,8 @@ private enum HighlightableMarkdownWebViewScript {
       const text = sel.toString();
       if (!text.trim()) return null;
 
-      const spans = phathomCollectSpansInRange(range);
-      if (spans.length === 0) return null;
-
-      const segments = [];
-      let start = Infinity;
-      let end = -1;
-      for (const span of spans) {
-        const bounds = phathomSelectionBoundsForSpan(span, range);
-        if (!bounds) continue;
-        segments.push({ start: bounds.start, end: bounds.end });
-        start = Math.min(start, bounds.start);
-        end = Math.max(end, bounds.end);
-      }
-      if (start === Infinity || end <= start || segments.length === 0) return null;
-
-      return JSON.stringify({
-        start: start,
-        end: end,
-        text: text,
-        segments: segments
-      });
+      const hint = phathomSelectionHintForRange(range);
+      return JSON.stringify({ text: text, hint: hint });
     }
 
     function phathomPostSelectionMessage() {

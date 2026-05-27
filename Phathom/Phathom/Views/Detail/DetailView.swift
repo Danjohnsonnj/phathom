@@ -767,22 +767,22 @@ struct DetailView: View {
         }
     }
 
-    private func createHighlightFromWebView(offset: Int, length: Int, quotedText: String, segmentsJSON: String?) {
+    private func createHighlightFromWebView(quotedText: String, hintOffset: Int?) {
         guard item.kind == .web, let md = item.sourceMarkdown, !md.isEmpty else { return }
-        let segments = Self.parseHighlightSegmentsJSON(segmentsJSON)
-        guard let anchor = HighlightMarkdownAnchor.resolve(
+        guard let resolved = HighlightMarkdownAnchor.resolveFromSelection(
             markdown: md,
-            proposedOffset: offset,
-            proposedLength: length,
             quotedText: quotedText,
-            segments: segments
+            hintMarkdownOffset: hintOffset
         ) else {
-            print("[DetailView] highlight anchor unresolved — skip save (offset=\(offset) length=\(length))")
+            let preview = quotedText.prefix(40)
+            print("[DetailView] highlight anchor unresolved — skip save (quotedText length=\(quotedText.utf16.count) hint=\(hintOffset.map(String.init) ?? "nil") preview=\"\(preview)\")")
             return
         }
+        let segmentsJSON = Self.encodeHighlightSegmentsJSON(resolved.segments)
+        print("[DetailView] highlight saved (\(resolved.matchQuality.rawValue)) offset=\(resolved.offset) length=\(resolved.length)")
         let h = Highlight(
-            sourceMarkdownOffset: anchor.offset,
-            sourceMarkdownLength: anchor.length,
+            sourceMarkdownOffset: resolved.offset,
+            sourceMarkdownLength: resolved.length,
             quotedText: quotedText,
             sourceMarkdownSegmentsJSON: segmentsJSON
         )
@@ -793,9 +793,10 @@ struct DetailView: View {
         noteEditHighlight = h
     }
 
-    private static func parseHighlightSegmentsJSON(_ json: String?) -> [HighlightMarkdownAnchor.Segment]? {
-        guard let json, let data = json.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode([HighlightMarkdownAnchor.Segment].self, from: data)
+    private static func encodeHighlightSegmentsJSON(_ segments: [HighlightMarkdownAnchor.Segment]) -> String? {
+        guard !segments.isEmpty else { return nil }
+        guard let data = try? JSONEncoder().encode(segments) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     /// Backfills or refreshes `sourceContentHTML` when markdown exists but HTML is missing or indexer version is stale.
@@ -868,12 +869,10 @@ struct DetailView: View {
                         sourceHTML: html,
                         highlights: item.highlightsSortedByOffset,
                         collapsed: !sourceExpanded,
-                        onCreateHighlight: { offset, length, quotedText, segmentsJSON in
+                        onCreateHighlight: { quotedText, hintOffset in
                             createHighlightFromWebView(
-                                offset: offset,
-                                length: length,
                                 quotedText: quotedText,
-                                segmentsJSON: segmentsJSON
+                                hintOffset: hintOffset
                             )
                         },
                         onTapHighlight: { noteEditHighlight = $0 }
