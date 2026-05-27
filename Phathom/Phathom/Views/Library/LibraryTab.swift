@@ -97,6 +97,8 @@ struct LibraryTab: View {
         .scraping, .embedding, .summarizing, .extracting, .tagging,
     ]
 
+    private static let libraryChromeHorizontalPadding: CGFloat = 16
+
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
         _deepLinkItemID = deepLinkItemID
     }
@@ -145,6 +147,17 @@ struct LibraryTab: View {
 
     private var hasInFlightProcessing: Bool {
         !inFlightItems.isEmpty
+    }
+
+    private var hasPauseStoppingDetail: Bool {
+        items.contains { item in
+            !item.isArchived
+                && item.processingDetail == ProcessingStatusCopy.pauseStoppingDetail
+        }
+    }
+
+    private var isPipelineControlSettling: Bool {
+        isPauseInFlight || hasPauseStoppingDetail
     }
 
     private var pipelineControl: LibraryPipelineControl? {
@@ -380,34 +393,8 @@ struct LibraryTab: View {
                     .font(.largeTitle.bold())
                     .foregroundStyle(AppPalette.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if let control = pipelineControl {
-                    switch control {
-                    case .pause:
-                        Button {
-                            runPipelinePause()
-                        } label: {
-                            Image(systemName: "pause.circle.fill")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(AppPalette.accent)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(isPauseInFlight)
-                        .accessibilityLabel("Pause processing")
-                        .accessibilityValue(isPauseInFlight ? "Stopping processing" : "")
-                        .accessibilityHint("Stop in-flight ingest and analysis")
-                    case .resume:
-                        Button {
-                            runPipelineResume()
-                        } label: {
-                            Image(systemName: "play.circle.fill")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(AppPalette.accent)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(resumeAccessibilityLabel)
-                        .accessibilityHint(resumeAccessibilityHint)
-                    }
-                }
+                pipelineControlButton
+                    .offset(x: -12)
             }
             LibraryFilterBar(
                 selectedKind: filterKindBinding,
@@ -417,7 +404,7 @@ struct LibraryTab: View {
             )
         }
         .textCase(nil)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Self.libraryChromeHorizontalPadding)
         .padding(.bottom, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppPalette.background)
@@ -710,6 +697,40 @@ struct LibraryTab: View {
         return "Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now"
     }
 
+    @ViewBuilder
+    private var pipelineControlButton: some View {
+        if let control = pipelineControl {
+            Group {
+                switch control {
+                case .pause:
+                    Button {
+                        runPipelinePause()
+                    } label: {
+                        Image(systemName: "pause.circle.fill")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppPalette.accent)
+                    }
+                    .accessibilityLabel("Pause processing")
+                    .accessibilityHint("Stop in-flight ingest and analysis")
+                case .resume:
+                    Button {
+                        runPipelineResume()
+                    } label: {
+                        Image(systemName: "play.circle.fill")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppPalette.accent)
+                    }
+                    .accessibilityLabel(resumeAccessibilityLabel)
+                    .accessibilityHint(resumeAccessibilityHint)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(isPipelineControlSettling)
+            .opacity(isPipelineControlSettling ? 0.45 : 1)
+            .accessibilityValue(isPipelineControlSettling ? "Waiting for processing to stop" : "")
+        }
+    }
+
     private func refreshPipelineControlState() {
         userPaused = PipelineUserPause.isPaused
         foregroundDrainActive = BackgroundPipeline.isForegroundDrainActive
@@ -728,6 +749,7 @@ struct LibraryTab: View {
     }
 
     private func runPipelineResume() {
+        guard !isPipelineControlSettling else { return }
         PipelineUserPause.setPaused(false)
         refreshPipelineControlState()
         BackgroundPipeline.scheduleAll()
