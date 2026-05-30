@@ -1,4 +1,4 @@
-> **RETIRED —** DEBUG spike harness removed from the app. Production media vision uses Settings **Vision model** + [`media-vision-v1-qa.md`](../handoff/media-vision-v1-qa.md). Historical reference only.
+> **RETIRED —** DEBUG spike harness removed from the app. Production media vision uses Settings **Vision model** + [`media-vision-v1-qa.md`](media-vision-v1-qa.md). Historical reference only.
 
 # Phase 0 — Vision VLM spike (handoff)
 

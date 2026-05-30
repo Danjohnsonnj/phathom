@@ -24,7 +24,6 @@
 | Track | Doc |
 | ----- | --- |
 | **RAG / Chat tab** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) |
-| **UI design refresh** (remaining polish) | [`docs/handoff/ui-design-refresh.md`](docs/handoff/ui-design-refresh.md) |
 
 **Historical product & phase write-ups:** [`docs/archive/README.md`](docs/archive/README.md) — **not for implementation**.
 
@@ -108,4 +107,4 @@ After a valid selection, the app may **warm** the model shortly after launch whe
 
 ---
 
-**Further reading (live docs):** [`docs/decisions.md`](docs/decisions.md) · [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) · [`docs/handoff/ui-design-refresh.md`](docs/handoff/ui-design-refresh.md). **Historical archive:** [`docs/archive/README.md`](docs/archive/README.md).
+**Further reading (live docs):** [`docs/decisions.md`](docs/decisions.md) · [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md). **Historical archive:** [`docs/archive/README.md`](docs/archive/README.md).

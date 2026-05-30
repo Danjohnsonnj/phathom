@@ -32,7 +32,7 @@ Historical phase hand-offs live under [`docs/archive/`](../archive/) — consult
 1. **Swift source (`Phathom/`)** — shipped behavior beats all prose (especially pipeline + inference APIs).
 2. **`docs/decisions.md`** — product / architecture commitments agents must preserve.
 3. **This hand-off document** — scope, deliverables, acceptance criteria where they do not collide with **1–2**.
-4. **Design / UX refinement:** [`ui-design-refresh.md`](ui-design-refresh.md) when Chat UI touches broader shell patterns — **`code > decisions.md > refresh brief`** for contested visual details outside this spec.
+4. **Design / UX refinement:** [`ui-design-refresh.md`](../archive/ui-design-refresh.md) (archived; shipped on `main`) when Chat UI touches broader shell patterns — **`code > decisions.md > refresh brief`** for contested visual details outside this spec.
 
 **Do not** treat [`docs/archive/`](../archive/) specs as authoritative for filenames, schema fields, or embedding technology.
 

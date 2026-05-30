@@ -16,7 +16,7 @@ Phathom already had a coherent doc hierarchy: **code → `docs/decisions.md` →
 |-------|----------------|------------|
 | `Phathom/` Swift | — | Behavior wins |
 | `docs/decisions.md` | ~85 lines, ~40 rows | Append-only decision log + **Active invariants index** (de facto glossary seed) |
-| `docs/handoff/` | 4 files (1.1k–42k) | Scoped specs: RAG roadmap, UI refresh, bulk select (shipped), media vision QA |
+| `docs/handoff/` | 1 active file | Scoped spec: RAG Chat roadmap |
 | `docs/archive/` | 5 files + README | Historical; drift table in `archive/README.md` |
 | `docs/agents/domain.md` | ~50 lines | Skill consumer rules (Phathom-tailored) |
 | `AGENTS.md` | ~183 lines | Agent cold-start + source-of-truth order |
@@ -82,16 +82,16 @@ Phathom already had a coherent doc hierarchy: **code → `docs/decisions.md` →
 | Layer | Holds | Examples |
 |-------|--------|----------|
 | **Decisions** | Locked invariants, schema, pipeline rules | `withSession`, archive 48h, no CloudKit, KV reuse |
-| **Hand-offs** | Scoped delivery specs + acceptance | `phase-3-rag-chat.md`, `ui-design-refresh.md` |
-| **Shipped hand-offs** | Kept as spec/UX reference | `library-bulk-selection.md` |
+| **Hand-offs** | Scoped delivery specs + acceptance | `phase-3-rag-chat.md` |
+| **Shipped hand-offs** | Kept as spec/UX reference | `library-bulk-selection.md`, `ui-design-refresh.md`, `media-vision-v1-qa.md` |
 
 **Gray areas:**
 
-- `media-vision-v1-qa.md` — QA checklist, not in `domain.md` default list; referenced from decisions row. Fine as on-demand hand-off.
-- `ui-design-refresh.md` (42k) — large; agents should not cold-read whole file. Already mitigated by AGENTS "read only affected View" rule.
+- `media-vision-v1-qa.md` — **archived** (shipped); device QA matrix historical; automated coverage in PhathomTests.
+- `ui-design-refresh.md` (42k) — **archived** (shipped on `main`); agents cold-start from Views + `AppPalette`, not this file.
 - Shipped specs in `handoff/` vs moving to `archive/` — product choice, not structural bug.
 
-**Recommendation:** No file moves in Phase 3 unless you explicitly want shipped specs archived. Optional: one-line in `domain.md` listing `media-vision-v1-qa.md` as on-demand QA.
+**Recommendation:** Shipped specs live in `docs/archive/`; `docs/handoff/` holds active roadmap only (`phase-3-rag-chat.md`).
 
 ---
 
@@ -200,11 +200,11 @@ Criteria: **productivity** (human + agent maintenance), **progressive agent cont
 |--------|-----------|
 | Move **`library-bulk-selection.md`** → `docs/archive/` | Shipped; acceptance criteria live in code + decisions row (2026-05-12). Reduces `handoff/` to active work only. |
 | **Keep** `phase-3-rag-chat.md` | Active roadmap — not shipped. |
-| **Keep** `ui-design-refresh.md` | Partially shipped; remaining §10–§12 scope active. |
-| **Keep or move** `media-vision-v1-qa.md` | QA checklist — optional move to `archive/` after vision v1 signed off, or keep as on-demand QA. |
+| **Move** `ui-design-refresh.md` → `docs/archive/` | Shipped on `main`; §12 design-system gate incomplete — code + `AppPalette` authoritative. |
+| **Move** `media-vision-v1-qa.md` → `docs/archive/` | Shipped; device QA matrix historical; PhathomTests cover automated sign-off. |
 | Update `archive/README.md`, `AGENTS.md`, `domain.md` | Point agents at new paths; mark bulk-select as archived spec. |
 
-**Progressive context win:** `docs/handoff/` shrinks to 2–3 active files — agents less likely to cold-read shipped bulk-select spec.
+**Progressive context win:** `docs/handoff/` holds one active file (`phase-3-rag-chat.md`) — agents less likely to cold-read shipped specs.
 
 ### Recommendation matrix
 

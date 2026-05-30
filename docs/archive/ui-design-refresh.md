@@ -1,15 +1,10 @@
-# UI Design Refresh — Handoff & Brief (Draft)
+# UI Design Refresh — Archive (**shipped**)
 
-> **Status:** Design update brief **approved** (client kickoff 2026-05-24). Detail **§5.3 IA reorder** shipped in **`DetailView`**. Settings **grouped-card shell** + **AI Models expanded disclosure** shipped in **`SettingsTab`**. **§11 Phase 3 (Add New)** reader-app capture UX shipped in **`AddNewTab`** — not to be confused with **RAG Chat “Phase 3”** elsewhere in this doc ([§5.5](#55-chat-chattab)). Remaining §10 scope: Library/shell, Settings Recently Deleted, **§12** design-system gate. Pragmatic **§11 Phase 3** shipped using §3 baseline + partial §12 backfill ([§11](#11-phased-rollout--feed-forward)); global Phase 0 still required before claiming §12 complete.
+> **Status:** **Shipped on `main`** (redesign landed). **Authority:** **code** under `Phathom/Phathom/Views/` + [`docs/decisions.md`](../decisions.md), then this historical brief.
 >
-> **Audience:** UI/UX designer, design-focused agent, or implementer planning a visual/IA refresh.
->
-> **Authority:** For **shipped UI**, **source code wins**, then **[`docs/decisions.md`](../decisions.md)**, then this brief. Mockup PNGs are reference only where they conflict with shipped UI — **do not** read [`docs/archive/`](../archive/) phase specs to discover current layout.
+> **Audience:** Historical design reference only. Agents cold-start from **code + decisions**, not this file.
 
 **Related code:** [`MainTabView.swift`](../../Phathom/Phathom/Views/MainTabView.swift) · [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) · [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) · [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) · [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) · [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) · [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
-
-**Visual references (may be stale):** [main-screen.PNG](../assets/main-screen.PNG) · [detail-screen.PNG](../assets/detail-screen.PNG). Add New mock PNGs [`19-add-new-sheet-web.png`](../assets/ui-refresh/19-add-new-sheet-web.png) · [`20-add-new-sheet-note.png`](../assets/ui-refresh/20-add-new-sheet-note.png) superseded by shipped **`AddNewTab`** UI (client-provided screenshot is normative alongside §5.4 below).
-
 ---
 
 ## 1. Product context
@@ -271,7 +266,7 @@ Category display: [`CategoryDisplayFormatter.swift`](../../Phathom/PhathomCore/S
 
 Placeholder: *“Deep Dive coming in a future update.”*
 
-**Phase 3 intent** (not implemented): thread list, tag-scoped new chat, iMessage-style bubbles, streaming, citations → Detail. Spec: [`phase-3-rag-chat.md`](phase-3-rag-chat.md).
+**Phase 3 intent** (not implemented): thread list, tag-scoped new chat, iMessage-style bubbles, streaming, citations → Detail. Spec: [`phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md).
 
 ### 5.6 Settings (`SettingsContent`)
 

@@ -12,4 +12,4 @@ Agents: behavior lives in **`MainTabView`**, **`LibraryTab`**, and notification 
 
 ## Out of scope
 
-This doc restates decisions only; UI layout and Accessibility details belong in **code** + [`ui-design-refresh.md`](../handoff/ui-design-refresh.md) where cited.
+This doc restates decisions only; UI layout and Accessibility details belong in **code** + historical [`ui-design-refresh.md`](ui-design-refresh.md) where cited.

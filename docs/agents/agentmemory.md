@@ -37,7 +37,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 | Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf, `[PhathomPipeline]` logs |
 | Schema | `ContentItem`, **`Category`**, `processingStatus` | `PhathomCore/` |
 | UI shell & pipeline bridge | `UI`, `LibraryTab`, `DetailView`, `CategoryPicker` | `Views/`, `ProcessingRecovery.swift`, `LibrarySearchService.swift` |
-| UI design refresh | `tokens`, `AppPalette`, `IA` | [`ui-design-refresh.md`](../handoff/ui-design-refresh.md) |
+| UI design refresh | `tokens`, `AppPalette`, `IA` | [`ui-design-refresh.md`](../archive/ui-design-refresh.md) |
 | Bulk library select | batch archive undo | [`library-bulk-selection.md`](../archive/library-bulk-selection.md), `MainTabView` |
 | Archived docs | `history` | [`archive/README.md`](../archive/README.md) — opt-in only |
 | Scope | `Phase-3`, `no-RAG` | `phase-3-rag-chat.md` |

@@ -1,6 +1,8 @@
-# Media vision inference — v1 QA matrix
+# Media vision inference — v1 QA matrix (**shipped**)
 
-> **Status:** Phases 0–4 shipped in code; **Phase 5** = automated tests + this device matrix. Run on a **physical iPhone** (Metal vision path). Simulator OK for degrade/UI smoke only.
+> **Status:** **Shipped** (2026-05-24). **Authority:** [`docs/decisions.md`](../decisions.md) row **2026-05-24**, then **code** under `VisionContentAnalyzer`, `BackgroundPipeline`, and Settings vision section.
+>
+> **Audience:** Historical QA checklist only. Agents cold-start from **code + decisions**, not this file.
 
 ## Prerequisites
 

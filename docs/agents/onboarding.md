@@ -13,7 +13,7 @@ Do **not** scan all of `Phathom/`. Read the smallest set for the task:
 | Decisions / invariants | [`docs/decisions.md`](../decisions.md) — index + matching rows |
 | Domain terms | [`CONTEXT.md`](../../CONTEXT.md) — glossary only |
 | RAG Chat roadmap | [`docs/handoff/phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md) |
-| UI polish | [`docs/handoff/ui-design-refresh.md`](../handoff/ui-design-refresh.md) |
+| UI design refresh (shipped) | [`docs/decisions.md`](../decisions.md) + [`Views/`](../../Phathom/Phathom/Views/); historical spec [`docs/archive/ui-design-refresh.md`](../archive/ui-design-refresh.md) |
 | Notebook tab (shipped) | [`docs/decisions.md`](../decisions.md) + [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift); historical spec [`docs/archive/notebook-tab.md`](../archive/notebook-tab.md) |
 | Pipeline | [`BackgroundPipeline.swift`](../../Phathom/Phathom/Services/BackgroundPipeline.swift) |
 | Inference | [`SharedLlamaInference.swift`](../../Phathom/Phathom/Services/SharedLlamaInference.swift) |
@@ -48,7 +48,7 @@ Structural categories: **`PhathomCore.Category`**, **`LibraryCategoryFilterStora
 
 ## Active scope
 
-Pipeline + ingest **shipped**. Roadmap: **RAG Chat** ([`phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md)), **UI polish** ([`ui-design-refresh.md`](../handoff/ui-design-refresh.md)). **Do not** implement RAG or expand Chat unless explicitly directed.
+Pipeline + ingest **shipped**. Roadmap: **RAG Chat** ([`phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md)). **Do not** implement RAG or expand Chat unless explicitly directed.
 
 ---
 
