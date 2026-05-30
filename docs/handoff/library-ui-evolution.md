@@ -1,12 +1,12 @@
 # App UI Evolution — Design Hand-off (Discovery)
 
-> **Status:** **Design discovery — not shipped.** No Swift changes are authorized until this hand-off is explicitly green-lit for implementation.
+> **Status:** **Discovery locked — not shipped.** Swift execution via **[`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md)** (approved). **Next:** [Phase 0 cold start §15](ui-evolution-implementation-plan.md#15-cold-start--phase-0).
 >
 > **Authority:** This document captures **locked design choices** from HTML mocks and review sessions. **Shipped behavior** remains **`Phathom/`** until implementation lands. On conflict: **code > [`docs/decisions.md`](../decisions.md) > this hand-off**.
 >
 > **Historical baseline:** The prior shipped refresh is archived in [`docs/archive/ui-design-refresh.md`](../archive/ui-design-refresh.md). This hand-off describes the **next evolution** across app surfaces (Library first, then Detail and remaining tabs), not a full IA rewrite.
 
-**Session:** May 2026 · Path **D → A** · **Discovery complete** (6 mocks) · **Token sheet done** · **Next:** multi-phased implementation plan
+**Session:** May 2026 · Discovery complete · Plan **approved** · **Next:** cold start → Phase 0
 
 **Canonical mocks (visual reference — SwiftUI is the ship target):** [Library](../../.design-mocks/library-ad-search-b-toolbar.html) · [Detail](../../.design-mocks/detail-ad-full-hairline-a.html) · [Add New](../../.design-mocks/add-new-ad-filled-card-a.html) · [Notebook](../../.design-mocks/notebook-ad-hairline-feed-a.html) · [Chat placeholder](../../.design-mocks/chat-ad-placeholder-a.html) · [Settings](../../.design-mocks/settings-ad-grouped-a.html) — open in Safari; see [§2.2](#22-html-mocks--swiftui-target).
 
@@ -118,7 +118,7 @@ Ordered queue for HTML mocks and design review. **No Swift** until the full disc
 | **5** | **Notebook** | **Done** — locked [§3.8](#38-locked-decisions-notebook) | Hairline feed, full-width group separators, editorial chrome | [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) |
 | **6** | **Chat (placeholder)** | **Done** — locked [§3.9](#39-locked-decisions-chat-placeholder) | Coming-soon shell; Notebook Empty editorial parity; **not** RAG ([`phase-3-rag-chat.md`](phase-3-rag-chat.md)) | [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) |
 
-**After all probes:** ~~Consolidate tokens~~ → **[`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md)** ✓ · **Next:** [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) (multi-phased; do not build directly from this hand-off).
+**After all probes:** Token sheet ✓ · Implementation plan **approved** ✓ · **Next:** cold start → [Phase 0](ui-evolution-implementation-plan.md#15-cold-start--phase-0)
 
 ---
 
@@ -549,9 +549,9 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | Item | Status |
 |------|--------|
 | **Cross-surface token sheet** | **Done** — [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) |
-| **Multi-phased implementation plan** | **Next** — [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md); **do not** Swift directly from this hand-off |
-| **Decisions log** | Append product-facing UI commitments to [`docs/decisions.md`](../decisions.md) when each phase ships |
-| **Per-surface green-light** | User approves plan phases before Swift (Library-first likely) |
+| **Multi-phased implementation plan** | **Approved** — [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) · **Next:** cold start → **Phase 0** |
+| **Decisions log** | Append to [`docs/decisions.md`](../decisions.md) when each phase ships |
+| **Per-phase execution** | One phase per session; Phase 0 first ([plan §15](ui-evolution-implementation-plan.md#15-cold-start--phase-0)) |
 
 ---
 
@@ -618,6 +618,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | 2026-05-30 | Mock CSS: global **`a { text-decoration: none }`** on all canonical HTML — no underline (SwiftUI parity) |
 | 2026-05-30 | **Cross-surface token sheet** — [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) |
 | 2026-05-30 | **Library planning locks** — drop `Phathom` nav principal; search dismiss Cancel + keyboard only; pipeline **actions row** (§3.2.1); canonical library mock updated |
+| 2026-05-30 | **Implementation plan approved** — [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md); cold start → Phase 0 |
 
 ---
 
@@ -626,43 +627,21 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | Doc | Relationship |
 |-----|--------------|
 | [`docs/archive/ui-design-refresh.md`](../archive/ui-design-refresh.md) | Shipped v1 refresh — historical |
+| [`docs/handoff/ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) | **Approved** — execute Phase 0 first ([§15](ui-evolution-implementation-plan.md#15-cold-start--phase-0)) |
 | [`docs/handoff/phase-3-rag-chat.md`](phase-3-rag-chat.md) | Chat/RAG — out of scope here |
 | [`docs/decisions.md`](../decisions.md) | Product invariants — update when UI ships |
 
 ---
 
-## 11. Cold start handoff (next session)
+## 11. Cold start handoff (implementation)
 
-Copy-paste block for **implementation planning** session. Discovery + token sheet **complete**.
+**Approved May 2026.** Copy-paste for **Phase 0** — full block in [`ui-evolution-implementation-plan.md` §15](ui-evolution-implementation-plan.md#15-cold-start--phase-0).
 
 ```
-GOAL: Phathom UI evolution — write multi-phased IMPLEMENTATION PLAN; NO Swift until plan approved
-ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom | branch:main
-
-READ (in order):
-  1. docs/handoff/ui-evolution-token-sheet.md     — spacing, type, material, shared components
-  2. docs/handoff/library-ui-evolution.md §3–§3.10 — locked per-surface decisions (reference only)
-  3. .design-mocks/*.html (Safari)                 — visual ground truth
-  4. Phathom/ + docs/decisions.md                  — shipped behavior wins on conflicts
-
-DO NOT: Implement by walking library-ui-evolution.md surface-by-surface as a build checklist.
-DO: Holistic phased plan — shared refactors first, dependencies, verify ladder, rollout order.
-
-OUTPUT: docs/handoff/ui-evolution-implementation-plan.md
-  - Phases with goals, files, risks, verify steps
-  - Likely: tokens/spacing → HairlineHighlightRow → Gallery row → tab roots → pushed (Detail/Settings)
-  - Explicit out-of-scope: Chat RAG (phase-3-rag-chat.md)
-  - Resolve rollup: token sheet §9 + hand-off open items
-
-AUTHORITY: code > decisions.md > implementation plan > library-ui-evolution.md > mocks
-
-NORTH STAR: 22px rhythm, hairline gallery, editorial titles, filled cards for form/config only
-
-LOCKED MOCKS: library · detail · add-new · notebook · chat-ad-placeholder-a · settings-ad-grouped-a
-
-AVOID:
-  - Swift before plan sign-off
-  - Reopening locked probe decisions
-  - Literal HTML port
-  - Phase 3 Chat RAG unless directed
+GOAL: UI evolution Phase 0 — Foundation. NO surface swaps.
+READ: ui-evolution-implementation-plan.md §5 + §1 · token-sheet §3–§7 · AppPalette.swift · DetailSectionHeader.swift
+CREATE: AppSpacing.swift · AppPalette.hairline · Views/Shared/{EditorialScreenTitle,ZoneSectionHeader,DetailBackBarButton}.swift · pbxproj
+VERIFY: simulator-verify.mdc ladder (build sim + PhathomTests)
+STOP after Phase 0 green-light checklist — Phase 1 is next session.
+OUT OF SCOPE: Chat RAG · wiring shared views into tabs (Phase 1+)
 ```

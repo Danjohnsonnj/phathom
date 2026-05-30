@@ -13,4 +13,4 @@ Global skill: [`design-mock-probe`](~/.cursor/skills/design-mock-probe/SKILL.md)
 
 **Agentmemory:** recall workflow via skill only; particulars stay in hand-off (see [`agentmemory.md`](agentmemory.md)).
 
-**Discovery complete (May 2026):** 6 canonical mocks · [`ui-evolution-token-sheet.md`](../handoff/ui-evolution-token-sheet.md) · **Next:** [`ui-evolution-implementation-plan.md`](../handoff/ui-evolution-implementation-plan.md) (multi-phased; do not build from design hand-off directly).
+**Discovery complete (May 2026):** 6 canonical mocks · token sheet · implementation plan **approved** — cold start [`ui-evolution-implementation-plan.md` §15](../handoff/ui-evolution-implementation-plan.md#15-cold-start--phase-0).

@@ -21,7 +21,7 @@ Static Safari mocks probe layout, spacing, and material language before SwiftUI 
 | `chat-ad-placeholder-a.html` | Chat placeholder — coming-soon shell |
 | `settings-ad-grouped-a.html` | Settings — Configured · Primary unset · Missing file |
 
-Discovery HTML **complete** — see hand-off [§3.10](../docs/handoff/library-ui-evolution.md#310-locked-decisions-settings), [token sheet](../docs/handoff/ui-evolution-token-sheet.md), [§11 planning cold-start](../docs/handoff/library-ui-evolution.md#11-cold-start-handoff-next-session).
+Discovery HTML **complete** — [implementation plan §15 Phase 0 cold start](../docs/handoff/ui-evolution-implementation-plan.md#15-cold-start--phase-0) is the execution entry.
 
 Open locally in Safari. Files may be gitignored; keep in repo workspace for review.
 

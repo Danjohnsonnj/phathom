@@ -24,7 +24,7 @@
 | Track | Doc |
 | ----- | --- |
 | **RAG / Chat tab** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) |
-| **App UI evolution** (discovery locked · [token sheet](docs/handoff/ui-evolution-token-sheet.md) · **implementation plan next**) | [`docs/handoff/library-ui-evolution.md`](docs/handoff/library-ui-evolution.md) (§11 planning cold-start) |
+| **App UI evolution** (plan **approved** · [Phase 0 cold start](docs/handoff/ui-evolution-implementation-plan.md#15-cold-start--phase-0)) | [`ui-evolution-implementation-plan.md`](docs/handoff/ui-evolution-implementation-plan.md) · [`library-ui-evolution.md`](docs/handoff/library-ui-evolution.md) |
 
 **Historical product & phase write-ups:** [`docs/archive/README.md`](docs/archive/README.md) — **not for implementation**.
 

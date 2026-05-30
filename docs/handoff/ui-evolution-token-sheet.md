@@ -14,7 +14,7 @@
 |-------|---------|
 | **[`library-ui-evolution.md`](library-ui-evolution.md)** | Locked per-surface decisions, behavior, mocks, rejections |
 | **This doc** | Cross-surface tokens + chrome/material matrix + shared components |
-| **Implementation plan (TBD)** | Phased Swift work: dependencies, refactors, verify, rollout order |
+| **Implementation plan** | [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) — **approved**; cold start → Phase 0 |
 | **`Phathom/` code** | Shipped behavior until implementation lands |
 
 **Do not** implement surface-by-surface by copying §3 prose into Swift. Plan phases first (shared tokens → shared rows → tab roots → pushed surfaces).
@@ -199,6 +199,6 @@ Items called out across §3 — **Library rows locked May 2026** during implemen
 | Doc | Relationship |
 |-----|--------------|
 | [`library-ui-evolution.md`](library-ui-evolution.md) | Discovery authority — locked §3 tables |
-| [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) | **TBD** — multi-phased holistic build plan |
+| [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) | **Approved** — [Phase 0 cold start §15](ui-evolution-implementation-plan.md#15-cold-start--phase-0) |
 | [`docs/decisions.md`](../decisions.md) | Append product commitments when phases ship |
 | [`.design-mocks/README.md`](../../.design-mocks/README.md) | Mock inventory & CSS conventions |
