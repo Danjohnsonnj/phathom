@@ -210,6 +210,20 @@
       stroke-linejoin: round;
     }
 
+    .nav-btn--pipeline {
+      color: var(--accent);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-btn--pipeline svg {
+      width: 26px;
+      height: 26px;
+      fill: currentColor;
+    }
+
     .nav-btn--cancel {
       flex-shrink: 0;
       color: var(--accent);
@@ -246,11 +260,7 @@
     }
 
     .search-dismiss-scrim {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      background: transparent;
-      pointer-events: none;
+      display: none;
     }
 
     .phone--search-active .screen-scroll {
@@ -641,7 +651,8 @@
   </style>
 </head>
 <body>
-  <!-- Search B: toolbar icon; pinned search bar (fixed) — library scrolls underneath. Cancel dismisses. -->
+  <!-- Search B: toolbar icon; pinned search bar (fixed) — library scrolls underneath. Cancel exits search; keyboard dismiss only while active. -->
+  <!-- Pipeline: pause/play in actions row trailing (before Search) when in-flight or paused/queued — hidden under search overlay when search active. -->
   <!-- Filters: labels above value-only capsules; columns 27.5% / 27.5% / 45% — Category fits "Uncategorized" without truncation. -->
   <p class="page-label">Search B — Toolbar icon</p>
 
@@ -678,6 +689,13 @@
               <nav class="top-nav" aria-label="Library actions">
                 <button type="button" class="nav-btn">Select</button>
                 <div class="top-nav-right">
+                  <button type="button" class="nav-btn nav-btn--pipeline" aria-label="Pause processing">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10"/>
+                      <rect x="9" y="8" width="2.2" height="8" rx="0.5" fill="#252422"/>
+                      <rect x="12.8" y="8" width="2.2" height="8" rx="0.5" fill="#252422"/>
+                    </svg>
+                  </button>
                   <button type="button" class="nav-btn nav-btn--icon" aria-label="Search">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <circle cx="11" cy="11" r="6"/>
@@ -889,8 +907,6 @@
             </div>
           </header>
 
-          <div class="search-dismiss-scrim" aria-hidden="true" title="Tap outside to dismiss search"></div>
-
           <div class="search-active-bar search-active-bar--pinned" role="search">
             <div class="search-active-inner">
               <svg class="search-active-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -907,6 +923,13 @@
               <nav class="top-nav top-nav--obscured" aria-label="Library actions" aria-hidden="true">
                 <button type="button" class="nav-btn" tabindex="-1">Select</button>
                 <div class="top-nav-right">
+                  <button type="button" class="nav-btn nav-btn--pipeline" tabindex="-1" aria-label="Pause processing">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10"/>
+                      <rect x="9" y="8" width="2.2" height="8" rx="0.5" fill="#252422"/>
+                      <rect x="12.8" y="8" width="2.2" height="8" rx="0.5" fill="#252422"/>
+                    </svg>
+                  </button>
                   <button type="button" class="nav-btn nav-btn--icon" tabindex="-1" aria-label="Search">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <circle cx="11" cy="11" r="6"/>

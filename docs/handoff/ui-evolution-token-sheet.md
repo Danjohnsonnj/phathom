@@ -118,11 +118,11 @@ Content type?
 
 | Context | Nav | Screen title | Tab bar | Scroll |
 |---------|-----|--------------|---------|--------|
-| **Tab root** (Library, Notebook, Chat, Add New) | Drop duplicate `navigationTitle`; Library actions row + optional **Phathom** TBD | Editorial **large title in scroll** | Liquid glass §3.5 | Unified — title scrolls with content |
+| **Tab root** (Library, Notebook, Chat, Add New) | Drop duplicate `navigationTitle`; Library: **no `Phathom` principal** — actions row only | Editorial **large title in scroll** | Liquid glass §3.5 | Unified — title scrolls with content |
 | **Detail push** | Back · **Phathom** center · share | None (article content) | Hidden | Content scroll |
 | **Settings push** | **Back only** (Detail back styling) | Editorial **Settings** in scroll | Hidden | Unified; back fixed above scroll |
-| **Library at rest** | Select · **Phathom**? · Search · Settings gear | **Library** editorial | Visible | Unified |
-| **Library search active** | Pinned search over actions band | Same | Visible | Content scrolls under pinned bar |
+| **Library at rest** | Select · Pipeline · Search · Settings | **Library** editorial | Visible | Unified |
+| **Library search active** | Pinned search over actions band (pipeline hidden) | Same | Visible | Content scrolls under pinned bar |
 
 **Tab bar (preserved):** Library · Notebook · Chat · Add new — do not redesign.
 
@@ -136,7 +136,8 @@ Content type?
 | **`HairlineHighlightRow`** | §3.6 + §3.8 | Detail, Notebook |
 | **`GalleryListRow`** | §3.4 | Library |
 | **`NotebookItemGroupHeader`** | §3.8 | Notebook |
-| **`PinnedLibrarySearchBar`** | §3.2 | Library overlay |
+| **`PinnedLibrarySearchBar`** | §3.2 | Library overlay (Cancel + keyboard dismiss) |
+| **`LibraryPipelineControlButton`** | §3.2.1 | Library actions row (pause/play) |
 | **`SettingsGroupedSurface`** | §3.10 | Settings (style only — preserve disclosure logic) |
 | **`ZoneSectionHeader`** | 17pt + 15pt subtitle | Detail AI zone, Settings |
 | **Back affordance** | Detail nav back | Detail, Settings |
@@ -147,7 +148,7 @@ Content type?
 
 | Surface | Hand-off | Mock | Primary token deltas vs shipped |
 |---------|----------|------|--------------------------------|
-| **Library** | §3 | `library-ad-search-b-toolbar.html` | 22px inset; gallery hairlines; Search B overlay; editorial title |
+| **Library** | §3 | `library-ad-search-b-toolbar.html` | 22px inset; gallery hairlines; Search B overlay; editorial title; pipeline in actions row |
 | **Detail** | §3.6 | `detail-ad-full-hairline-a.html` | 22px inset; hairline sections; AI zone Option 5 |
 | **Add New** | §3.7 | `add-new-ad-filled-card-a.html` | 22px inset; capsule Save; drop hints/subtitle |
 | **Notebook** | §3.8 | `notebook-ad-hairline-feed-a.html` | Unified scroll; shared highlight row; inter-group hairline |
@@ -158,13 +159,13 @@ Content type?
 
 ## 9. Resolve at implementation (rollup)
 
-Items called out across §3 — decide during phased plan, not ad hoc per PR:
+Items called out across §3 — **Library rows locked May 2026** during implementation planning; remainder decide in phased plan:
 
-| Item | Surfaces | Notes |
-|------|----------|-------|
-| **Library Phathom principal** | Library | Keep, drop, or minimize when editorial **Library** lands |
-| **Search dismiss beyond Cancel** | Library | Tap-outside vs Cancel-only vs keyboard |
-| **Pipeline control placement** | Library | Preserve in title/actions row |
+| Item | Surfaces | Decision / status |
+|------|----------|-------------------|
+| **Library `Phathom` principal** | Library | **Locked — drop** on Library tab; Detail push keeps center **Phathom** |
+| **Search dismiss beyond Cancel** | Library | **Locked — Cancel** exits; keyboard dismiss only; no tap-outside |
+| **Pipeline control placement** | Library | **Locked — actions row** trailing, before Search (§3.2.1) |
 | **Processing badge on Detail** | Detail | Preserve shipped placement |
 | **`DetailAIAnalysisDivider` → zone header** | Detail | Replace with Option 5 |
 | **`HighlightCardView` refactor** | Detail, Notebook | Single hairline row |

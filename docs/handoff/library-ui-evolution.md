@@ -88,7 +88,7 @@ HTML/CSS probes are **visual and behavioral guidance only**. Implementation land
 
 ### 2.3 Agent inference (mocks are not exhaustive)
 
-HTML probes **do not** depict every interaction (tag editing, category picker, pipeline controls, sheets, navigation pushes, swipe actions, etc.). When a behavior is **not** drawn in a mock, infer from this order:
+HTML probes **do not** depict every interaction (tag editing, category picker, sheets, navigation pushes, swipe actions, etc.). Pipeline control **is** drawn in the Library canonical mock (§3.2.1). When a behavior is **not** drawn in a mock, infer from this order:
 
 1. **Locked tables** in [§3](#3-locked-decisions-library)–[§3.10](#310-locked-decisions-settings) for the surface being built.
 2. **Shipped Swift** entry in [§2.1](#21-surface-probe-roadmap) — preserve semantics unless the hand-off explicitly changes UX.
@@ -128,7 +128,8 @@ Ordered queue for HTML mocks and design review. **No Swift** until the full disc
 
 | Layer | Decision |
 |-------|----------|
-| **Top actions** | Minimal row: **Select** (leading), **Search** + **Settings** (trailing). No persistent search field in the editorial stack. |
+| **Top actions** | Minimal row: **Select** (leading); **Pipeline** pause/play when in-flight or paused/queued (trailing, before Search); **Search** + **Settings** (trailing). No persistent search field in the editorial stack. |
+| **System nav** | **No `Phathom` principal** on Library — editorial **Library** title owns screen identity; **Phathom** remains center on pushed Detail only (§3.6). |
 | **Screen title** | Large left-aligned **Library** (`~34pt`, semibold, tight tracking) below the actions row — screen owns the title, not the system nav brand. |
 | **List material** | **Gallery rows** — hairline dividers, **no filled card background**, 64×64 thumbs, generous vertical padding (`~19px`), content scrolls with editorial chrome. |
 | **Horizontal rhythm** | **22px** (`--rhythm`) content inset; align title, filters, and row text to this grid. |
@@ -143,9 +144,20 @@ Ordered queue for HTML mocks and design review. **No Swift** until the full disc
 | **Active** | Search bar **pins** over the actions band (covers Select + icon row). **No layout shift** on title, filters, or list when search opens. |
 | **Scroll** | Pinned bar behaves like **`position: fixed`**: title, filters, and rows **scroll underneath** the search bar (see canonical mock **Search active** frame). |
 | **Field** | Placeholder: **`Search title, tags, source text`** (matches shipped search semantics). Accent-bordered nested field + leading magnifier; **Cancel** trailing. |
-| **Dismiss** | **Cancel** is required. Tap-outside was explored but conflicts with scroll-under; resolve at implementation (e.g. keyboard dismiss, explicit Cancel only, or non-blocking dismiss gesture). |
+| **Dismiss** | **Cancel** exits search (required). **Keyboard dismiss** only while search stays active — swipe-down on field dismisses keyboard, not search mode. **No** tap-outside / tap-content dismiss (conflicts with scroll-under). |
 
 **Rejected search alternative:** **A — Native drawer** (`.searchable`-style pull-down). Deleted mock; keeps extra chrome hidden but less aligned with editorial “quiet at rest” goal.
+
+### 3.2.1 Pipeline control — **Actions row trailing**
+
+| State | Behavior |
+|-------|----------|
+| **Placement** | **`pause.circle.fill` / `play.circle.fill`** in top actions row — trailing, **before Search**, same slot for pause vs resume |
+| **Visibility** | Shown when pipeline in-flight, foreground drain active, user paused, or manual kickoff available — preserve shipped `LibraryPipelineControl` semantics |
+| **Search active** | Hidden under pinned search overlay with rest of actions row (no layout shift) |
+| **Editorial title** | **No** pipeline beside **Library** title — title band stays clean |
+
+**Rejected pipeline alternatives:** Beside editorial title (shipped B) · filter-band trailing (C).
 
 ### 3.3 Filters — **Preserve shipped `LibraryFilterBar` layout**
 
@@ -180,7 +192,7 @@ Locked layout invariants (already implemented in code; mocks mirror screenshots)
 | **Meta row** | Date (12pt muted) + processing badge when in-flight (`GENERATING`-style chip on `#401F12`) |
 | **Separators** | 1px hairline `rgba(255,252,242,0.12)` between rows — **not** card fill |
 
-**Behavior preserved from shipped (not visualized in mocks):** leading swipe read-state, trailing swipe archive, bulk select, Dive deeper footer, empty states, pipeline-driven badges.
+**Behavior preserved from shipped (mock shows pipeline in actions row when processing):** leading swipe read-state, trailing swipe archive, bulk select, Dive deeper footer, empty states, pipeline-driven badges.
 
 ### 3.5 Tab bar — **Preserved**
 
@@ -489,12 +501,12 @@ Palette **unchanged** from shipped dark theme — refine **execution** (spacing,
 | Area | Shipped today | Target (this hand-off) |
 |------|---------------|------------------------|
 | **Chrome layout** | Fixed `VStack`: title + filters **above** `List`; list rows only in scroll | Title + filters + rows in **one scroll surface**; search **pins** over top band when active |
-| **Nav identity** | `Phathom` in **navigation bar** principal + `Library` large title in content | Actions row + **screen-owned** `Library` title; **no** competing brand in the editorial band (system status bar only in mock) |
-| **Search** | `.searchable` on `List` | Toolbar icon → **pinned overlay**; prompt unchanged |
+| **Nav identity** | `Phathom` in **navigation bar** principal + `Library` large title in content | Actions row + **screen-owned** `Library` title; **drop** `Phathom` nav principal on Library |
+| **Search** | `.searchable` on `List` | Toolbar icon → **pinned overlay**; prompt unchanged; **Cancel** + keyboard dismiss |
 | **Rows** | Filled card rows (`ContentCardRow`) | Hairline **gallery** rows, no card fill |
 | **Filters** | `LibraryFilterBar` 27.5/27.5/45 | **Same** — layout locked |
 | **Tab bar** | Liquid glass (runtime iOS 26) | **Same** |
-| **Pipeline control** | Play/pause button beside title | **Not in mocks** — preserve behavior; placement TBD in editorial title row |
+| **Pipeline control** | Play/pause beside **Library** title | **Actions row** trailing, before Search (§3.2.1) |
 
 ---
 
@@ -504,7 +516,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 
 | File | Role |
 |------|------|
-| **`library-ad-search-b-toolbar.html`** | **Library** — At rest + Search active; Search B, pinned bar, filters, gallery list, tab bar |
+| **`library-ad-search-b-toolbar.html`** | **Library** — At rest + Search active; Search B, pinned bar, filters, gallery list, pipeline in actions row, tab bar |
 | **`detail-ad-full-hairline-a.html`** | **Detail** — full hairline A + Option 5 AI zone parent header |
 | **`add-new-ad-filled-card-a.html`** | **Add New** — six frames (Web · Note · Photo × Starting + Filled); filled capture card, capsule Save, mode pill |
 | **`notebook-ad-hairline-feed-a.html`** | **Notebook** — Empty + Populated; editorial chrome, gallery headers, hairline highlights, full-width inter-group hairlines |
@@ -513,7 +525,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 
 **Deleted (2026-05-30 cleanup):** `library-ad-editorial-gallery.html` (stale search) · `detail-ad-hybrid-b.html` (rejected B) · `detail-ad-ai-zone-compare.html` (5 selected, applied to canonical) · ~~`library-c-compact-brand.html`~~ · ~~`library-ad-search-a-drawer.html`~~
 
-**How to review:** Open canonical mocks in Safari. Library: **Search active** scroll-under. Detail: **AI analysis** zone. Add New: **Starting** vs **Filled** per mode. Notebook: **Empty** vs **Populated**; confirm **no** hairline between highlights in one item; **full-width** `border-bottom` between item groups (Library parity). Chat: editorial **Chat** title + two-tier coming-soon copy; **Chat** tab selected. Settings: three frames side-by-side; **scroll** Primary unset / Missing file to verify below-fold IA + footer.
+**How to review:** Open canonical mocks in Safari. Library: **At rest** pipeline in actions row; **Search active** scroll-under; pipeline hidden under overlay. Detail: **AI analysis** zone. Add New: **Starting** vs **Filled** per mode. Notebook: **Empty** vs **Populated**; confirm **no** hairline between highlights in one item; **full-width** `border-bottom` between item groups (Library parity). Chat: editorial **Chat** title + two-tier coming-soon copy; **Chat** tab selected. Settings: three frames side-by-side; **scroll** Primary unset / Missing file to verify below-fold IA + footer.
 
 ---
 
@@ -523,14 +535,13 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 
 **Complete.** All surfaces in [§2.1](#21-surface-probe-roadmap) probed and locked [§3](#3-locked-decisions-library)–[§3.10](#310-locked-decisions-settings). **No further HTML** unless product forks.
 
-### Library-specific (resolve before or during Library implementation)
+### Library-specific (locked at implementation planning — May 2026)
 
-| Item | Status |
-|------|--------|
-| **Pipeline control placement** | Shipped; not shown in mocks — keep in title row unless Detail probe suggests otherwise |
-| **System nav bar** | Library: **Phathom** principal at rest; Settings push: **back only** (§3.10) — decide Library **Phathom** retention when editorial Library title lands |
-| **Search dismiss beyond Cancel** | Tap-outside vs scroll-under — pick one interaction model in SwiftUI |
-| **Typography** | Geist (mock) vs SF (app) — optional follow-up |
+| Item | Decision |
+|------|----------|
+| **Pipeline control placement** | **Actions row trailing** — before Search (§3.2.1); move from beside title |
+| **System nav bar (Library)** | **Drop `Phathom` principal** — editorial **Library** title owns screen |
+| **Search dismiss beyond Cancel** | **Cancel** exits search; **keyboard dismiss** only while active — no tap-outside |
 | **Row component refactor** | `ContentCardRow` → gallery row styling; preserve swipe, selection, accessibility |
 
 ### Post-discovery (implementation)
@@ -555,7 +566,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 
 **Suggested Swift touchpoints (future):** Translate [§2.2](#22-html-mocks--swiftui-target) — do not port HTML/CSS literally.
 
-- [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) — remove `.searchable`; toolbar search; scrollable chrome; pinned overlay
+- [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) — remove `.searchable`; toolbar search; scrollable chrome; pinned overlay; move pipeline to actions row; drop `Phathom` principal
 - [`ContentCardRow.swift`](../../Phathom/Phathom/Views/Library/ContentCardRow.swift) — gallery row material
 - [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) — hairline sections; AI zone parent header; 22px inset
 - [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) — 22px inset; filled capture card; capsule Save; drop processing hints/subtitle
@@ -606,6 +617,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | 2026-05-30 | **UI evolution discovery complete** — 6 surfaces locked; 6 canonical mocks; ready for implementation green-light |
 | 2026-05-30 | Mock CSS: global **`a { text-decoration: none }`** on all canonical HTML — no underline (SwiftUI parity) |
 | 2026-05-30 | **Cross-surface token sheet** — [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) |
+| 2026-05-30 | **Library planning locks** — drop `Phathom` nav principal; search dismiss Cancel + keyboard only; pipeline **actions row** (§3.2.1); canonical library mock updated |
 
 ---
 

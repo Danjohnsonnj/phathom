@@ -14,7 +14,7 @@ Static Safari mocks probe layout, spacing, and material language before SwiftUI 
 
 | File | Surface |
 |------|---------|
-| `library-ad-search-b-toolbar.html` | Library — at rest + Search active |
+| `library-ad-search-b-toolbar.html` | Library — at rest + Search active; pipeline in actions row |
 | `detail-ad-full-hairline-a.html` | Detail — full hairline A |
 | `add-new-ad-filled-card-a.html` | Add New — Web · Note · Photo × Starting + Filled |
 | `notebook-ad-hairline-feed-a.html` | Notebook — Empty + Populated hairline feed |
