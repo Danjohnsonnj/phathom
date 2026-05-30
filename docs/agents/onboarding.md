@@ -14,6 +14,7 @@ Do **not** scan all of `Phathom/`. Read the smallest set for the task:
 | Domain terms | [`CONTEXT.md`](../../CONTEXT.md) — glossary only |
 | RAG Chat roadmap | [`docs/handoff/phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md) |
 | UI polish | [`docs/handoff/ui-design-refresh.md`](../handoff/ui-design-refresh.md) |
+| **Notebook tab (MVP)** | [`docs/handoff/notebook-tab.md`](../handoff/notebook-tab.md) |
 | Pipeline | [`BackgroundPipeline.swift`](../../Phathom/Phathom/Services/BackgroundPipeline.swift) |
 | Inference | [`SharedLlamaInference.swift`](../../Phathom/Phathom/Services/SharedLlamaInference.swift) |
 | UI shell | [`Views/`](../../Phathom/Phathom/Views/) — recall agentmemory **UI** topic; `MainTabView` → `LibraryTab` → `DetailView` → `AddNewTab`; Settings via Library gear |
