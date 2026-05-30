@@ -79,6 +79,24 @@ Goal: same confidence as a full raw `xcodebuild` dump, **minimal tokens** in age
 - Behavioral fix — above + **`bash scripts/test-phathom.sh --test <name>`** or **`--grep <pattern>`**.
 - Pre-merge — sim build → Tier 2b warnings when policy says so → **`bash scripts/test-phathom.sh`**.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub (`Danjohnsonnj/phathom`); use `gh` from this clone. See [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Seven canonical labels: two category (`bug`, `enhancement`) + five state (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See [`docs/agents/triage-labels.md`](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context; read `Phathom/` → `docs/decisions.md` → active hand-offs. See [`docs/agents/domain.md`](docs/agents/domain.md).
+
+### Skills cheat sheet
+
+When to slash vs ask; pipeline order. See [`docs/agents/skills-cheatsheet.md`](docs/agents/skills-cheatsheet.md).
+
 ## Agentmemory (long-term context)
 
 Use the **agentmemory** MCP at session start and when saving durable insights. Memory is a **compressed index** (invariants, file map, recent decisions)—not a substitute for `docs/decisions.md` or source code.

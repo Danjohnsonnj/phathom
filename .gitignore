@@ -39,3 +39,6 @@ fastlane/test_output
 
 # Bundled apps (normally not checked in unless intentional)
 *.app/
+
+# Cursor workspace
+phathom.code-workspace
