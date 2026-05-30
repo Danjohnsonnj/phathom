@@ -37,7 +37,8 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 | Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf, `[PhathomPipeline]` logs |
 | Schema | `ContentItem`, **`Category`**, `processingStatus` | `PhathomCore/` |
 | UI shell & pipeline bridge | `UI`, `LibraryTab`, `DetailView`, `CategoryPicker` | `Views/`, `ProcessingRecovery.swift`, `LibrarySearchService.swift` |
-| UI design refresh | `tokens`, `AppPalette`, `IA` | [`ui-design-refresh.md`](../archive/ui-design-refresh.md) |
+| **UI evolution (discovery)** | `UI-evolution`, `design-mocks`, `HTML-probe`, `handoff`, `no-Swift` | **Process:** agentmemory · **Particulars:** [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) · canonical mock `.design-mocks/library-ad-search-b-toolbar.html` |
+| UI design refresh (shipped v1) | `tokens`, `AppPalette`, `IA` | [`ui-design-refresh.md`](../archive/ui-design-refresh.md) — historical only |
 | Bulk library select | batch archive undo | [`library-bulk-selection.md`](../archive/library-bulk-selection.md), `MainTabView` |
 | Archived docs | `history` | [`archive/README.md`](../archive/README.md) — opt-in only |
 | Scope | `Phase-3`, `no-RAG` | `phase-3-rag-chat.md` |
@@ -83,6 +84,10 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 
 > Recall Phathom UI architecture memory. Task: [one sentence]. Read only affected Views + pipeline hooks (`ProcessingRecovery`, `BackgroundPipeline`).
 
+**UI evolution — design discovery (HTML mocks)**
+
+> Recall `UI-evolution` / `design-mocks` workflow memory (process only). Read [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) for locked choices + probe queue. Open canonical mock in `.design-mocks/`. **No Swift** unless user green-lights implementation. Paste `<handoff>` packet if provided.
+
 ---
 
 ## When to save vs skip
@@ -92,6 +97,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 | Final architectural choice | Brainstorm "maybe" ideas |
 | Perf finding or fix pattern | Every file opened |
 | New invariant / must-not | Full specs (use handoff/docs) |
+| **UI discovery process** (workflow gist) | **Locked UI particulars** (use `docs/handoff/*.md`) |
 | Decision row candidate | Implementation diffs (git) |
 
 **Maintenance:** append `docs/decisions.md` first; then update agentmemory. xcframework / `LlamaCppRuntime` changes → refresh llama.cpp backend memory.

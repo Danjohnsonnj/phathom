@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phathom Detail — Full hairline (A)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #252422;
+      --surface: #403d39;
+      --accent: #eb5e28;
+      --text-primary: #fffcf2;
+      --text-secondary: #ccc5b9;
+      --chip-bg: #401F12;
+      --hairline: rgba(255, 252, 242, 0.12);
+      --rhythm: 22px;
+      --phone-w: 393px;
+      --phone-h: 852px;
+      --radius-phone: 55px;
+      --radius-thumb: 6px;
+      --radius-capsule: 100px;
+      --font: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1918;
+      font-family: var(--font);
+      padding: 72px 24px 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page-label {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.35);
+    }
+
+    .frames-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 40px 48px;
+      max-width: 100%;
+    }
+
+    .frame-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .frame-caption {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: rgba(255, 252, 242, 0.5);
+    }
+
+    .phone-shell {
+      position: relative;
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      background: linear-gradient(145deg, #3a3835 0%, #2a2826 50%, #1f1e1c 100%);
+      border-radius: calc(var(--radius-phone) + 12px);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 40px 80px rgba(0, 0, 0, 0.55),
+        0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .phone-shell::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 126px;
+      height: 37px;
+      background: #0d0d0c;
+      border-radius: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: var(--bg);
+      border-radius: var(--radius-phone);
+      overflow: clip;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      isolation: isolate;
+    }
+
+    /* Status bar */
+    .status-bar {
+      flex-shrink: 0;
+      height: 54px;
+      padding: 14px var(--rhythm) 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-icons svg {
+      display: block;
+    }
+
+    /* Scrollable content — extends behind floating tab bar for glass blur */
+    .screen-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      padding-bottom: 104px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .screen-scroll::-webkit-scrollbar { display: none; }
+
+    /*
+     * Tab bar — matches shipped MainTabView TabView (iOS 26 liquid glass).
+     * Preserved in design evolution: 4 tabs, SF symbols, paprika selected / floral unselected.
+     * Glass blur on .tab-bar-glass absolute child (Safari-safe).
+     */
+    .tab-bar-dock {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 30;
+      padding: 0 8px 26px;
+      pointer-events: none;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    }
+
+    .tab-bar {
+      position: relative;
+      pointer-events: auto;
+      height: 66px;
+      border-radius: 33px;
+      display: flex;
+      align-items: stretch;
+      overflow: hidden;
+      background: transparent;
+      box-shadow:
+        0 0 0 0.5px rgba(255, 252, 242, 0.2),
+        0 10px 28px rgba(0, 0, 0, 0.38);
+      transform: translateZ(0);
+    }
+
+    .tab-bar-glass {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: rgba(22, 21, 20, 0.58);
+      backdrop-filter: blur(50px) saturate(1.85);
+      -webkit-backdrop-filter: blur(50px) saturate(1.85);
+      border: 0.5px solid rgba(255, 252, 242, 0.22);
+      box-shadow: inset 0 1px 0 rgba(255, 252, 242, 0.14);
+    }
+
+    .tab-bar-glass::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(
+        180deg,
+        rgba(255, 252, 242, 0.07) 0%,
+        transparent 42%
+      );
+      pointer-events: none;
+    }
+
+    .tab-bar-items {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      padding: 5px 5px;
+      gap: 2px;
+    }
+
+    .tab-item {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
+      padding: 6px 2px 5px;
+      color: var(--text-primary);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border-radius: 28px;
+    }
+
+    .tab-item--active {
+      color: var(--accent);
+    }
+
+    .tab-item--active::before {
+      content: "";
+      position: absolute;
+      inset: 2px 1px;
+      border-radius: 28px;
+      background: rgba(255, 252, 242, 0.17);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 252, 242, 0.1),
+        0 0 0 0.5px rgba(255, 252, 242, 0.06);
+      z-index: -1;
+    }
+
+    .tab-item svg {
+      width: 25px;
+      height: 25px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .tab-item svg.tab-icon-plus {
+      width: 22px;
+      height: 22px;
+    }
+
+    .tab-item span {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.15;
+    }
+
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(255, 252, 242, 0.22);
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 40;
+    }
+
+    /* ── Detail nav chrome (pushed stack) ── */
+    .detail-nav {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: 72px 1fr 72px;
+      align-items: center;
+      padding: 4px var(--rhythm) 8px;
+      min-height: 44px;
+    }
+
+    .detail-nav-back {
+      justify-self: start;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: var(--font);
+      font-size: 17px;
+      font-weight: 400;
+      cursor: default;
+      padding: 8px 0;
+      letter-spacing: -0.01em;
+    }
+
+    .detail-nav-back svg {
+      width: 13px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .detail-nav-title {
+      justify-self: center;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    .detail-nav-share {
+      justify-self: end;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+    }
+
+    .detail-nav-share svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ── Detail content (Option A — full hairline) ── */
+    .detail-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Hero — edge-to-edge, 200px */
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .hero-image {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(145deg, #4a4540 0%, #353230 45%, #2a2826 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-image span {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.2);
+    }
+
+    .hero-visit {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius-capsule);
+      padding: 10px 28px;
+      cursor: default;
+      white-space: nowrap;
+    }
+
+    .detail-section {
+      padding: 0 var(--rhythm);
+    }
+
+    .detail-section + .detail-section,
+    .detail-section--hairline-top {
+      border-top: 1px solid var(--hairline);
+    }
+
+    .detail-section--spaced {
+      padding-top: 20px;
+      padding-bottom: 20px;
+    }
+
+    .detail-section--compact-top {
+      padding-top: 20px;
+    }
+
+    .detail-section--compact-bottom {
+      padding-bottom: 20px;
+    }
+
+    /* Header block */
+    .detail-header {
+      padding-top: 20px;
+      padding-bottom: 20px;
+    }
+
+    .detail-host {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+
+    .detail-title {
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+    }
+
+    .detail-snippet {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+    }
+
+    .detail-timestamp {
+      font-size: 15px;
+      color: rgba(204, 197, 185, 0.65);
+      letter-spacing: -0.01em;
+    }
+
+    /* Collapsible source content */
+    .source-toggle {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      width: 100%;
+      background: none;
+      border: none;
+      font-family: var(--font);
+      cursor: default;
+      padding: 0;
+      text-align: left;
+    }
+
+    .source-toggle-label {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .source-toggle-chevron {
+      flex-shrink: 0;
+      width: 12px;
+      height: 12px;
+      stroke: rgba(204, 197, 185, 0.55);
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      margin-left: 12px;
+      margin-top: 4px;
+    }
+
+    .source-preview {
+      margin-top: 12px;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Reading status — hairline segmented row */
+    .segmented {
+      display: flex;
+      border: 1px solid var(--hairline);
+      border-radius: 9px;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    .segment {
+      flex: 1;
+      padding: 8px 0;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      text-align: center;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--hairline);
+      cursor: default;
+    }
+
+    .segment:last-child {
+      border-right: none;
+    }
+
+    .segment--active {
+      color: var(--text-primary);
+      background: rgba(255, 252, 242, 0.06);
+    }
+
+    /* Category — hairline row */
+    .hairline-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 48px;
+    }
+
+    .hairline-row-label {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      flex-shrink: 0;
+    }
+
+    .hairline-row-spacer {
+      flex: 1;
+    }
+
+    .hairline-row-value {
+      font-size: 15px;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .hairline-row-action {
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent);
+      background: none;
+      border: none;
+      cursor: default;
+      padding: 8px 0 8px 12px;
+      letter-spacing: -0.01em;
+    }
+
+    /* Section headers */
+    .section-header {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 14px;
+    }
+
+    /* Highlights — hairline rows + 4px paprika accent bar, no fill */
+    .highlight-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .highlight-item {
+      position: relative;
+      padding: 16px 0 16px 14px;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .highlight-item:last-child {
+      border-bottom: none;
+    }
+
+    .highlight-item::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 16px;
+      bottom: 16px;
+      width: 4px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+
+    .highlight-quote {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+
+    .highlight-note-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(204, 197, 185, 0.55);
+      margin-bottom: 4px;
+    }
+
+    .highlight-note {
+      font-size: 15px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    /* AI analysis zone — Option 5: zone parent header + demoted subsections */
+    .ai-zone {
+      padding-top: 20px;
+      padding-bottom: 20px;
+    }
+
+    .ai-zone-parent-header {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 22px;
+    }
+
+    .ai-subsection-header {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+      margin-bottom: 12px;
+    }
+
+    .tags-header-row .ai-subsection-header {
+      margin-bottom: 0;
+    }
+
+    .ai-subsection + .ai-subsection {
+      margin-top: 22px;
+      padding-top: 22px;
+      border-top: 1px solid var(--hairline);
+    }
+
+    /* Tags — outline chips (tags-only exception; no surface card wrapper) */
+    .tags-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .tags-edit {
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent);
+      background: none;
+      border: none;
+      cursor: default;
+      padding: 4px 0;
+      letter-spacing: -0.01em;
+    }
+
+    .tag-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag-chip {
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      background: var(--chip-bg);
+      border: none;
+      border-radius: var(--radius-capsule);
+      padding: 6px 12px;
+      cursor: default;
+    }
+
+    /* Summary — flush bullets, no card */
+    .summary-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .summary-list li {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      padding-left: 0;
+      position: relative;
+    }
+
+    .summary-list li::before {
+      content: "•";
+      margin-right: 8px;
+      color: var(--text-secondary);
+    }
+
+    /* Action buttons */
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 8px;
+      padding-bottom: 24px;
+    }
+
+    .btn-hairline-accent {
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--accent);
+      background: transparent;
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 12px 16px;
+      width: 100%;
+      cursor: default;
+      text-align: center;
+    }
+
+    .btn-hairline-neutral {
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      background: transparent;
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      padding: 12px 16px;
+      width: 100%;
+      cursor: default;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Detail Option A: full hairline material — no filled surface cards; paprika accent bars on highlights -->
+  <p class="page-label">Detail — Full hairline (A)</p>
+
+  <div class="frames-row">
+    <div class="frame-unit">
+      <p class="frame-caption">Full hairline (A)</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <nav class="detail-nav" aria-label="Detail navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20" aria-hidden="true"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+            <span class="detail-nav-title">Phathom</span>
+            <button type="button" class="detail-nav-share" aria-label="Share">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v12"/>
+                <path d="M8 7l4-4 4 4"/>
+                <path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/>
+              </svg>
+            </button>
+          </nav>
+
+          <div class="screen-scroll">
+            <div class="detail-content">
+
+              <!-- 1. Hero -->
+              <section class="hero" aria-label="Article hero">
+                <div class="hero-image"><span>OG Image</span></div>
+                <button type="button" class="hero-visit">Visit Site</button>
+              </section>
+
+              <!-- 3. Header (processing badge skipped — completed) -->
+              <section class="detail-section detail-header">
+                <p class="detail-host">www.robert-glaser.de</p>
+                <h1 class="detail-title">When everyone has AI and the company still learns nothing</h1>
+                <p class="detail-snippet">I think everyone knows this is the phase where it gets complicated, like, really complicated. The “messy middle” of AI adoption starts when AI use is everywhere, uneven, partially hidden, difficult to compare, and not yet connected to organizational learning.</p>
+                <time class="detail-timestamp" datetime="2025-05-06T13:24:18">May 6, 2025 at 1:24 PM</time>
+              </section>
+
+              <!-- 4. Source Content (collapsed) -->
+              <section class="detail-section detail-section--hairline-top detail-section--spaced">
+                <button type="button" class="source-toggle" aria-expanded="false">
+                  <span class="source-toggle-label">Source Content</span>
+                  <svg class="source-toggle-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+                </button>
+                <p class="source-preview">Ethan Mollick has been writing about AI adoption in organizations for a while now. In Making AI Work: Leadership, Lab, and Crowd, he makes the point that individual productivity gains from AI do not automatically become organizational gains. People may get faster, write better, analyze more, automate more, or quietly become cyborg versions of themselves. The company may still learn almost nothing.</p>
+              </section>
+
+              <!-- 5. Reading status -->
+              <section class="detail-section detail-section--hairline-top detail-section--compact-top detail-section--compact-bottom" aria-label="Reading status">
+                <div class="segmented" role="group">
+                  <button type="button" class="segment segment--active">New</button>
+                  <button type="button" class="segment">Read</button>
+                  <button type="button" class="segment">Filed</button>
+                </div>
+              </section>
+
+              <!-- 6. Category -->
+              <section class="detail-section detail-section--hairline-top detail-section--compact-top detail-section--compact-bottom" aria-label="Category">
+                <div class="hairline-row">
+                  <span class="hairline-row-label">Category</span>
+                  <span class="hairline-row-spacer"></span>
+                  <span class="hairline-row-value">Work</span>
+                  <button type="button" class="hairline-row-action">Edit</button>
+                </div>
+              </section>
+
+              <!-- 7. Highlights & Notes -->
+              <section class="detail-section detail-section--hairline-top detail-section--spaced">
+                <h2 class="section-header">Highlights &amp; Notes</h2>
+                <div class="highlight-list">
+                  <article class="highlight-item">
+                    <p class="highlight-quote">“Mollick's Leadership, Lab, and Crowd frame is useful here. Leadership sets direction and permission, The Crowd discovers use cases because the Crowd does the actual work. The Lab turns those discoveries into shared practices, tools, benchmarks, and new systems…”</p>
+                    <p class="highlight-note-label">Note</p>
+                    <p class="highlight-note">Leadership, Crowd and Lab phases. I think we're in need of a focus on the lab and how to learn from the crowd right now.</p>
+                  </article>
+                  <article class="highlight-item">
+                    <p class="highlight-quote">“Please, I beg you, don't count pull requests. Better: Which loops closed faster? Which decisions improved? Which root-cause analyses got sharper?… Token-to-output is the old measurement reflex in a new costume. Token-to-learning is closer to the thing that matters.”</p>
+                    <p class="highlight-note-label">Note</p>
+                    <p class="highlight-note">Token-to-learning is interesting.</p>
+                  </article>
+                </div>
+              </section>
+
+              <!-- 8–10. AI analysis zone — Option 5: parent header + demoted subsections -->
+              <section class="detail-section detail-section--hairline-top ai-zone" aria-labelledby="ai-zone-heading">
+                <h2 class="ai-zone-parent-header" id="ai-zone-heading">AI analysis</h2>
+
+                <div class="ai-subsection" aria-labelledby="tags-heading">
+                  <div class="tags-header-row">
+                    <h3 class="ai-subsection-header" id="tags-heading">Tags</h3>
+                    <button type="button" class="tags-edit">Edit</button>
+                  </div>
+                  <div class="tag-chips">
+                    <span class="tag-chip">machine-learning</span>
+                    <span class="tag-chip">organization</span>
+                    <span class="tag-chip">ai-adoption</span>
+                    <span class="tag-chip">loop-intelligence</span>
+                  </div>
+                </div>
+
+                <div class="ai-subsection" aria-labelledby="summary-heading">
+                  <h3 class="ai-subsection-header" id="summary-heading">Summary</h3>
+                  <ul class="summary-list">
+                    <li>The 'messy middle' of AI adoption is where it gets complicated, with uneven use, hidden artifacts, and difficulty in comparing results.</li>
+                    <li>Companies need to move beyond tool usage and bean counting to understand which AI-assisted loops produce learning and which ones decay.</li>
+                    <li>The adoption question is not just about tool usage, but about understanding which loops to use, where to apply resistance, and how to create learning artifacts.</li>
+                    <li>The 'feedback harness' is a crucial concept, where the organization collects and acts on signals from real work loops to inform decision-making.</li>
+                  </ul>
+                </div>
+              </section>
+
+              <!-- 11. Action buttons -->
+              <section class="detail-section action-buttons">
+                <button type="button" class="btn-hairline-accent">Summarize again</button>
+                <button type="button" class="btn-hairline-neutral">Archive</button>
+              </section>
+
+            </div>
+          </div>
+
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item tab-item--active">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/>
+                    <path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/>
+                    <circle cx="14.8" cy="13.2" r="1.1"/>
+                    <path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/>
+                  </svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/>
+                    <path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/>
+                    <rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/>
+                  </svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/>
+                    <path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/>
+                  </svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/>
+                  </svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

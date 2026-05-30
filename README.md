@@ -24,6 +24,7 @@
 | Track | Doc |
 | ----- | --- |
 | **RAG / Chat tab** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) |
+| **App UI evolution** (design discovery — Library done, Detail next) | [`docs/handoff/library-ui-evolution.md`](docs/handoff/library-ui-evolution.md) |
 
 **Historical product & phase write-ups:** [`docs/archive/README.md`](docs/archive/README.md) — **not for implementation**.
 
