@@ -6,6 +6,8 @@
 
 **Phathom** is a **local-first iOS “personal brain”**: capture links, notes, and media into your own library, run **on-device** analysis with **Llama.cpp**, and (roadmap) chat over what you saved—without sending your content to the cloud.
 
+**For agents:** start at **[`AGENTS.md`](AGENTS.md)** (build, verify, invariants). Domain glossary: **[`CONTEXT.md`](CONTEXT.md)**.
+
 ## Product features
 
 - **Capture** — Add items from the in-app **Add New** flow and the **`PhathomShare`** share extension (URLs, text, images). Web captures can be saved offline-first and finish when the network is back.

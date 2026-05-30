@@ -29,7 +29,7 @@ If any optional file is missing, proceed silently — don't suggest creating it 
 │   ├── decisions.md            ← invariants and decision log
 │   ├── handoff/                ← active scoped specs
 │   ├── archive/                ← shipped / historical specs
-│   └── agents/                 ← issue tracker + triage + domain (this folder)
+│   └── agents/                 ← issue tracker + triage + domain + onboarding + agentmemory (this folder)
 └── README.md
 ```
 
