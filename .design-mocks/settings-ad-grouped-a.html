@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phathom Settings — Grouped A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    a { text-decoration: none; color: inherit; }
+
+    :root {
+      --bg: #252422;
+      --surface: #403d39;
+      --surface-nested: #353330;
+      --accent: #eb5e28;
+      --text-primary: #fffcf2;
+      --text-secondary: #ccc5b9;
+      --text-tertiary: rgba(255, 252, 242, 0.45);
+      --hairline: rgba(255, 252, 242, 0.12);
+      --rhythm: 22px;
+      --card-inset: 16px;
+      --section-gap: 24px;
+      --radius-grouped: 14px;
+      --phone-w: 393px;
+      --phone-h: 852px;
+      --radius-phone: 55px;
+      --font: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --green: #34c759;
+      --orange: #ff9f0a;
+      --red: #ff453a;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1918;
+      font-family: var(--font);
+      padding: 72px 24px 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page-label {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.35);
+    }
+
+    .mock-legend {
+      width: min(1180px, 100%);
+      margin-bottom: 36px;
+      padding: 14px 18px;
+      border: 1px solid rgba(255, 252, 242, 0.1);
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.55;
+      color: rgba(255, 252, 242, 0.48);
+      text-align: center;
+    }
+
+    .mock-legend strong {
+      color: rgba(255, 252, 242, 0.72);
+      font-weight: 600;
+    }
+
+    .frames-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 40px 32px;
+      max-width: 100%;
+    }
+
+    .frame-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      flex: 0 1 auto;
+    }
+
+    .frame-caption {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: rgba(255, 252, 242, 0.5);
+    }
+
+    @media (max-width: 1280px) {
+      .frames-row {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+
+    .phone-shell {
+      position: relative;
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      background: linear-gradient(145deg, #3a3835 0%, #2a2826 50%, #1f1e1c 100%);
+      border-radius: calc(var(--radius-phone) + 12px);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 40px 80px rgba(0, 0, 0, 0.55),
+        0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .phone-shell::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 126px;
+      height: 37px;
+      background: #0d0d0c;
+      border-radius: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: var(--bg);
+      border-radius: var(--radius-phone);
+      overflow: clip;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .status-bar {
+      flex-shrink: 0;
+      height: 54px;
+      padding: 14px var(--rhythm) 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-icons svg { display: block; }
+
+    /* Detail parity — back chevron only (pushed from Library) */
+    .detail-nav {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding: 4px var(--rhythm) 8px;
+      min-height: 44px;
+    }
+
+    .detail-nav-back {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: var(--font);
+      font-size: 17px;
+      font-weight: 400;
+      cursor: default;
+      padding: 8px 0;
+      letter-spacing: -0.01em;
+    }
+
+    .detail-nav-back svg {
+      width: 13px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .screen-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      padding-bottom: 28px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .screen-scroll::-webkit-scrollbar { display: none; }
+
+    .settings-body {
+      padding: 0 var(--rhythm) var(--section-gap);
+    }
+
+    .editorial {
+      padding-top: 4px;
+    }
+
+    .screen-title {
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1.1;
+      margin-bottom: var(--section-gap);
+    }
+
+    .settings-section {
+      margin-bottom: var(--section-gap);
+    }
+
+    .settings-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-header {
+      margin-bottom: 8px;
+    }
+
+    .section-header-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .section-header-subtitle {
+      margin-top: 4px;
+      font-size: 15px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    .grouped-card {
+      background: var(--surface);
+      border-radius: var(--radius-grouped);
+      overflow: hidden;
+    }
+
+    .grouped-divider {
+      height: 1px;
+      background: var(--hairline);
+      margin-left: var(--card-inset);
+    }
+
+    /* Disclosure rows */
+    .disclosure-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px var(--card-inset);
+      min-height: 48px;
+    }
+
+    .disclosure-label-text {
+      flex: 1;
+      min-width: 0;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      line-height: 1.25;
+    }
+
+    .disclosure-label-text .optional {
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+
+    .disclosure-chevron {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      color: var(--accent);
+    }
+
+    .disclosure-chevron svg {
+      display: block;
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .status-icon {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+    }
+
+    .status-icon svg {
+      display: block;
+      width: 20px;
+      height: 20px;
+    }
+
+    .disclosure-body {
+      border-top: 1px solid var(--hairline);
+    }
+
+    .disclosure-copy {
+      padding: 12px var(--card-inset);
+      font-size: 15px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    .disclosure-copy--warn-title {
+      font-size: 15px;
+      font-weight: 400;
+      color: var(--orange);
+      margin-bottom: 6px;
+    }
+
+    .disclosure-copy--warn-body {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px var(--card-inset);
+      min-height: 48px;
+    }
+
+    .action-row--disabled {
+      opacity: 0.5;
+    }
+
+    .icon-well {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--surface-nested);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-well svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .icon-well--accent { color: var(--accent); }
+    .icon-well--primary { color: var(--text-primary); }
+    .icon-well--red { color: var(--red); }
+
+    .action-row-title {
+      flex: 1;
+      font-size: 17px;
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+    }
+
+    .action-row-title--accent { color: var(--accent); }
+    .action-row-title--primary { color: var(--text-primary); }
+    .action-row-title--red { color: var(--red); }
+    .action-row-title--muted { color: var(--text-tertiary); }
+
+    /* Library / Data plain rows */
+    .plain-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px var(--card-inset);
+      min-height: 48px;
+    }
+
+    .plain-row-title {
+      flex: 1;
+      font-size: 17px;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .nav-chevron {
+      flex-shrink: 0;
+      width: 11px;
+      height: 16px;
+      color: var(--text-tertiary);
+    }
+
+    .nav-chevron svg {
+      display: block;
+      width: 11px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .count-capsule {
+      flex-shrink: 0;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      background: var(--surface-nested);
+      border-radius: 100px;
+    }
+
+    .stack-row {
+      padding: 12px var(--card-inset);
+    }
+
+    .stack-row-title {
+      font-size: 17px;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+    }
+
+    .stack-row-footnote {
+      margin-top: 4px;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    .stack-row--enabled .stack-row-title {
+      opacity: 1;
+    }
+
+    .settings-footer {
+      padding: 8px 0 4px;
+      text-align: center;
+    }
+
+    .settings-footer p {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+
+    .settings-footer p + p {
+      margin-top: 6px;
+    }
+
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(255, 252, 242, 0.22);
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 40;
+    }
+  </style>
+</head>
+<body>
+  <p class="page-label">Settings — Grouped A</p>
+
+  <p class="mock-legend">
+    <strong>§3.10 locked</strong> — Settings pushed from Library (no tab bar). Fixed back chevron only (Detail parity); no <strong>Phathom</strong> center title, no share.
+    Editorial <strong>Settings</strong> h1 (~34pt semibold, 22px inset) in unified <code>screen-scroll</code> below nav.
+    Section zone headers <em>outside</em> grouped cards (17pt semibold + 15pt secondary subtitle). Grouped surfaces <code>#403d39</code>, 14px radius, hairline dividers with leading inset; icon wells <code>#353330</code>.
+    Three frames: <strong>Configured</strong> (collapsed disclosures, green checks, footer at rest) · <strong>Primary unset</strong> (primary expanded, scroll crop) · <strong>Missing file</strong> (orange warning expanded, triangle on row).
+    IA/copy from shipped <code>SettingsContent</code>; no sheets/dialogs, no hairline-flat sections, no Swift.
+  </p>
+
+  <div class="frames-row">
+
+    <!-- Frame 1: Configured -->
+    <div class="frame-unit">
+      <p class="frame-caption">Configured</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <nav class="detail-nav" aria-label="Settings navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20" aria-hidden="true"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+          </nav>
+
+          <div class="screen-scroll">
+            <div class="settings-body">
+              <div class="editorial">
+                <h1 class="screen-title">Settings</h1>
+              </div>
+
+              <section class="settings-section" aria-label="AI Models">
+                <header class="section-header">
+                  <h2 class="section-header-title">AI Models</h2>
+                  <p class="section-header-subtitle">On-device models for summarization, tagging, and photo vision</p>
+                </header>
+                <div class="grouped-card">
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M5 3l4 4-4 4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Primary model</span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--green)"/><path d="M6.5 10.2 8.8 12.5 13.8 7.5" stroke="#fff" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M5 3l4 4-4 4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Tagging model <span class="optional">(optional)</span></span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--green)"/><path d="M6.5 10.2 8.8 12.5 13.8 7.5" stroke="#fff" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M5 3l4 4-4 4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Vision model <span class="optional">(optional)</span></span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--green)"/><path d="M6.5 10.2 8.8 12.5 13.8 7.5" stroke="#fff" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section" aria-label="Library">
+                <header class="section-header">
+                  <h2 class="section-header-title">Library</h2>
+                </header>
+                <div class="grouped-card">
+                  <a class="plain-row" href="#" onclick="return false" aria-label="Recently Deleted">
+                    <span class="plain-row-title">Recently Deleted</span>
+                    <span class="count-capsule">3</span>
+                    <span class="nav-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 11 16"><path d="M2 2l6 6-6 6"/></svg>
+                    </span>
+                  </a>
+                  <div class="grouped-divider"></div>
+                  <div class="stack-row stack-row--enabled">
+                    <p class="stack-row-title">Reset processing queue</p>
+                    <p class="stack-row-footnote">Clears processing data and retries incomplete web, note, and photo items</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section" aria-label="Data">
+                <header class="section-header">
+                  <h2 class="section-header-title">Data</h2>
+                </header>
+                <div class="grouped-card">
+                  <div class="plain-row">
+                    <span class="icon-well icon-well--primary" aria-hidden="true">
+                      <svg viewBox="0 0 16 16"><path d="M8 2v8M5 7l3-3 3 3"/><rect x="3" y="11" width="10" height="3" rx="1"/></svg>
+                    </span>
+                    <span class="plain-row-title">Export Library</span>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="plain-row">
+                    <span class="icon-well icon-well--primary" aria-hidden="true">
+                      <svg viewBox="0 0 16 16"><path d="M8 14V6M5 9l3 3 3-3"/><rect x="3" y="2" width="10" height="3" rx="1"/></svg>
+                    </span>
+                    <span class="plain-row-title">Import Library</span>
+                  </div>
+                </div>
+              </section>
+
+              <footer class="settings-footer">
+                <p>Phathom v0.7.1 (89)</p>
+                <p>Your data stays on your device</p>
+              </footer>
+            </div>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Frame 2: Primary unset -->
+    <div class="frame-unit">
+      <p class="frame-caption">Primary unset</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <nav class="detail-nav" aria-label="Settings navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20" aria-hidden="true"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+          </nav>
+
+          <div class="screen-scroll">
+            <div class="settings-body">
+              <div class="editorial">
+                <h1 class="screen-title">Settings</h1>
+              </div>
+
+              <section class="settings-section" aria-label="AI Models">
+                <header class="section-header">
+                  <h2 class="section-header-title">AI Models</h2>
+                  <p class="section-header-subtitle">On-device models for summarization, tagging, and photo vision</p>
+                </header>
+                <div class="grouped-card">
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Primary model</span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5" stroke="var(--text-secondary)" stroke-width="1.5" fill="none"/></svg>
+                    </span>
+                  </div>
+                  <div class="disclosure-body">
+                    <p class="disclosure-copy">No primary model selected.</p>
+                    <div class="grouped-divider" style="margin-left:0"></div>
+                    <div class="action-row">
+                      <span class="icon-well icon-well--accent" aria-hidden="true">
+                        <svg viewBox="0 0 14 16"><path d="M7 1v9M4 7l3-3 3 3"/><rect x="2" y="12" width="10" height="3" rx="1"/></svg>
+                      </span>
+                      <span class="action-row-title action-row-title--accent">Select primary model</span>
+                    </div>
+                    <div class="grouped-divider" style="margin-left:0"></div>
+                    <div class="action-row action-row--disabled">
+                      <span class="icon-well icon-well--primary" aria-hidden="true">
+                        <svg viewBox="0 0 14 14"><path d="M4 2l8 5-8 5V2z" fill="currentColor" stroke="none"/></svg>
+                      </span>
+                      <span class="action-row-title action-row-title--muted">Test model</span>
+                    </div>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M5 3l4 4-4 4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Tagging model <span class="optional">(optional)</span></span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5" stroke="var(--text-secondary)" stroke-width="1.5" fill="none"/></svg>
+                    </span>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M5 3l4 4-4 4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Vision model <span class="optional">(optional)</span></span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5" stroke="var(--text-secondary)" stroke-width="1.5" fill="none"/></svg>
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section" aria-label="Library">
+                <header class="section-header">
+                  <h2 class="section-header-title">Library</h2>
+                </header>
+                <div class="grouped-card">
+                  <a class="plain-row" href="#" onclick="return false">
+                    <span class="plain-row-title">Recently Deleted</span>
+                    <span class="count-capsule">3</span>
+                    <span class="nav-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 11 16"><path d="M2 2l6 6-6 6"/></svg>
+                    </span>
+                  </a>
+                  <div class="grouped-divider"></div>
+                  <div class="stack-row stack-row--enabled">
+                    <p class="stack-row-title">Reset processing queue</p>
+                    <p class="stack-row-footnote">Clears processing data and retries incomplete web, note, and photo items</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section" aria-label="Data">
+                <header class="section-header">
+                  <h2 class="section-header-title">Data</h2>
+                </header>
+                <div class="grouped-card">
+                  <div class="plain-row">
+                    <span class="icon-well icon-well--primary" aria-hidden="true">
+                      <svg viewBox="0 0 16 16"><path d="M8 2v8M5 7l3-3 3 3"/><rect x="3" y="11" width="10" height="3" rx="1"/></svg>
+                    </span>
+                    <span class="plain-row-title">Export Library</span>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="plain-row">
+                    <span class="icon-well icon-well--primary" aria-hidden="true">
+                      <svg viewBox="0 0 16 16"><path d="M8 14V6M5 9l3 3 3-3"/><rect x="3" y="2" width="10" height="3" rx="1"/></svg>
+                    </span>
+                    <span class="plain-row-title">Import Library</span>
+                  </div>
+                </div>
+              </section>
+
+              <footer class="settings-footer">
+                <p>Phathom v0.7.1 (89)</p>
+                <p>Your data stays on your device</p>
+              </footer>
+            </div>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Frame 3: Missing file -->
+    <div class="frame-unit">
+      <p class="frame-caption">Missing file</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <nav class="detail-nav" aria-label="Settings navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20" aria-hidden="true"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+          </nav>
+
+          <div class="screen-scroll">
+            <div class="settings-body">
+              <div class="editorial">
+                <h1 class="screen-title">Settings</h1>
+              </div>
+
+              <section class="settings-section" aria-label="AI Models">
+                <header class="section-header">
+                  <h2 class="section-header-title">AI Models</h2>
+                  <p class="section-header-subtitle">On-device models for summarization, tagging, and photo vision</p>
+                </header>
+                <div class="grouped-card">
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Primary model</span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><path d="M10 3.5 17 16H3L10 3.5z" fill="var(--orange)"/><path d="M10 8v4M10 14.2h.01" stroke="#252422" stroke-width="1.6" stroke-linecap="round"/></svg>
+                    </span>
+                  </div>
+                  <div class="disclosure-body">
+                    <div class="disclosure-copy">
+                      <p class="disclosure-copy--warn-title">Primary model file not found</p>
+                      <p class="disclosure-copy--warn-body">The file may have moved or been deleted. Choose a new primary model or forget this selection.</p>
+                    </div>
+                    <div class="grouped-divider" style="margin-left:0"></div>
+                    <div class="action-row">
+                      <span class="icon-well icon-well--accent" aria-hidden="true">
+                        <svg viewBox="0 0 14 16"><path d="M7 1v9M4 7l3-3 3 3"/><rect x="2" y="12" width="10" height="3" rx="1"/></svg>
+                      </span>
+                      <span class="action-row-title action-row-title--accent">Select different model</span>
+                    </div>
+                    <div class="grouped-divider" style="margin-left:0"></div>
+                    <div class="action-row">
+                      <span class="icon-well icon-well--primary" aria-hidden="true">
+                        <svg viewBox="0 0 14 14"><path d="M4 2l8 5-8 5V2z" fill="currentColor" stroke="none"/></svg>
+                      </span>
+                      <span class="action-row-title action-row-title--primary">Test model</span>
+                    </div>
+                    <div class="grouped-divider" style="margin-left:0"></div>
+                    <div class="action-row">
+                      <span class="icon-well icon-well--red" aria-hidden="true">
+                        <svg viewBox="0 0 14 16"><path d="M3 4h8l-1 9H4L3 4zM5.5 2h3L10 4H4l1.5-2z"/></svg>
+                      </span>
+                      <span class="action-row-title action-row-title--red">Forget model</span>
+                    </div>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M5 3l4 4-4 4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Tagging model <span class="optional">(optional)</span></span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--green)"/><path d="M6.5 10.2 8.8 12.5 13.8 7.5" stroke="#fff" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="disclosure-label">
+                    <span class="disclosure-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 14 14"><path d="M5 3l4 4-4 4"/></svg>
+                    </span>
+                    <span class="disclosure-label-text">Vision model <span class="optional">(optional)</span></span>
+                    <span class="status-icon" aria-hidden="true">
+                      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="var(--green)"/><path d="M6.5 10.2 8.8 12.5 13.8 7.5" stroke="#fff" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section" aria-label="Library">
+                <header class="section-header">
+                  <h2 class="section-header-title">Library</h2>
+                </header>
+                <div class="grouped-card">
+                  <a class="plain-row" href="#" onclick="return false">
+                    <span class="plain-row-title">Recently Deleted</span>
+                    <span class="count-capsule">3</span>
+                    <span class="nav-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 11 16"><path d="M2 2l6 6-6 6"/></svg>
+                    </span>
+                  </a>
+                  <div class="grouped-divider"></div>
+                  <div class="stack-row stack-row--enabled">
+                    <p class="stack-row-title">Reset processing queue</p>
+                    <p class="stack-row-footnote">Clears processing data and retries incomplete web, note, and photo items</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-section" aria-label="Data">
+                <header class="section-header">
+                  <h2 class="section-header-title">Data</h2>
+                </header>
+                <div class="grouped-card">
+                  <div class="plain-row">
+                    <span class="icon-well icon-well--primary" aria-hidden="true">
+                      <svg viewBox="0 0 16 16"><path d="M8 2v8M5 7l3-3 3 3"/><rect x="3" y="11" width="10" height="3" rx="1"/></svg>
+                    </span>
+                    <span class="plain-row-title">Export Library</span>
+                  </div>
+                  <div class="grouped-divider"></div>
+                  <div class="plain-row">
+                    <span class="icon-well icon-well--primary" aria-hidden="true">
+                      <svg viewBox="0 0 16 16"><path d="M8 14V6M5 9l3 3 3-3"/><rect x="3" y="2" width="10" height="3" rx="1"/></svg>
+                    </span>
+                    <span class="plain-row-title">Import Library</span>
+                  </div>
+                </div>
+              </section>
+
+              <footer class="settings-footer">
+                <p>Phathom v0.7.1 (89)</p>
+                <p>Your data stays on your device</p>
+              </footer>
+            </div>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

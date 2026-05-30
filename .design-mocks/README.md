@@ -6,7 +6,7 @@
 
 Static Safari mocks probe layout, spacing, and material language before SwiftUI work.
 
-**Workflow:** Build or update mock HTML in a **subagent** (parallel subagents OK for exploration). **Main session** runs grill-me, locks decisions in [`library-ui-evolution.md`](../docs/handoff/library-ui-evolution.md), then delegates mock implementation. They are **visual and behavioral guidance**, not a literal implementation spec.
+**Workflow:** Global skill **`design-mock-probe`** ([`docs/agents/design-mock-probe-pointer.md`](../docs/agents/design-mock-probe-pointer.md)) — grill-me in main session → lock hand-off → subagent HTML → Safari review → delete forks. Mocks are **visual reference** with the hand-off, **not** implementation specs (see hand-off §2.2–§2.3).
 
 **Ship target:** SwiftUI in `Phathom/`. Translate tokens, rhythm, and hierarchy — do not port HTML structure, Geist, or review chrome (device frame, status bar).
 
@@ -19,8 +19,9 @@ Static Safari mocks probe layout, spacing, and material language before SwiftUI 
 | `add-new-ad-filled-card-a.html` | Add New — Web · Note · Photo × Starting + Filled |
 | `notebook-ad-hairline-feed-a.html` | Notebook — Empty + Populated hairline feed |
 | `chat-ad-placeholder-a.html` | Chat placeholder — coming-soon shell |
+| `settings-ad-grouped-a.html` | Settings — Configured · Primary unset · Missing file |
 
-**Next mock:** Settings — side-by-side representative states; see hand-off [§3.10](../docs/handoff/library-ui-evolution.md#310-settings--next-probe-not-locked).
+Discovery HTML **complete** — see hand-off [§3.10](../docs/handoff/library-ui-evolution.md#310-locked-decisions-settings), [token sheet](../docs/handoff/ui-evolution-token-sheet.md), [§11 planning cold-start](../docs/handoff/library-ui-evolution.md#11-cold-start-handoff-next-session).
 
 Open locally in Safari. Files may be gitignored; keep in repo workspace for review.
 
@@ -30,3 +31,4 @@ Open locally in Safari. Files may be gitignored; keep in repo workspace for revi
 - Rejected explorations are **deleted** after lock — do not resurrect without a new fork.
 - On conflict: **`Phathom/` code** > `docs/decisions.md` > hand-off > mocks.
 - Mocks are **not exhaustive** — interactions omitted from HTML (tag edit, sheets, navigation) stay governed by shipped Swift + hand-off [§2.3](../docs/handoff/library-ui-evolution.md#23-agent-inference-mocks-are-not-exhaustive).
+- **Links:** always `a { text-decoration: none; color: inherit; }` in mock CSS (matches SwiftUI — no underlines).

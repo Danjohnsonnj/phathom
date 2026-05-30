@@ -6,9 +6,9 @@
 >
 > **Historical baseline:** The prior shipped refresh is archived in [`docs/archive/ui-design-refresh.md`](../archive/ui-design-refresh.md). This hand-off describes the **next evolution** across app surfaces (Library first, then Detail and remaining tabs), not a full IA rewrite.
 
-**Session:** May 2026 · Path **D → A** · **Probes 1–6 locked** (5 canonical mocks) · **Next probe: Settings**
+**Session:** May 2026 · Path **D → A** · **Discovery complete** (6 mocks) · **Token sheet done** · **Next:** multi-phased implementation plan
 
-**Canonical mocks (visual reference — SwiftUI is the ship target):** [Library](../../.design-mocks/library-ad-search-b-toolbar.html) · [Detail](../../.design-mocks/detail-ad-full-hairline-a.html) · [Add New](../../.design-mocks/add-new-ad-filled-card-a.html) · [Notebook](../../.design-mocks/notebook-ad-hairline-feed-a.html) · [Chat placeholder](../../.design-mocks/chat-ad-placeholder-a.html) — open in Safari; see [§2.2](#22-html-mocks--swiftui-target).
+**Canonical mocks (visual reference — SwiftUI is the ship target):** [Library](../../.design-mocks/library-ad-search-b-toolbar.html) · [Detail](../../.design-mocks/detail-ad-full-hairline-a.html) · [Add New](../../.design-mocks/add-new-ad-filled-card-a.html) · [Notebook](../../.design-mocks/notebook-ad-hairline-feed-a.html) · [Chat placeholder](../../.design-mocks/chat-ad-placeholder-a.html) · [Settings](../../.design-mocks/settings-ad-grouped-a.html) — open in Safari; see [§2.2](#22-html-mocks--swiftui-target).
 
 | Locked surface | Doc | Mock |
 |----------------|-----|------|
@@ -17,6 +17,7 @@
 | Add New | [§3.7](#37-locked-decisions-add-new) | `add-new-ad-filled-card-a.html` |
 | Notebook | [§3.8](#38-locked-decisions-notebook) | `notebook-ad-hairline-feed-a.html` |
 | Chat (placeholder) | [§3.9](#39-locked-decisions-chat-placeholder) | `chat-ad-placeholder-a.html` |
+| Settings | [§3.10](#310-locked-decisions-settings) | `settings-ad-grouped-a.html` |
 
 **Related code (current shipped):** [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) · [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) · [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) · [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) · [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) · [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) · [`MainTabView.swift`](../../Phathom/Phathom/Views/MainTabView.swift) · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
 
@@ -40,7 +41,7 @@
 | Goal | Rationale |
 |------|-----------|
 | **Unified top chrome + spacing rhythm** | Reduce ad-hoc offsets and split identity (`Phathom` nav vs `Library` content title) |
-| **Surface-by-surface probes** | Library · Detail · Add New · Notebook · Chat placeholder **locked** — **Settings** next (final discovery probe) |
+| **Surface-by-surface probes** | **Complete** — Library · Detail · Add New · Notebook · Chat placeholder · Settings locked |
 | **Preserve shipped tab bar** | iOS 26 liquid-glass floating pill, four tabs, SF symbols — see [§3.5](#35-tab-bar--preserved) |
 
 **Explicit non-goals (discovery + implementation):** RAG / conversational Chat **functionality** ([`phase-3-rag-chat.md`](phase-3-rag-chat.md)), Share extension UI, CloudKit/sync CTAs.
@@ -59,14 +60,14 @@ flowchart LR
     Det --> Add["3 · Add New ✓"]
     Add --> NB["5 · Notebook ✓"]
     NB --> Chat["6 · Chat placeholder ✓"]
-    Chat --> Set["4 · Settings ← next"]
+    Chat --> Set["4 · Settings ✓"]
 ```
 
 | Step | Choice |
 |------|--------|
 | **Swing size** | **D → A** — probe one surface at a time, evolve tokens/layout; do not rethink tabs or nav graph |
 | **Discovery artifact** | Static HTML/CSS in [`.design-mocks/`](../../.design-mocks/) (side-by-side frames where useful) — **not** the shipping UI |
-| **Mock build workflow** | **HTML mocks built in a subagent** (or parallel subagents for exploration); **grill / lock decisions in the main session** — then subagent implements from locked §3 + hand-off |
+| **Mock build workflow** | Global skill **`design-mock-probe`** — grill / lock in **main session**; **`<mock-handoff>` packet** → subagent HTML; see [`design-mock-probe-pointer.md`](../agents/design-mock-probe-pointer.md) |
 | **Carry forward** | Each probe applies the same ideas locked on Library: editorial stack, hairline/gallery material, 22px rhythm, preserved tab bar, warm dark palette |
 
 ### 2.2 HTML mocks → SwiftUI target
@@ -79,7 +80,9 @@ HTML/CSS probes are **visual and behavioral guidance only**. Implementation land
 | Idiomatic SwiftUI: `TabView` liquid glass, `.safeAreaInset`, `LibraryFilterBar` popovers, `TextField`/`TextEditor`, overlays for pinned search | Literal CSS (`position: fixed`, `backdrop-filter` approximations) as copy-paste layout |
 | Shipped logic unchanged unless this hand-off explicitly changes UX (search service, pipeline, capture save rules) | Mock-only demo copy (lorem, example URLs) as product strings |
 
-**Authority at implementation:** **`Phathom/`** code + locked §3 tables ([§3](#3-locked-decisions-library)–[§3.9](#39-locked-decisions-chat-placeholder)) + mocks for **look and feel**. When mock and code disagree on **behavior**, code wins until product updates the hand-off.
+**Mock CSS conventions (all canonical HTML):** Global `a { text-decoration: none; color: inherit; }` — SwiftUI `NavigationLink` / button rows have **no underline**; do not port browser default link styling.
+
+**Authority at implementation:** **`Phathom/`** code + locked §3 tables ([§3](#3-locked-decisions-library)–[§3.10](#310-locked-decisions-settings)) + mocks for **look and feel**. When mock and code disagree on **behavior**, code wins until product updates the hand-off.
 
 **Typography:** Mocks use **Geist** for speed; app uses **SF Pro** at equivalent sizes/weights ([§4](#4-visual-tokens-evolution-baseline)).
 
@@ -87,7 +90,7 @@ HTML/CSS probes are **visual and behavioral guidance only**. Implementation land
 
 HTML probes **do not** depict every interaction (tag editing, category picker, pipeline controls, sheets, navigation pushes, swipe actions, etc.). When a behavior is **not** drawn in a mock, infer from this order:
 
-1. **Locked tables** in [§3](#3-locked-decisions-library)–[§3.9](#39-locked-decisions-chat-placeholder) for the surface being built.
+1. **Locked tables** in [§3](#3-locked-decisions-library)–[§3.10](#310-locked-decisions-settings) for the surface being built.
 2. **Shipped Swift** entry in [§2.1](#21-surface-probe-roadmap) — preserve semantics unless the hand-off explicitly changes UX.
 3. **Related locked surface** for shared components (e.g. Detail §3.6 highlight rows → Notebook §3.8).
 4. [`docs/decisions.md`](../decisions.md) for product invariants.
@@ -111,11 +114,11 @@ Ordered queue for HTML mocks and design review. **No Swift** until the full disc
 | **1** | **Library** | **Done** — decisions locked [§3](#3-locked-decisions-library) | Filters, Search B, gallery rows, bulk/select chrome, processing badges | [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) |
 | **2** | **Detail** | **Done** — locked [§3.6](#36-locked-decisions-detail) | Full hairline A + Option **5** AI zone parent header | [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) |
 | **3** | **Add New** | **Done** — locked [§3.7](#37-locked-decisions-add-new) | Filled capture card, capsule CTA, mode pill, 22px rhythm | [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) |
-| **4** | **Settings** | **Next** | Harmonize grouped-list **display** with north star; **preserve IA + disclosures**; side-by-side representative states | [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) · [`SettingsContent`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) (pushed from Library) |
+| **4** | **Settings** | **Done** — locked [§3.10](#310-locked-decisions-settings) | Grouped filled surfaces; editorial title; disclosures preserved; three side-by-side states | [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) · pushed from Library |
 | **5** | **Notebook** | **Done** — locked [§3.8](#38-locked-decisions-notebook) | Hairline feed, full-width group separators, editorial chrome | [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) |
 | **6** | **Chat (placeholder)** | **Done** — locked [§3.9](#39-locked-decisions-chat-placeholder) | Coming-soon shell; Notebook Empty editorial parity; **not** RAG ([`phase-3-rag-chat.md`](phase-3-rag-chat.md)) | [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) |
 
-**After all probes:** Consolidate tokens + section patterns into one implementation plan; optionally append UI rows to [`docs/decisions.md`](../decisions.md) when coding starts.
+**After all probes:** ~~Consolidate tokens~~ → **[`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md)** ✓ · **Next:** [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) (multi-phased; do not build directly from this hand-off).
 
 ---
 
@@ -396,37 +399,68 @@ See [§2.3](#23-agent-inference-mocks-are-not-exhaustive). Do **not** add tag ed
 
 ---
 
-## 3.10 Settings — next probe (not locked)
+## 3.10 Locked decisions (Settings)
 
-**Shipped entry:** [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) — [`SettingsContent`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) pushed from Library (`NavigationLink` in [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift)); **not** a tab-bar root. System `navigationTitle("Settings")` on pushed stack.
+**Shipped entry:** [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) — [`SettingsContent`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) pushed from Library gear `NavigationLink`; **not** a tab-bar root. Shipped: inline `navigationTitle("Settings")`; **16px** inset; **title2** section headers; filled `#403d39` grouped surfaces (14px radius).
 
-**Probe goal (product):** **Harmonize display** with north star (22px rhythm, typography, material language) while **preserving information architecture and interactions** — grouped sections, `DisclosureGroup` expand/collapse, model pickers, test rows, `NavigationLink` to Recently Deleted, export/import, confirmation dialogs/sheets (behavior stays in Swift; mocks show static representative states only).
+**Canonical mock:** [`.design-mocks/settings-ad-grouped-a.html`](../../.design-mocks/settings-ad-grouped-a.html) — three side-by-side frames (**Configured** · **Primary unset** · **Missing file**); each frame **fully scrollable**
 
-**Canonical mock (TBD):** `settings-ad-*.html` — expect **side-by-side frames** for representative states (not a single frame).
+### Chrome (locked)
 
-### Shipped structure (preserve IA — grill before lock)
+| Layer | Decision |
+|-------|----------|
+| **Push context** | **Pushed from Library** — no tab bar in mock |
+| **Nav bar** | **Back only** — fixed bar above scroll; Detail `detail-nav-back` styling; **no** center **Phathom**, **no** share |
+| **Screen title** | Content-owned editorial **Settings** (~34pt semibold) in unified scroll; drop inline nav **Settings** at implementation |
+| **Scroll** | **Unified** — editorial title + sections scroll together; back row **fixed** above scroll |
+| **Horizontal rhythm** | **22px** inset (from shipped 16px) |
 
-| Section | Contents |
-|---------|----------|
-| **AI Models** | Section header + subtitle; grouped surface with three disclosures: **Primary model**, **Tagging model (optional)**, **Vision model** (dual GGUF + test photo) |
-| **Library** | **Recently Deleted** (`NavigationLink` + optional archived count capsule); **Reset processing queue** (disabled when queue empty) |
+### Material & typography (locked)
+
+| Layer | Decision |
+|-------|----------|
+| **Grouped sections** | **Keep filled `#403d39` surfaces** (14px radius) — harmonize with Add New form-card exception; **not** hairline-flat |
+| **Dividers** | Hairline token `rgba(255,252,242,0.12)` with leading inset (Form-style) |
+| **Nested wells** | `#353330` icon wells on action rows (Add New nested-well parity) |
+| **Section zone headers** | **Demote** to **17pt semibold** + **15pt secondary** subtitle (Detail AI zone parent tier) — editorial **Settings** owns screen |
+| **Section spacing** | **24px** vertical gap between section groups (preserve shipped `sectionVerticalGap`) |
+
+### Information architecture (locked — preserve)
+
+| Section | Contents (unchanged) |
+|---------|------------------------|
+| **AI Models** | Subtitle + grouped disclosures: **Primary model**, **Tagging model (optional)**, **Vision model** |
+| **Library** | **Recently Deleted** (`NavigationLink` + optional count capsule + chevron); **Reset processing queue** (disabled when queue empty) |
 | **Data** | **Export Library** · **Import Library** |
-| **Footer** | App version/build · “Your data stays on your device” |
+| **Footer** | Version/build · “Your data stays on your device” — all frames (below fold in unset/missing) |
 
-**Disclosure expanded bodies (preserve):** selection state copy (none / ready file info / missing file warning) · Select model · Test model · optional test phase rows · Forget model · info footer when ready.
+**Interaction chrome (preserve):** disclosure chevrons (accent) · status icons (green check · empty circle · orange warning) · Select / Test / Forget action rows · disabled queue reset opacity · sheets/dialogs **not** drawn in mock (Swift at implementation).
 
-### Candidate side-by-side frames (grill in main session — not locked)
+### Mock frames (locked)
 
-| Frame | Stress-tests |
-|-------|----------------|
-| **Configured** | Primary (+ optional tagging) **ready**, disclosures **collapsed**, checkmark indicators; Library badge optional; queue reset **enabled** |
-| **Primary unset** | Primary disclosure **expanded**, `noSelection` copy + actions; tagging/vision collapsed |
-| **Missing file** | Primary or tagging **missingFile** warning expanded; orange indicator |
-| *(Optional)* **Vision partial** | One of text/mmproj unset or missing — only if grill needs it |
+| Frame | Shows |
+|-------|--------|
+| **Configured** | Full IA at rest: primary + tagging **ready** collapsed (green checks); vision **collapsed**; Recently Deleted badge **3**; queue reset **enabled**; Data rows; footer **visible** |
+| **Primary unset** | **Top crop** at rest: primary disclosure **expanded** (`noSelection` + Select/Test); tagging/vision collapsed; Library/Data/footer **below fold** — **scroll to verify** |
+| **Missing file** | Primary **missingFile** **expanded** (orange warning + actions + Forget); orange triangle on row label; rest below fold scrollable |
 
-**Open design forks (grill):** editorial **Settings** screen title vs pushed inline nav title · 16px → **22px** inset · grouped `#403d39` surfaces vs hairline-flat rows · section header scale vs Library editorial · pushed nav chrome (back · title · share parity with Detail?) · whether Library-origin push keeps **Phathom** visible behind Settings.
+### Settings — preserve at implementation (not in mock)
 
-**Out of scope:** Changing model-management semantics, backup format, disclosure **behavior**, or adding Settings to tab bar.
+- All `DisclosureGroup` expand/collapse behavior, model importers, test inference phases, backup import/export flows, confirmation dialogs, error sheets — infer from shipped [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift).
+- [`VisionModelSettingsSection`](../../Phathom/Phathom/Views/Settings/) expanded body (dual GGUF + test photo) — preserve semantics; mock shows collapsed vision row only in **Configured**.
+
+### Settings — resolve at implementation
+
+| Item | Status |
+|------|--------|
+| **`SettingsContent` inset** | 16px → **22px** |
+| **`navigationTitle("Settings")`** | Remove — editorial title owns screen name |
+| **`SettingsSectionHeader`** | title2 → **17pt semibold** zone tier |
+| **Pushed nav** | Back-only bar; match Detail back affordance |
+
+**Rejected Settings alternatives:** Hairline-flat grouped sections · **Phathom** center on pushed Settings · tab-bar Settings root · IA/disclosure redesign · inline nav **Settings** duplicate with editorial title.
+
+---
 
 ## 4. Visual tokens (evolution baseline)
 
@@ -445,6 +479,8 @@ Palette **unchanged** from shipped dark theme — refine **execution** (spacing,
 **Typography (mocks):** Geist in HTML for editorial probe. **Implementation default:** map scale to **SF Pro** with equivalent sizes/weights unless a separate typography decision lands.
 
 **Design-taste baseline used during mocks:** variance **8**, motion **6**, density **4** (airy gallery, fluid but not cinematic).
+
+**Cross-surface reference:** Full spacing, type, material matrix, and shared components → **[`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md)**.
 
 ---
 
@@ -473,29 +509,26 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | **`add-new-ad-filled-card-a.html`** | **Add New** — six frames (Web · Note · Photo × Starting + Filled); filled capture card, capsule Save, mode pill |
 | **`notebook-ad-hairline-feed-a.html`** | **Notebook** — Empty + Populated; editorial chrome, gallery headers, hairline highlights, full-width inter-group hairlines |
 | **`chat-ad-placeholder-a.html`** | **Chat placeholder** — Coming soon shell; editorial **Chat** title; two-tier Deep Dive copy; **Chat** tab selected |
+| **`settings-ad-grouped-a.html`** | **Settings** — Configured · Primary unset · Missing file; editorial title; grouped filled surfaces; back-only pushed nav |
 
 **Deleted (2026-05-30 cleanup):** `library-ad-editorial-gallery.html` (stale search) · `detail-ad-hybrid-b.html` (rejected B) · `detail-ad-ai-zone-compare.html` (5 selected, applied to canonical) · ~~`library-c-compact-brand.html`~~ · ~~`library-ad-search-a-drawer.html`~~
 
-**How to review:** Open canonical mocks in Safari. Library: **Search active** scroll-under. Detail: **AI analysis** zone. Add New: **Starting** vs **Filled** per mode. Notebook: **Empty** vs **Populated**; confirm **no** hairline between highlights in one item; **full-width** `border-bottom` between item groups (Library parity). Chat: editorial **Chat** title + two-tier coming-soon copy under title; **Chat** tab selected.
+**How to review:** Open canonical mocks in Safari. Library: **Search active** scroll-under. Detail: **AI analysis** zone. Add New: **Starting** vs **Filled** per mode. Notebook: **Empty** vs **Populated**; confirm **no** hairline between highlights in one item; **full-width** `border-bottom` between item groups (Library parity). Chat: editorial **Chat** title + two-tier coming-soon copy; **Chat** tab selected. Settings: three frames side-by-side; **scroll** Primary unset / Missing file to verify below-fold IA + footer.
 
 ---
 
 ## 7. Open items
 
-### Discovery queue (mocks — no Swift)
+### Discovery (HTML mocks)
 
-| Surface | Status | Notes |
-|---------|--------|-------|
-| **Settings** | **Next** | Grill → lock §3.10 → subagent mock(s); harmonize display, preserve IA/disclosures; **side-by-side representative states** — see [§3.10](#310-settings--next-probe-not-locked) |
-
-**Locked (no further HTML unless product forks):** Library §3 · Detail §3.6 · Add New §3.7 · Notebook §3.8 · Chat placeholder §3.9.
+**Complete.** All surfaces in [§2.1](#21-surface-probe-roadmap) probed and locked [§3](#3-locked-decisions-library)–[§3.10](#310-locked-decisions-settings). **No further HTML** unless product forks.
 
 ### Library-specific (resolve before or during Library implementation)
 
 | Item | Status |
 |------|--------|
 | **Pipeline control placement** | Shipped; not shown in mocks — keep in title row unless Detail probe suggests otherwise |
-| **System nav bar** | Mock omits `Phathom` center title — decide whether to drop, minimize, or retain for wayfinding when pushing Settings |
+| **System nav bar** | Library: **Phathom** principal at rest; Settings push: **back only** (§3.10) — decide Library **Phathom** retention when editorial Library title lands |
 | **Search dismiss beyond Cancel** | Tap-outside vs scroll-under — pick one interaction model in SwiftUI |
 | **Typography** | Geist (mock) vs SF (app) — optional follow-up |
 | **Row component refactor** | `ContentCardRow` → gallery row styling; preserve swipe, selection, accessibility |
@@ -504,9 +537,10 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 
 | Item | Status |
 |------|--------|
-| **Cross-surface token sheet** | After all probes — single spacing/type reference |
-| **Decisions log** | Append product-facing UI commitments to [`docs/decisions.md`](../decisions.md) when implementation starts |
-| **Per-surface green-light** | User may approve Library-only implementation before other surfaces land |
+| **Cross-surface token sheet** | **Done** — [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) |
+| **Multi-phased implementation plan** | **Next** — [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md); **do not** Swift directly from this hand-off |
+| **Decisions log** | Append product-facing UI commitments to [`docs/decisions.md`](../decisions.md) when each phase ships |
+| **Per-surface green-light** | User approves plan phases before Swift (Library-first likely) |
 
 ---
 
@@ -527,6 +561,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 - [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) — 22px inset; filled capture card; capsule Save; drop processing hints/subtitle
 - [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) · [`NotebookItemGroup.swift`](../../Phathom/Phathom/Views/Notebook/NotebookItemGroup.swift) — editorial scroll; hairline highlight row; inter-group `border-bottom`
 - [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) — content-owned **Chat** title; two-tier coming-soon copy; drop centered placeholder + duplicate nav title
+- [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) / [`SettingsContent`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) — editorial **Settings** title; 22px inset; demoted zone headers; back-only pushed nav
 - [`HighlightCardView.swift`](../../Phathom/Phathom/Views/Detail/HighlightCardView.swift) — refactor to shared hairline row (Detail + Notebook)
 - Optional small view: pinned search bar component (overlay + Cancel)
 
@@ -566,7 +601,11 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | 2026-05-30 | **Notebook probe complete** — §3.8 locked |
 | 2026-05-30 | **Chat placeholder locked** — §3.9; editorial Notebook Empty parity; two-tier Deep Dive copy; single-frame mock `chat-ad-placeholder-a.html` |
 | 2026-05-30 | Chat: content-owned **Chat** title in scroll; drop large nav title; no actions row; text-only placeholder (no fake chat UI) |
-| 2026-05-30 | **Discovery probes 1–6 complete** — 5 canonical HTML mocks; **Settings** §3.10 next (harmonize display; preserve IA/disclosures; side-by-side states) |
+| 2026-05-30 | **Discovery probes 1–6 complete** — 6 canonical HTML mocks; Settings §3.10 locked |
+| 2026-05-30 | **Settings locked** — §3.10; editorial title + back-only push; filled grouped surfaces; demoted zone headers; three-frame mock `settings-ad-grouped-a.html` |
+| 2026-05-30 | **UI evolution discovery complete** — 6 surfaces locked; 6 canonical mocks; ready for implementation green-light |
+| 2026-05-30 | Mock CSS: global **`a { text-decoration: none }`** on all canonical HTML — no underline (SwiftUI parity) |
+| 2026-05-30 | **Cross-surface token sheet** — [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) |
 
 ---
 
@@ -582,48 +621,36 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 
 ## 11. Cold start handoff (next session)
 
-Copy-paste block for the **next discovery agent** (Settings probe). **No Swift** until explicit approval.
+Copy-paste block for **implementation planning** session. Discovery + token sheet **complete**.
 
 ```
-GOAL: Phathom UI evolution — probes 1–6 LOCKED (5 canonical mocks); start Settings HTML probe; NO Swift
+GOAL: Phathom UI evolution — write multi-phased IMPLEMENTATION PLAN; NO Swift until plan approved
 ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom | branch:main
-AUTHORITY: docs/handoff/library-ui-evolution.md (§2.2 SwiftUI target · §2.3 agent inference · §3 locked tables)
-WORKFLOW: /grill-me in MAIN session → lock §3.10 → subagent builds HTML mock(s) (never mock-only in main)
 
-NORTH STAR: Cohesive polished app — 22px rhythm, hairline gallery material, editorial screen titles, restrained accent
+READ (in order):
+  1. docs/handoff/ui-evolution-token-sheet.md     — spacing, type, material, shared components
+  2. docs/handoff/library-ui-evolution.md §3–§3.10 — locked per-surface decisions (reference only)
+  3. .design-mocks/*.html (Safari)                 — visual ground truth
+  4. Phathom/ + docs/decisions.md                  — shipped behavior wins on conflicts
 
-LOCKED SURFACES (do not re-litigate without product fork):
-  Library §3 — A+D chrome, Search B toolbar, filters 27.5/27.5/45, gallery hairlines
-  Detail §3.6 — full hairline A, AI zone Option 5, 22px inset
-  Add New §3.7 — filled capture card, capsule Save, mode pill, six frames Starting/Filled
-  Notebook §3.8 — editorial Notebook title; gallery header 64px; Detail A hairline highlights;
-    NO hairline between highlights same item; full-width border-bottom BETWEEN item groups only;
-    unified scroll; Empty+Populated frames; no count/chevron on header
-  Chat §3.9 — editorial Chat title in scroll; two-tier coming-soon copy under title;
-    Deep Dive in body only; text-only placeholder; Chat tab selected; NOT RAG/fake chat UI
+DO NOT: Implement by walking library-ui-evolution.md surface-by-surface as a build checklist.
+DO: Holistic phased plan — shared refactors first, dependencies, verify ladder, rollout order.
 
-CANONICAL MOCKS (Safari): .design-mocks/
-  library-ad-search-b-toolbar.html
-  detail-ad-full-hairline-a.html
-  add-new-ad-filled-card-a.html
-  notebook-ad-hairline-feed-a.html
-  chat-ad-placeholder-a.html
+OUTPUT: docs/handoff/ui-evolution-implementation-plan.md
+  - Phases with goals, files, risks, verify steps
+  - Likely: tokens/spacing → HairlineHighlightRow → Gallery row → tab roots → pushed (Detail/Settings)
+  - Explicit out-of-scope: Chat RAG (phase-3-rag-chat.md)
+  - Resolve rollup: token sheet §9 + hand-off open items
 
-NEXT SURFACE — Settings (§3.10):
-  READ: SettingsTab.swift / SettingsContent (pushed from LibraryTab NavigationLink — NOT a tab root)
-  PRIMARY FOCUS: harmonize DISPLAY with north star; KEEP information architecture + interactions
-    (DisclosureGroups, model pickers, test rows, Recently Deleted push, export/import — behavior unchanged)
-  PROBE: side-by-side frames for representative states (see §3.10 candidate frames)
-  CANDIDATE FRAMES: Configured (collapsed) · Primary unset (expanded) · Missing file (expanded)
-  MOCK TBD: settings-ad-*.html (subagent after grill)
-  OPEN FORKS: editorial title vs pushed nav · 22px inset · grouped surface vs hairline · pushed chrome
+AUTHORITY: code > decisions.md > implementation plan > library-ui-evolution.md > mocks
 
-AFTER SETTINGS: cross-surface token sheet → docs/decisions.md when implementing
+NORTH STAR: 22px rhythm, hairline gallery, editorial titles, filled cards for form/config only
+
+LOCKED MOCKS: library · detail · add-new · notebook · chat-ad-placeholder-a · settings-ad-grouped-a
 
 AVOID:
-  - Swift during discovery
-  - Literal HTML/CSS port (§2.2)
-  - IA rewrite or cutting disclosures/model flows
-  - Fake chat UI / Phase 3 RAG in Chat placeholder
-  - Reopening locked Notebook/Chat decisions
+  - Swift before plan sign-off
+  - Reopening locked probe decisions
+  - Literal HTML port
+  - Phase 3 Chat RAG unless directed
 ```

@@ -37,7 +37,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 | Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf, `[PhathomPipeline]` logs |
 | Schema | `ContentItem`, **`Category`**, `processingStatus` | `PhathomCore/` |
 | UI shell & pipeline bridge | `UI`, `LibraryTab`, `DetailView`, `CategoryPicker` | `Views/`, `ProcessingRecovery.swift`, `LibrarySearchService.swift` |
-| **UI evolution (discovery)** | `UI-evolution`, `design-mocks`, `HTML-probe`, `handoff`, `no-Swift`, `SwiftUI-target` | **Process:** agentmemory · **Particulars:** [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) · [`.design-mocks/README.md`](../../.design-mocks/README.md) · 3 canonical HTML mocks (visual only, not literal port) |
+| **UI evolution (discovery)** | `UI-evolution`, `design-mock-probe`, `design-mocks`, `HTML-probe`, `handoff`, `no-Swift`, `SwiftUI-target` | **Process:** [`design-mock-probe`](~/.cursor/skills/design-mock-probe/SKILL.md) + [`design-mock-probe-pointer.md`](design-mock-probe-pointer.md) · **Particulars:** [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) · [`.design-mocks/README.md`](../../.design-mocks/README.md) |
 | UI design refresh (shipped v1) | `tokens`, `AppPalette`, `IA` | [`ui-design-refresh.md`](../archive/ui-design-refresh.md) — historical only |
 | Bulk library select | batch archive undo | [`library-bulk-selection.md`](../archive/library-bulk-selection.md), `MainTabView` |
 | Archived docs | `history` | [`archive/README.md`](../archive/README.md) — opt-in only |
@@ -86,7 +86,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 
 **UI evolution — design discovery (HTML mocks)**
 
-> Recall `UI-evolution` / `design-mocks` workflow memory (process only). **Mocks:** build HTML in a **subagent**; **main session** grills and locks hand-off. Read [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) §2.2–§2.3 + locked §§3–3.8. HTML = visual guidance → **SwiftUI** in `Phathom/`, not literal port. **No Swift** unless green-lit. Paste `<handoff>` if provided.
+> Follow global skill **`design-mock-probe`** + Phathom pointer [`design-mock-probe-pointer.md`](design-mock-probe-pointer.md). Recall `design-mock-probe` / `UI-evolution` (process gist only). Read [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) §2.2–§2.3 + locked §§. HTML = visual reference, not implementation spec. **No Swift** unless green-lit.
 
 ---
 
