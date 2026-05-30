@@ -26,6 +26,9 @@ enum AppPalette {
 
     static let textTertiary = dustGrey.opacity(0.72)
 
+    /// Row/section dividers — rgba(255,252,242,0.12).
+    static let hairline = floralWhite.opacity(0.12)
+
     /// Default when `thumbnailColorHex` is missing.
     static let thumbnailFallbackHex = "#403d39"
 

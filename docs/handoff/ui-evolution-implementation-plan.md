@@ -1,6 +1,6 @@
 # UI Evolution — Implementation Plan
 
-> **Status:** **Approved** (May 2026). Plan + rollout gates accepted. **Next session:** execute **Phase 0** ([§15](#15-cold-start-phase-0)). Phases 1–4b: one phase per session unless user re-confirms.
+> **Status:** **Phase 0 shipped** (May 2026). **Next session:** green-light **Phase 1** ([§6](#6-phase-1--shared-row-components)). Phases 2–4b: one phase per session unless user re-confirms.
 >
 > **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](../../.design-mocks/)
 >
@@ -68,7 +68,7 @@ Sheets, modals, popovers, swipes, and navigation pushes are **not** fully drawn 
 | Search dismiss | **Cancel** exits; **keyboard dismiss** only while active; no tap-outside |
 | Pipeline control | **Actions row** trailing, before Search ([§3.2.1](library-ui-evolution.md#321-pipeline-control--actions-row-trailing)) |
 | Rollout | **Per-phase green-light** before Swift |
-| Typography | SF Pro at token-sheet scale |
+| Typography | SF Pro at token-sheet scale — **fixed pt sizes** on editorial/zone chrome (`EditorialScreenTitle`, `ZoneSectionHeader`); not Dynamic Type–scaled (intentional editorial lock; revisit only on a11y audit) |
 
 ---
 
@@ -142,10 +142,26 @@ After each shipped phase: append UI commitments to [`docs/decisions.md`](../deci
 
 **Green-light:**
 
-- [ ] `AppSpacing.screenHorizontal == 22`
-- [ ] `AppPalette.hairline` defined
-- [ ] Shared views compile; Xcode target updated
-- [ ] No tab surface layout changes
+- [x] `AppSpacing.screenHorizontal == 22`
+- [x] `AppPalette.hairline` defined
+- [x] Shared views compile; Xcode target updated
+- [x] No tab surface layout changes
+
+### Phase 0 → wiring contracts {#phase-0-wiring-contracts}
+
+Shared views **defer layout the parent owns** — wire in the owning phase below.
+
+| Component | Owned by shared view | **Call site owns** (phase) |
+|-----------|-------------------|---------------------------|
+| **`EditorialScreenTitle`** | 34pt semibold title + **`editorialTitleBottom` (28pt)** | Horizontal **`AppSpacing.screenHorizontal`** · **top inset** (Library **~12pt** → Phase 2; Settings **~4pt** → Phase 4b; others per mock) |
+| **`ZoneSectionHeader`** | 17pt **semibold** title + optional 15pt subtitle | **8pt** gap before grouped content (Settings Phase 4b) · subsection tier stays **`DetailAISubsectionHeader`** (Phase 4a) |
+| **`DetailBackBarButton`** | Accent chevron, `.plain`, default `dismiss()` | Toolbar placement · **~44pt** min row / vertical padding per mock · optical check vs system back (Phase 4a Detail, Phase 4b Settings) |
+
+**Typography tie-breakers (Phase 4+):**
+
+- Zone parent weight: **semibold** (token sheet §4) — not §3.6 prose “bold”.
+- Settings editorial title bottom: **28pt** (`AppSpacing.editorialTitleBottom`) — not settings mock `section-gap` (24px).
+- `filterColumnSplit` (27.5 / 27.5 / 45): stays in **`LibraryFilterBar`** only — see `AppSpacing` comment; do not add CGFloat constants (Phase 2).
 
 ---
 
@@ -192,6 +208,7 @@ After each shipped phase: append UI commitments to [`docs/decisions.md`](../deci
 - Actions row: Select · Pipeline · Search · Settings (Done during bulk edit)
 - Drop `Phathom` principal + duplicate `navigationTitle("Library")`
 - Unified scroll (chrome + rows); keep `LibraryFilterBar` **popover**
+- Wire **`EditorialScreenTitle("Library")`** — **`AppSpacing.screenHorizontal`** + **~12pt top** on editorial block (mock `screen-title` margin-top)
 - 22pt inset; `GalleryListRow`; pipeline in actions row
 - Search: Cancel exits; keyboard dismiss only while active
 
@@ -228,7 +245,7 @@ After each shipped phase: append UI commitments to [`docs/decisions.md`](../deci
 
 **Files:** [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift), [`NotebookItemGroup.swift`](../../Phathom/Phathom/Views/Notebook/NotebookItemGroup.swift)
 
-**Tasks:** `EditorialScreenTitle` · drop nav duplicate · `HairlineHighlightRow` (3/2 limits) · header thumb 48→64 · title paprika→primary · inter-group hairline only · inset 22
+**Tasks:** `EditorialScreenTitle` · drop nav duplicate · surface-appropriate **top inset** per mock · `HairlineHighlightRow` (3/2 limits) · header thumb 48→64 · title paprika→primary · inter-group hairline only · inset 22
 
 **Preserve:** [`NotebookHighlightsQuery`](../../Phathom/Phathom/Services/NotebookHighlightsQuery.swift), Detail push, [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift), empty copy.
 
@@ -244,6 +261,8 @@ After each shipped phase: append UI commitments to [`docs/decisions.md`](../deci
 
 **Out of scope:** [`phase-3-rag-chat.md`](phase-3-rag-chat.md)
 
+**Tasks:** `EditorialScreenTitle("Chat")` · **`AppSpacing.screenHorizontal`** · top inset per mock · two-tier empty copy
+
 **Green-light:** Editorial title in scroll · left-aligned copy · no fake chat UI.
 
 ---
@@ -254,7 +273,7 @@ After each shipped phase: append UI commitments to [`docs/decisions.md`](../deci
 
 **Files:** [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift), [`DetailAIAnalysisDivider.swift`](../../Phathom/Phathom/Views/Detail/DetailAIAnalysisDivider.swift), section views, [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift)
 
-**Tasks:** `HairlineHighlightRow` in highlights + sheet preview · replace divider with `ZoneSectionHeader` · hairline sections · processing badge placement preserved
+**Tasks:** `HairlineHighlightRow` in highlights + sheet preview · replace divider with **`ZoneSectionHeader`** (semibold parent, not §3.6 “bold”) · **`DetailBackBarButton`** if replacing system back — verify chevron + **~44pt** row in sim · hairline sections · processing badge placement preserved
 
 **Preserve:** back · **Phathom** center · share · section order · all sheets/flows (inference §1.2).
 
@@ -268,7 +287,7 @@ After each shipped phase: append UI commitments to [`docs/decisions.md`](../deci
 
 **File:** [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) (`SettingsContent` — pushed from Library)
 
-**Tasks:** editorial title in scroll · back-only nav · zone headers 17pt + subtitle · 22px inset · filled grouped surfaces
+**Tasks:** **`EditorialScreenTitle("Settings")`** — **`AppSpacing.screenHorizontal`**, **~4pt top**, **28pt bottom** (token sheet, not mock 24px) · **`DetailBackBarButton`** back-only nav · **`ZoneSectionHeader`** zone headers + **8pt** gap before grouped card · 22px inset · filled grouped surfaces
 
 **Preserve:** full IA, disclosures, importers, backup flows (inference §1.2; mock frames Configured / Primary unset / Missing file).
 
@@ -299,42 +318,46 @@ After each shipped phase: append UI commitments to [`docs/decisions.md`](../deci
 
 ---
 
-## 15. Cold start — Phase 0
+## 15. Cold start — Phase 1
 
-Copy-paste for **new session** (Swift authorized for **Phase 0 only**).
+Copy-paste for **new session** (Swift authorized for **Phase 1 only**).
 
 ```
-GOAL: UI evolution Phase 0 — Foundation (tokens + shared chrome). NO surface swaps.
+GOAL: UI evolution Phase 1 — Shared row components. NO surface swaps.
 ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom
 
 READ (minimal):
-  1. docs/handoff/ui-evolution-implementation-plan.md §5 + §1 (inference)
-  2. docs/handoff/ui-evolution-token-sheet.md §3–§7
-  3. Phathom/Phathom/Helpers/AppPalette.swift
-  4. Phathom/Phathom/Views/Detail/DetailSectionHeader.swift (reuse DetailAISubsectionHeader)
+  1. docs/handoff/ui-evolution-implementation-plan.md §6 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
+  2. docs/handoff/ui-evolution-token-sheet.md §5–§7
+  3. Phathom/Phathom/Views/Library/ContentCardRow.swift
+  4. Phathom/Phathom/Views/Detail/HighlightCardView.swift (or HighlightsNotesSection)
 
 CREATE / TOUCH:
-  - Phathom/Phathom/Helpers/AppSpacing.swift
-  - AppPalette.hairline
-  - Phathom/Phathom/Views/Shared/EditorialScreenTitle.swift
-  - Phathom/Phathom/Views/Shared/ZoneSectionHeader.swift
-  - Phathom/Phathom/Views/Shared/DetailBackBarButton.swift
-  - Phathom.xcodeproj — add new files to Phathom target
+  - HairlineHighlightRow.swift
+  - GalleryListRow.swift
+  - LibraryPipelineControlButton.swift
+  - PinnedLibrarySearchBar.swift (shell only)
+  - Phathom.xcodeproj — auto-sync via PBXFileSystemSynchronizedRootGroup
 
-DO NOT: Wire shared views into LibraryTab/NotebookTab/etc. (Phase 1+)
+DO NOT: Wire into LibraryTab / Detail / Notebook (Phase 2+)
 DO NOT: Chat RAG (phase-3-rag-chat.md)
 
 VERIFY: ReadLints → bash scripts/build-phathom.sh sim → bash scripts/test-phathom.sh
-  (see .cursor/rules/simulator-verify.mdc)
 
 GREEN-LIGHT DONE WHEN:
-  - AppSpacing.screenHorizontal == 22
-  - AppPalette.hairline defined
-  - Shared views compile; Xcode target updated
-  - No tab surface layout changes
+  - New types compile; Xcode target updated
+  - Shipped surfaces visually unchanged
+  - Wiring schedule honored (no early swaps)
 
-THEN: Stop. Next session → green-light Phase 1 (shared rows).
+THEN: Stop. Next session → green-light Phase 2 (Library).
 
 AUTHORITY: code > decisions.md > this plan > library-ui-evolution.md > mocks
 MOCKS: visual reference only — ship SwiftUI (plan §1)
+```
+
+### Archive — Phase 0 cold start
+
+```
+GOAL: UI evolution Phase 0 — Foundation (tokens + shared chrome). NO surface swaps.
+... (Phase 0 complete — see §5 green-light)
 ```
