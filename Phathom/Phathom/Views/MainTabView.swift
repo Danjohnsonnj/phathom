@@ -33,17 +33,23 @@ struct MainTabView: View {
                 }
                 .tag(0)
 
+            NotebookTab()
+                .tabItem {
+                    Label("Notebook", systemImage: "highlighter")
+                }
+                .tag(1)
+
             ChatTab()
                 .tabItem {
                     Label("Chat", systemImage: "bubble.left.and.bubble.right")
                 }
-                .tag(1)
+                .tag(2)
 
             AddNewTab(selectedTab: $selectedTab)
                 .tabItem {
                     Label("Add new", systemImage: "plus")
                 }
-                .tag(2)
+                .tag(3)
         }
         .tint(AppPalette.accent)
         .preferredColorScheme(.dark)

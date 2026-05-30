@@ -17,7 +17,7 @@ Read **minimal files per task:**
 | 1 | **`Phathom/`** | Shipped behavior, schema, Swift paths |
 | 2 | **[`CONTEXT.md`](CONTEXT.md)** | Domain glossary (names); links to decisions |
 | 3 | **[`docs/decisions.md`](docs/decisions.md)** | Invariants and rationale |
-| 4 | **Active hand-offs** | [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md), [`ui-design-refresh.md`](docs/handoff/ui-design-refresh.md), [`notebook-tab.md`](docs/handoff/notebook-tab.md) (Notebook MVP — **ready to build**) |
+| 4 | **Active hand-offs** | [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md), [`ui-design-refresh.md`](docs/handoff/ui-design-refresh.md) |
 | 5 | **[`README.md`](README.md)** | Human orientation |
 
 **Archive:** [`docs/archive/`](docs/archive/) — opt-in only; not for cold start.

@@ -6,7 +6,7 @@
 >
 > **Authority:** For **shipped UI**, **source code wins**, then **[`docs/decisions.md`](../decisions.md)**, then this brief. Mockup PNGs are reference only where they conflict with shipped UI — **do not** read [`docs/archive/`](../archive/) phase specs to discover current layout.
 
-**Related code:** [`MainTabView.swift`](../../Phathom/Phathom/Views/MainTabView.swift) · [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) · [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) · [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) · [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) · [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
+**Related code:** [`MainTabView.swift`](../../Phathom/Phathom/Views/MainTabView.swift) · [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) · [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) · [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift) · [`AddNewTab.swift`](../../Phathom/Phathom/Views/AddNew/AddNewTab.swift) · [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) · [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
 
 **Visual references (may be stale):** [main-screen.PNG](../assets/main-screen.PNG) · [detail-screen.PNG](../assets/detail-screen.PNG). Add New mock PNGs [`19-add-new-sheet-web.png`](../assets/ui-refresh/19-add-new-sheet-web.png) · [`20-add-new-sheet-note.png`](../assets/ui-refresh/20-add-new-sheet-note.png) superseded by shipped **`AddNewTab`** UI (client-provided screenshot is normative alongside §5.4 below).
 
@@ -34,14 +34,17 @@
 
 ```mermaid
 flowchart TB
-    subgraph tabs [Tab bar — 3 tabs]
+    subgraph tabs [Tab bar — 4 tabs]
         Library
+        Notebook
         Chat["Chat (placeholder)"]
         AddNew["Add New"]
     end
 
     Library --> Detail
     Library --> Settings["Settings (gear, not a tab)"]
+    Notebook --> DetailFromNB["Detail (from Notebook)"]
+    Notebook --> NoteSheet["Highlight note sheet"]
     Settings --> RecentlyDeleted["Recently Deleted"]
     RecentlyDeleted --> DetailArchived["Detail (archived item)"]
 
@@ -49,9 +52,11 @@ flowchart TB
     ShareExt["PhathomShare extension"] --> Pipeline
 
     Detail --> RelatedSheet["Related items by tag"]
+    DetailFromNB --> RelatedSheet
     Detail --> CategorySheet["Category picker sheet"]
     Detail --> TagEditor["Tag editor sheet"]
     Detail --> HighlightNote["Highlight note editor"]
+    NoteSheet --> HighlightNote
 
     Library --> BulkSelect["Multi-select + bulk actions"]
     Library --> Search["Search + Dive deeper"]
@@ -60,13 +65,14 @@ flowchart TB
 | Surface | Role |
 |--------|------|
 | **Library** | Primary home — browse, filter, search, triage, bulk ops |
+| **Notebook** | Cross-item highlight + note feed — grouped by parent **`ContentItem`** (**shipped**) |
 | **Detail** | Deep read — **§5.3 order:** hero → snippet → Source → highlights → tags → AI summary → actions |
 | **Add New** | In-app capture (web URL, markdown note, photo) |
 | **Chat** | **Not built** — placeholder for Phase 3 “Deep Dive” RAG chat |
 | **Settings** | Pushed from Library gear — models, backup, Recently Deleted |
 | **Share extension** | Minimal “Saving…” UI — capture from other apps |
 
-**Navigation:** `TabView` → per-tab `NavigationStack`. Library pushes Detail via `NavigationPath` + `UUID`. Settings is a `NavigationLink`, not a tab.
+**Navigation:** `TabView` → per-tab `NavigationStack`. Library and Notebook push Detail via `NavigationPath` + `UUID`. Settings is a `NavigationLink`, not a tab.
 
 **Deep links:** Spotlight and in-app notifications switch to Library tab and push Detail.
 
@@ -161,7 +167,7 @@ Category display: [`CategoryDisplayFormatter.swift`](../../Phathom/PhathomCore/S
 
 ### 5.1 Main tab shell (`MainTabView`)
 
-- Three tabs: **Library** · **Chat** · **Add new**
+- Four tabs: **Library** · **Notebook** · **Chat** · **Add new**
 - Tab bar: charcoal bg, dust unselected, paprika selected
 - **Archive undo snackbar** — bottom inset on Library only (~3s): archived message + **Undo**; copy references Recently Deleted (48h retention)
 
@@ -455,7 +461,7 @@ Add New: **web like a reader app**; notes secondary.
 
 | Decision | Choice |
 |----------|--------|
-| Tabs | Library · Chat (placeholder) · Add new |
+| Tabs | Library · Notebook (**shipped**) · Chat (placeholder) · Add new |
 | Settings | Gear on Library |
 | Detail IA | §5.3 **implemented** (`DetailView`; failed after chip; source + highlights before AI blocks) |
 | Capture | Web-first reader pattern |

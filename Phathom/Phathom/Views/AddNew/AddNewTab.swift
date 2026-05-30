@@ -442,6 +442,6 @@ struct AddNewTab: View {
 }
 
 #Preview {
-    AddNewTab(selectedTab: .constant(2))
+    AddNewTab(selectedTab: .constant(3))
         .modelContainer(PreviewModel.makeContainer())
 }

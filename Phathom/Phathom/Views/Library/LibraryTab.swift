@@ -346,7 +346,7 @@ struct LibraryTab: View {
                             }
                         }
                     } label: {
-                        Label("Mark as…", systemImage: "square.and.pencil")
+                        L   abel("Mark as…", systemImage: "square.and.pencil")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
