@@ -18,20 +18,22 @@ Agents read **minimal files per task.** Default order:
 | Priority | Source | Purpose |
 |:--------:|--------|---------|
 | 1 | **Source code** under `Phathom/` | What shipped — behavior, schema, Swift paths |
-| 2 | **`docs/decisions.md`** | Locked invariants and rationale |
-| 3 | **Active hand-offs** (`docs/handoff/`): **`phase-3-rag-chat.md`**, **`ui-design-refresh.md`**, **`library-bulk-selection.md`** | Scoped specs / UX acceptance |
-| 4 | **`README.md`** | Orientation for humans |
+| 2 | **`CONTEXT.md`** | Domain glossary (names only); links to decisions for rationale |
+| 3 | **`docs/decisions.md`** | Locked invariants and rationale |
+| 4 | **Active hand-offs** (`docs/handoff/`): **`phase-3-rag-chat.md`**, **`ui-design-refresh.md`** | Scoped specs / UX acceptance |
+| 5 | **`README.md`** | Orientation for humans |
 
 **Historical / completed phase specs:** `docs/archive/` — **opt-in only** (user asks, archaeology after code + decisions, or tracing superseded ideas). **Do not** use archive on cold start, for schema/pipeline/UI truth, or for RAG embedding decisions. If archive contradicts code or live docs → **ignore archive**.
 
-**Conflict resolution:** **Code wins** over all prose. Among docs **`decisions.md` > hand-offs > README**. **Memory (agentmemory) never overrides decisions or code.**
+**Conflict resolution:** **Code wins** over all prose. Among docs **`decisions.md` > hand-offs > README**. **`CONTEXT.md`** is glossary only — never overrides **`decisions.md`**. **Memory (agentmemory) never overrides decisions or code.**
 
 ## Context Entry Points (Read First)
 
 To save tokens, **do not** scan the entire `/Phathom` directory. Use these specific paths:
 
 - **Decisions / invariants:** `docs/decisions.md` — read indexed sections + matching rows before changing behavior shared across surfaces.
-- **Active scope specs:** [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG Chat — roadmap), [`docs/handoff/ui-design-refresh.md`](docs/handoff/ui-design-refresh.md) (remaining UI polish), [`docs/handoff/library-bulk-selection.md`](docs/handoff/library-bulk-selection.md) (bulk select / undo — shipped).
+- **Domain glossary:** [`CONTEXT.md`](CONTEXT.md) — canonical term names for issues and refactors; rationale stays in decisions.
+- **Active scope specs:** [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG Chat — roadmap), [`docs/handoff/ui-design-refresh.md`](docs/handoff/ui-design-refresh.md) (remaining UI polish). Shipped specs (e.g. bulk select) live in [`docs/archive/`](docs/archive/).
 - **Historical only:** [`docs/archive/`](docs/archive/) — see **Source of truth** section; not for implementation bootstrap.
 - **Pipeline Logic:** `Phathom/Phathom/Services/BackgroundPipeline.swift` (background/foreground ingest + analyze).
 - **LLM Bridge:** `Phathom/Phathom/Services/SharedLlamaInference.swift` (serialized GGUF session).
@@ -91,7 +93,7 @@ Seven canonical labels: two category (`bug`, `enhancement`) + five state (`needs
 
 ### Domain docs
 
-Single-context; read `Phathom/` → `docs/decisions.md` → active hand-offs. See [`docs/agents/domain.md`](docs/agents/domain.md).
+Single-context; read `Phathom/` → [`CONTEXT.md`](../../CONTEXT.md) (glossary) → `docs/decisions.md` → active hand-offs. See [`docs/agents/domain.md`](docs/agents/domain.md).
 
 ### Skills cheat sheet
 
@@ -121,7 +123,7 @@ Phathom-specific memories include **pipeline orchestration**, **llama.cpp backen
 | Schema | `ContentItem`, **`Category`**, `processingStatus` | `Phathom/PhathomCore/Sources/PhathomCore/` (`Category.swift`, `ContentItem.swift`) |
 | UI shell & pipeline bridge | `UI`, `LibraryTab`, `LibraryFilterBar`, `DetailView`, `CategoryPicker`, `navigation` | `Views/MainTabView.swift`, `Library/`, `Detail/`, `AddNew/`, `Settings/SettingsTab.swift`, `ProcessingRecovery.swift`, `Services/LibrarySearchService.swift` |
 | UI design refresh | `tokens`, `AppPalette`, `IA`, `screens` | [`docs/handoff/ui-design-refresh.md`](docs/handoff/ui-design-refresh.md) — **`code` > decisions > brief** |
-| Bulk library select | batch archive undo, notifications | [`docs/handoff/library-bulk-selection.md`](docs/handoff/library-bulk-selection.md), `MainTabView` |
+| Bulk library select | batch archive undo, notifications | [`docs/archive/library-bulk-selection.md`](docs/archive/library-bulk-selection.md), `MainTabView` |
 | Archived docs (**opt‑in**) | `history`, Phase 1–2 snapshots | [`docs/archive/README.md`](docs/archive/README.md) — read **only** per **Source of truth** rules |
 | Scope | `Phase-3`, `no-RAG`, `guardrails` | `docs/handoff/phase-3-rag-chat.md` |
 | Dev bootstrap | `build`, `xcframework`, `test` | `scripts/build-phathom.sh`, [`scripts/test-phathom.sh`](scripts/test-phathom.sh), `scripts/phathom-xcode-common.sh`, [`scripts/phathom-tests-discover.py`](scripts/phathom-tests-discover.py), `AGENTS.md` |

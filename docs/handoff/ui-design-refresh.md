@@ -466,7 +466,7 @@ Add New: **web like a reader app**; notes secondary.
 - Granular processing chips
 - SwiftData fields and triage behaviors
 - Share extension minimal capture
-- Bulk select + archive undo ([`library-bulk-selection.md`](library-bulk-selection.md))
+- Bulk select + archive undo ([`library-bulk-selection.md`](../archive/library-bulk-selection.md))
 - [`docs/decisions.md`](../decisions.md)
 
 **Design POV must be written explicitly in Phase 0** (see §11) before screen work — one paragraph in §12.1 plus the full design system in §12.

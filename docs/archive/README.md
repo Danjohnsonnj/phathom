@@ -11,3 +11,4 @@ Content here is **historical** (pre-build vision or completed phase specs). It *
 | [`phase-1-ui-shell.md`](phase-1-ui-shell.md) | Phase 1 agent hand-off (shipped UI shell) | Says iOS 26+; superseded by code + decisions |
 | [`phase-2-pipeline.md`](phase-2-pipeline.md) | Phase 2 agent hand-off (pipeline + Llama) | File-map useful; cites historical RAG prose — use **code + decisions** first |
 | [`phase-0-vision-spike.md`](phase-0-vision-spike.md) | Phase 0 DEBUG VLM spike harness (retired) | Spike Settings UI removed; production vision in **Vision model** + `media-vision-v1-qa.md` |
+| [`library-bulk-selection.md`](library-bulk-selection.md) | Library bulk select + batch archive undo (**shipped**) | Behavior in code + decisions row 2026-05-12; use **code + decisions** first |
