@@ -7,6 +7,7 @@ struct ThumbnailView: View {
     let colorHex: String?
     let contentKind: ContentKind
     let size: CGFloat
+    var cornerRadius: CGFloat?
 
     var body: some View {
         Group {
@@ -24,7 +25,7 @@ struct ThumbnailView: View {
             }
         }
         .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: size * 0.15))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius ?? size * 0.15, style: .continuous))
     }
 
     private var iconName: String {

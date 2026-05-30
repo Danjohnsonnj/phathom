@@ -1,6 +1,6 @@
 # UI Evolution — Implementation Plan
 
-> **Status:** **Phase 0 shipped** (May 2026). **Next session:** green-light **Phase 1** ([§6](#6-phase-1--shared-row-components)). Phases 2–4b: one phase per session unless user re-confirms.
+> **Status:** **Phase 1 shipped** (May 2026). **Next session:** green-light **Phase 2** ([§7](#7-phase-2--library-highest-risk)). Phases 3a–4b: one phase per session unless user re-confirms.
 >
 > **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](../../.design-mocks/)
 >
@@ -156,6 +156,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 | **`EditorialScreenTitle`** | 34pt semibold title + **`editorialTitleBottom` (28pt)** | Horizontal **`AppSpacing.screenHorizontal`** · **top inset** (Library **~12pt** → Phase 2; Settings **~4pt** → Phase 4b; others per mock) |
 | **`ZoneSectionHeader`** | 17pt **semibold** title + optional 15pt subtitle | **8pt** gap before grouped content (Settings Phase 4b) · subsection tier stays **`DetailAISubsectionHeader`** (Phase 4a) |
 | **`DetailBackBarButton`** | Accent chevron, `.plain`, default `dismiss()` | Toolbar placement · **~44pt** min row / vertical padding per mock · optical check vs system back (Phase 4a Detail, Phase 4b Settings) |
+| **`HairlineHighlightRow`** | 4px bar, italic quote (primary), uppercase **Note** label | Note body **secondary** (mock) · horizontal inset on parent · **`showsBottomHairline: false`** on last row in a section (Detail Phase 4a) or between highlights on same Notebook item (Phase 3b) |
 
 **Typography tie-breakers (Phase 4+):**
 
@@ -173,7 +174,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 | New type | Source / notes |
 |----------|----------------|
-| `HairlineHighlightRow` | §3.6/§3.8 — 4px bar, italic quote, uppercase **Note**; line-limit params |
+| `HairlineHighlightRow` | §3.6/§3.8 — 4px bar, italic quote, uppercase **Note**; note body secondary; line-limit params |
 | `GalleryListRow` | Library gallery — hairline, 64×64 thumb (shipped `ContentCardRow` uses 76) |
 | `LibraryPipelineControlButton` | From [`LibraryTab`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) — wire Phase 2 |
 | `PinnedLibrarySearchBar` | Shell — wire Phase 2 |
@@ -190,9 +191,9 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Green-light:**
 
-- [ ] New types compile + in Xcode target
-- [ ] Shipped surfaces visually unchanged
-- [ ] Wiring schedule honored (no early swaps)
+- [x] New types compile + in Xcode target
+- [x] Shipped surfaces visually unchanged
+- [x] Wiring schedule honored (no early swaps)
 
 ---
 
@@ -211,6 +212,15 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 - Wire **`EditorialScreenTitle("Library")`** — **`AppSpacing.screenHorizontal`** + **~12pt top** on editorial block (mock `screen-title` margin-top)
 - 22pt inset; `GalleryListRow`; pipeline in actions row
 - Search: Cancel exits; keyboard dismiss only while active
+
+**Wiring mechanics** (Phase 1 components → `LibraryTab`):
+
+- **`GalleryListRow`**: replace row body inside existing **`libraryItemRow`** shell — preserve `NavigationLink`, swipes, bulk select, a11y
+- **List insets**: zero horizontal **`listRowInsets`** on gallery rows (`GalleryListRow` already applies **`AppSpacing.screenHorizontal`** — avoid double 16+22 inset)
+- **`showsBottomHairline`**: `false` on each section’s **last** row (mock `:last-child`)
+- **`LibraryPipelineControlButton`**: delete nested **`LibraryPipelineControl`** in `LibraryTab`; use module enum + extracted button
+- **`PinnedLibrarySearchBar`**: overlay above scroll (material/blur per mock, **~8pt** vertical bar padding); **hide** pipeline + actions row under search; dim list chrome (mock `.gallery-list--dimmed`); keyboard swipe-down dismisses keyboard **only** — not search mode
+- **Optional**: shared `chipAction` helper if touching [`ContentCardRow`](../../Phathom/Phathom/Views/Library/ContentCardRow.swift) during wire (avoid duplicating retry/ingest logic)
 
 **Preserve (inference §1.2):** [`LibrarySearchService`](../../Phathom/Phathom/Services/LibrarySearchService.swift), Dive deeper, swipes, bulk select, filter 27.5/27.5/45, Settings push, category sheet, deep links.
 
@@ -245,7 +255,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Files:** [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift), [`NotebookItemGroup.swift`](../../Phathom/Phathom/Views/Notebook/NotebookItemGroup.swift)
 
-**Tasks:** `EditorialScreenTitle` · drop nav duplicate · surface-appropriate **top inset** per mock · `HairlineHighlightRow` (3/2 limits) · header thumb 48→64 · title paprika→primary · inter-group hairline only · inset 22
+**Tasks:** `EditorialScreenTitle` · drop nav duplicate · surface-appropriate **top inset** per mock · `HairlineHighlightRow` (3/2 limits, **`showsBottomHairline: false`** between highlights on same item) · header thumb 48→64 · title paprika→primary · inter-group hairline only · inset 22
 
 **Preserve:** [`NotebookHighlightsQuery`](../../Phathom/Phathom/Services/NotebookHighlightsQuery.swift), Detail push, [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift), empty copy.
 
@@ -318,46 +328,44 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 ---
 
-## 15. Cold start — Phase 1
+## 15. Cold start — Phase 2
 
-Copy-paste for **new session** (Swift authorized for **Phase 1 only**).
+Copy-paste for **new session** (Swift authorized for **Phase 2 only**).
 
 ```
-GOAL: UI evolution Phase 1 — Shared row components. NO surface swaps.
+GOAL: UI evolution Phase 2 — Library surface swap (highest risk). Wire Phase 0–1 components.
 ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom
 
 READ (minimal):
-  1. docs/handoff/ui-evolution-implementation-plan.md §6 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
-  2. docs/handoff/ui-evolution-token-sheet.md §5–§7
-  3. Phathom/Phathom/Views/Library/ContentCardRow.swift
-  4. Phathom/Phathom/Views/Detail/HighlightCardView.swift (or HighlightsNotesSection)
+  1. docs/handoff/ui-evolution-implementation-plan.md §7 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
+  2. docs/handoff/library-ui-evolution.md §3.1–§3.2.1
+  3. .design-mocks/library-ad-search-b-toolbar.html (visual reference)
+  4. Phathom/Phathom/Views/Library/LibraryTab.swift
 
-CREATE / TOUCH:
-  - HairlineHighlightRow.swift
-  - GalleryListRow.swift
-  - LibraryPipelineControlButton.swift
-  - PinnedLibrarySearchBar.swift (shell only)
-  - Phathom.xcodeproj — auto-sync via PBXFileSystemSynchronizedRootGroup
+WIRE (Phase 2):
+  - EditorialScreenTitle("Library") + AppSpacing.screenHorizontal + ~12pt top
+  - GalleryListRow inside libraryItemRow shell (keep swipes/bulk/nav)
+  - Zero horizontal listRowInsets on gallery rows; showsBottomHairline false on section last row
+  - LibraryPipelineControlButton — remove nested LibraryPipelineControl enum in LibraryTab
+  - PinnedLibrarySearchBar overlay (remove .searchable): material/blur, ~8pt bar padding, hide pipeline under search, dim chrome; keyboard dismiss ≠ exit
+  - Drop Phathom principal + duplicate navigationTitle
+  - See §7 Wiring mechanics for full checklist
 
-DO NOT: Wire into LibraryTab / Detail / Notebook (Phase 2+)
-DO NOT: Chat RAG (phase-3-rag-chat.md)
+DO NOT: Change LibrarySearchService semantics · filter 27.5/27.5/45 · Chat RAG
 
 VERIFY: ReadLints → bash scripts/build-phathom.sh sim → bash scripts/test-phathom.sh
+  Manual sim: search overlay · filter popovers · bulk select · swipes
 
-GREEN-LIGHT DONE WHEN:
-  - New types compile; Xcode target updated
-  - Shipped surfaces visually unchanged
-  - Wiring schedule honored (no early swaps)
+GREEN-LIGHT DONE WHEN: §7 green-light checklist passes
 
-THEN: Stop. Next session → green-light Phase 2 (Library).
+THEN: Stop. Next session → green-light Phase 3a (Add New).
 
 AUTHORITY: code > decisions.md > this plan > library-ui-evolution.md > mocks
-MOCKS: visual reference only — ship SwiftUI (plan §1)
 ```
 
-### Archive — Phase 0 cold start
+### Archive — Phase 1 cold start
 
 ```
-GOAL: UI evolution Phase 0 — Foundation (tokens + shared chrome). NO surface swaps.
-... (Phase 0 complete — see §5 green-light)
+GOAL: UI evolution Phase 1 — Shared row components. NO surface swaps.
+... (Phase 1 complete — see §6 green-light)
 ```
