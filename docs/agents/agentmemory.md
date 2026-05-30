@@ -37,7 +37,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 | Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf, `[PhathomPipeline]` logs |
 | Schema | `ContentItem`, **`Category`**, `processingStatus` | `PhathomCore/` |
 | UI shell & pipeline bridge | `UI`, `LibraryTab`, `DetailView`, `CategoryPicker` | `Views/`, `ProcessingRecovery.swift`, `LibrarySearchService.swift` |
-| **UI evolution (discovery)** | `UI-evolution`, `design-mocks`, `HTML-probe`, `handoff`, `no-Swift` | **Process:** agentmemory · **Particulars:** [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) · canonical mock `.design-mocks/library-ad-search-b-toolbar.html` |
+| **UI evolution (discovery)** | `UI-evolution`, `design-mocks`, `HTML-probe`, `handoff`, `no-Swift`, `SwiftUI-target` | **Process:** agentmemory · **Particulars:** [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) · [`.design-mocks/README.md`](../../.design-mocks/README.md) · 3 canonical HTML mocks (visual only, not literal port) |
 | UI design refresh (shipped v1) | `tokens`, `AppPalette`, `IA` | [`ui-design-refresh.md`](../archive/ui-design-refresh.md) — historical only |
 | Bulk library select | batch archive undo | [`library-bulk-selection.md`](../archive/library-bulk-selection.md), `MainTabView` |
 | Archived docs | `history` | [`archive/README.md`](../archive/README.md) — opt-in only |
@@ -86,7 +86,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 
 **UI evolution — design discovery (HTML mocks)**
 
-> Recall `UI-evolution` / `design-mocks` workflow memory (process only). Read [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) for locked choices + probe queue. Open canonical mock in `.design-mocks/`. **No Swift** unless user green-lights implementation. Paste `<handoff>` packet if provided.
+> Recall `UI-evolution` / `design-mocks` workflow memory (process only). Read [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) §2.2 + locked §§3–3.7. HTML/CSS mocks = **visual guidance** → implement in **SwiftUI** (`Phathom/`), not literal HTML port. Open canonical mock in `.design-mocks/`. **No Swift** unless user green-lights implementation. Paste `<handoff>` packet if provided.
 
 ---
 

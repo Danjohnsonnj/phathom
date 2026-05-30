@@ -1,0 +1,25 @@
+# Design mocks (HTML/CSS)
+
+**Discovery only** — not shipped UI. Authoritative choices: [`docs/handoff/library-ui-evolution.md`](../docs/handoff/library-ui-evolution.md).
+
+## Purpose
+
+Static Safari mocks probe layout, spacing, and material language before SwiftUI work. They are **visual and behavioral guidance**, not a literal implementation spec.
+
+**Ship target:** SwiftUI in `Phathom/`. Translate tokens, rhythm, and hierarchy — do not port HTML structure, Geist, or review chrome (device frame, status bar).
+
+## Canonical files
+
+| File | Surface |
+|------|---------|
+| `library-ad-search-b-toolbar.html` | Library — at rest + Search active |
+| `detail-ad-full-hairline-a.html` | Detail — full hairline A |
+| `add-new-ad-filled-card-a.html` | Add New — Web · Note · Photo × Starting + Filled |
+
+Open locally in Safari. Files may be gitignored; keep in repo workspace for review.
+
+## Rules
+
+- **No Swift** during discovery unless explicitly green-lit.
+- Rejected explorations are **deleted** after lock — do not resurrect without a new fork.
+- On conflict: **`Phathom/` code** > `docs/decisions.md` > hand-off > mocks.

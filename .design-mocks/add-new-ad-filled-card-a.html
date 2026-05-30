@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phathom Add New — Filled capture card A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #252422;
+      --surface: #403d39;
+      --surface-nested: #353330;
+      --accent: #eb5e28;
+      --text-primary: #fffcf2;
+      --text-secondary: #ccc5b9;
+      --text-tertiary: rgba(204, 197, 185, 0.72);
+      --text-placeholder: rgba(204, 197, 185, 0.38);
+      --chip-bg: #401F12;
+      --hairline: rgba(255, 252, 242, 0.12);
+      --rhythm: 22px;
+      --phone-w: 393px;
+      --phone-h: 852px;
+      --radius-phone: 55px;
+      --radius-capsule: 100px;
+      --font: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1918;
+      font-family: var(--font);
+      padding: 72px 24px 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page-label {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.35);
+    }
+
+    .frames-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 40px 48px;
+      max-width: 100%;
+    }
+
+    .frame-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .frame-caption {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: rgba(255, 252, 242, 0.5);
+    }
+
+    .frame-state {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .frame-state--starting {
+      color: rgba(204, 197, 185, 0.55);
+    }
+
+    .frame-state--filled {
+      color: rgba(235, 94, 40, 0.9);
+    }
+
+    .frame-mode {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 252, 242, 0.55);
+    }
+
+    .mock-legend {
+      width: min(720px, 100%);
+      margin-bottom: 36px;
+      padding: 14px 18px;
+      border: 1px solid rgba(255, 252, 242, 0.1);
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.55;
+      color: rgba(255, 252, 242, 0.48);
+      text-align: center;
+    }
+
+    .mock-legend strong {
+      color: rgba(255, 252, 242, 0.72);
+      font-weight: 600;
+    }
+
+    .mode-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      width: 100%;
+    }
+
+    .mode-group-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.32);
+    }
+
+    .mode-group-frames {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 40px 48px;
+    }
+
+    .frames-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 56px;
+      width: 100%;
+    }
+
+    @media (max-width: 1300px) {
+      .mode-group-frames {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+
+    .phone-shell {
+      position: relative;
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      background: linear-gradient(145deg, #3a3835 0%, #2a2826 50%, #1f1e1c 100%);
+      border-radius: calc(var(--radius-phone) + 12px);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 40px 80px rgba(0, 0, 0, 0.55),
+        0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .phone-shell::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 126px;
+      height: 37px;
+      background: #0d0d0c;
+      border-radius: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: var(--bg);
+      border-radius: var(--radius-phone);
+      overflow: clip;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      isolation: isolate;
+    }
+
+    /* Status bar */
+    .status-bar {
+      flex-shrink: 0;
+      height: 54px;
+      padding: 14px var(--rhythm) 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-icons svg {
+      display: block;
+    }
+
+    /* Scrollable content — padding clears mode bar + tab bar */
+    .screen-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      padding: 8px var(--rhythm) 168px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .screen-scroll::-webkit-scrollbar { display: none; }
+
+    /* Editorial header — screen-owned title (Library parity) */
+    .add-new-header {
+      margin-bottom: 24px;
+    }
+
+    .add-new-title {
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+
+    .add-new-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Filled capture card — Path D→A, not hairline */
+    .capture-card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .capture-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-circle {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(235, 94, 40, 0.22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    .icon-circle svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .icon-circle svg.icon-fill {
+      fill: currentColor;
+      stroke: none;
+    }
+
+    .accent-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .capture-card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Nested inset wells */
+    .inset-well {
+      background: var(--surface-nested);
+      border-radius: 11px;
+      padding: 14px;
+      width: 100%;
+    }
+
+    .inset-well--field {
+      font-size: 17px;
+      font-weight: 400;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.35;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: var(--font);
+      width: 100%;
+    }
+
+    .inset-well--field::placeholder {
+      color: var(--text-placeholder);
+    }
+
+    .inset-well--editor {
+      min-height: 180px;
+      font-size: 17px;
+      font-weight: 400;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .photo-picker-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: default;
+    }
+
+    .photo-picker-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 17px;
+      color: var(--text-placeholder);
+      letter-spacing: -0.01em;
+    }
+
+    .photo-picker-label--filled {
+      color: var(--text-primary);
+    }
+
+    .photo-picker-label svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--text-secondary);
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .photo-picker-chevron {
+      width: 10px;
+      height: 10px;
+      stroke: var(--text-tertiary);
+      fill: none;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .photo-thumb {
+      width: 100%;
+      max-height: 220px;
+      min-height: 140px;
+      border-radius: 8px;
+      display: block;
+      margin-top: 12px;
+      background: linear-gradient(145deg, #5c6b52 0%, #3d4540 48%, #2a2e28 100%);
+    }
+
+    .note-editor-text {
+      font-size: 17px;
+      font-weight: 400;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.45;
+    }
+
+    /* Optional title underline field */
+    .optional-title {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .optional-title-input {
+      font-size: 17px;
+      font-weight: 400;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: var(--font);
+      width: 100%;
+      padding: 0;
+    }
+
+    .optional-title-input::placeholder {
+      color: var(--text-placeholder);
+    }
+
+    .optional-title-divider {
+      height: 1px;
+      background: rgba(204, 197, 185, 0.32);
+    }
+
+    /* Save CTA — filled capsule (Detail .hero-visit shape), full-width primary */
+    .save-cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 50px;
+      padding: 14px 28px;
+      border: none;
+      border-radius: var(--radius-capsule);
+      font-family: var(--font);
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: default;
+    }
+
+    .save-cta--enabled {
+      background: var(--accent);
+      color: var(--text-primary);
+    }
+
+    .save-cta--disabled {
+      background: var(--surface-nested);
+      color: var(--text-secondary);
+      opacity: 0.85;
+    }
+
+    .save-cta svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /*
+     * Mode bar — safeAreaInset equivalent; fixed above tab bar.
+     * Outer surface shell ~26pt radius, 4pt inner inset, active on nested surface.
+     */
+    .mode-bar-dock {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 92px;
+      z-index: 28;
+      padding: 0 var(--rhythm) 8px;
+      pointer-events: none;
+    }
+
+    .mode-bar {
+      pointer-events: auto;
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      height: 52px;
+      padding: 4px;
+      background: var(--surface);
+      border-radius: 26px;
+    }
+
+    .mode-segment {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 4px;
+      border: none;
+      background: transparent;
+      border-radius: 22px;
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--text-secondary);
+      cursor: default;
+    }
+
+    .mode-segment--active {
+      background: var(--surface-nested);
+      color: var(--text-primary);
+    }
+
+    .mode-segment svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    .mode-segment svg.icon-photo {
+      fill: none;
+    }
+
+    /*
+     * Tab bar — matches shipped MainTabView TabView (iOS 26 liquid glass).
+     * Preserved in design evolution: 4 tabs, SF symbols, paprika selected / floral unselected.
+     * Glass blur on .tab-bar-glass absolute child (Safari-safe).
+     */
+    .tab-bar-dock {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 30;
+      padding: 0 8px 26px;
+      pointer-events: none;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    }
+
+    .tab-bar {
+      position: relative;
+      pointer-events: auto;
+      height: 66px;
+      border-radius: 33px;
+      display: flex;
+      align-items: stretch;
+      overflow: hidden;
+      background: transparent;
+      box-shadow:
+        0 0 0 0.5px rgba(255, 252, 242, 0.2),
+        0 10px 28px rgba(0, 0, 0, 0.38);
+      transform: translateZ(0);
+    }
+
+    .tab-bar-glass {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: rgba(22, 21, 20, 0.58);
+      backdrop-filter: blur(50px) saturate(1.85);
+      -webkit-backdrop-filter: blur(50px) saturate(1.85);
+      border: 0.5px solid rgba(255, 252, 242, 0.22);
+      box-shadow: inset 0 1px 0 rgba(255, 252, 242, 0.14);
+    }
+
+    .tab-bar-glass::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(
+        180deg,
+        rgba(255, 252, 242, 0.07) 0%,
+        transparent 42%
+      );
+      pointer-events: none;
+    }
+
+    .tab-bar-items {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      padding: 5px 5px;
+      gap: 2px;
+    }
+
+    .tab-item {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
+      padding: 6px 2px 5px;
+      color: var(--text-primary);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border-radius: 28px;
+    }
+
+    .tab-item--active {
+      color: var(--accent);
+    }
+
+    .tab-item--active::before {
+      content: "";
+      position: absolute;
+      inset: 2px 1px;
+      border-radius: 28px;
+      background: rgba(255, 252, 242, 0.17);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 252, 242, 0.1),
+        0 0 0 0.5px rgba(255, 252, 242, 0.06);
+      z-index: -1;
+    }
+
+    .tab-item svg {
+      width: 25px;
+      height: 25px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .tab-item svg.tab-icon-plus {
+      width: 22px;
+      height: 22px;
+    }
+
+    .tab-item span {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.15;
+    }
+
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(255, 252, 242, 0.22);
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 40;
+    }
+  </style>
+</head>
+<body>
+  <!-- Path D→A: filled #403d39 capture card + nested wells; 22px rhythm; each mode × Starting + Filled. -->
+  <p class="page-label">Phathom Add New — Filled capture card A</p>
+
+  <p class="mock-legend">
+    <strong>Starting</strong> — empty required input, muted placeholders, disabled Save capsule.
+    <strong>Filled</strong> — valid input, primary text, enabled paprika Save. Six frames: Web · Note · Photo.
+  </p>
+
+  <div class="frames-stack">
+
+    <!-- Web -->
+    <section class="mode-group" aria-labelledby="group-web">
+      <h2 class="mode-group-title" id="group-web">Web</h2>
+      <div class="mode-group-frames">
+
+    <div class="frame-unit">
+      <p class="frame-caption"><span class="frame-state frame-state--starting">Starting</span><span class="frame-mode">Web</span></p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <div class="screen-scroll">
+            <header class="add-new-header">
+              <h1 class="add-new-title">Save</h1>
+            </header>
+
+            <div class="add-new-stack">
+              <section class="capture-card" aria-label="Web capture">
+                <div class="capture-card-header">
+                  <div class="icon-circle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                  </div>
+                  <span class="accent-label">Paste URL</span>
+                </div>
+
+                <div class="capture-card-body">
+                  <div class="inset-well">
+                    <input type="url" class="inset-well--field" value="" placeholder="https://..." aria-label="URL">
+                  </div>
+
+                  <div class="optional-title">
+                    <input type="text" class="optional-title-input" placeholder="Custom title (optional)" aria-label="Custom title">
+                    <div class="optional-title-divider" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </section>
+
+              <button type="button" class="save-cta save-cta--disabled" disabled aria-label="Save to Library">
+                Save to Library
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="mode-bar-dock">
+            <nav class="mode-bar" aria-label="Capture mode">
+              <button type="button" class="mode-segment mode-segment--active" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                Web
+              </button>
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                </svg>
+                Note
+              </button>
+              <button type="button" class="mode-segment">
+                <svg class="icon-photo" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2"/>
+                  <circle cx="8.5" cy="10.5" r="1.5"/>
+                  <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/>
+                </svg>
+                Photo
+              </button>
+            </nav>
+          </div>
+
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/>
+                    <path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/>
+                    <circle cx="14.8" cy="13.2" r="1.1"/>
+                    <path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/>
+                  </svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/>
+                    <path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/>
+                    <rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/>
+                  </svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/>
+                    <path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/>
+                  </svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item tab-item--active">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/>
+                  </svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-unit">
+      <p class="frame-caption"><span class="frame-state frame-state--filled">Filled</span><span class="frame-mode">Web</span></p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <div class="screen-scroll">
+            <header class="add-new-header">
+              <h1 class="add-new-title">Save</h1>
+            </header>
+
+            <div class="add-new-stack">
+              <section class="capture-card" aria-label="Web capture filled">
+                <div class="capture-card-header">
+                  <div class="icon-circle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                  </div>
+                  <span class="accent-label">Paste URL</span>
+                </div>
+
+                <div class="capture-card-body">
+                  <div class="inset-well">
+                    <input type="url" class="inset-well--field" value="https://www.theverge.com/tech/example-article" aria-label="URL">
+                  </div>
+
+                  <div class="optional-title">
+                    <input type="text" class="optional-title-input" placeholder="Custom title (optional)" aria-label="Custom title">
+                    <div class="optional-title-divider" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </section>
+
+              <button type="button" class="save-cta save-cta--enabled" aria-label="Save to Library">
+                Save to Library
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="mode-bar-dock">
+            <nav class="mode-bar" aria-label="Capture mode">
+              <button type="button" class="mode-segment mode-segment--active" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                Web
+              </button>
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                </svg>
+                Note
+              </button>
+              <button type="button" class="mode-segment">
+                <svg class="icon-photo" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2"/>
+                  <circle cx="8.5" cy="10.5" r="1.5"/>
+                  <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/>
+                </svg>
+                Photo
+              </button>
+            </nav>
+          </div>
+
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/>
+                    <path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/>
+                    <circle cx="14.8" cy="13.2" r="1.1"/>
+                    <path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/>
+                  </svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/>
+                    <path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/>
+                    <rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/>
+                  </svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/>
+                    <path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/>
+                  </svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item tab-item--active">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/>
+                  </svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+      </div>
+    </section>
+
+    <!-- Note -->
+    <section class="mode-group" aria-labelledby="group-note">
+      <h2 class="mode-group-title" id="group-note">Note</h2>
+      <div class="mode-group-frames">
+
+    <div class="frame-unit">
+      <p class="frame-caption"><span class="frame-state frame-state--starting">Starting</span><span class="frame-mode">Note</span></p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <div class="screen-scroll">
+            <header class="add-new-header">
+              <h1 class="add-new-title">Save</h1>
+            </header>
+
+            <div class="add-new-stack">
+              <section class="capture-card" aria-label="Note capture">
+                <div class="capture-card-header">
+                  <div class="icon-circle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                    </svg>
+                  </div>
+                  <span class="accent-label">Write note</span>
+                </div>
+
+                <div class="capture-card-body">
+                  <div class="optional-title">
+                    <input type="text" class="optional-title-input" placeholder="Custom title (optional)" aria-label="Custom title">
+                    <div class="optional-title-divider" aria-hidden="true"></div>
+                  </div>
+
+                  <div class="inset-well inset-well--editor" aria-label="Note content"></div>
+                </div>
+              </section>
+
+              <button type="button" class="save-cta save-cta--disabled" disabled aria-label="Save to Library">
+                Save to Library
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="mode-bar-dock">
+            <nav class="mode-bar" aria-label="Capture mode">
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                Web
+              </button>
+              <button type="button" class="mode-segment mode-segment--active" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                </svg>
+                Note
+              </button>
+              <button type="button" class="mode-segment">
+                <svg class="icon-photo" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2"/>
+                  <circle cx="8.5" cy="10.5" r="1.5"/>
+                  <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/>
+                </svg>
+                Photo
+              </button>
+            </nav>
+          </div>
+
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/>
+                    <path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/>
+                    <circle cx="14.8" cy="13.2" r="1.1"/>
+                    <path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/>
+                  </svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/>
+                    <path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/>
+                    <rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/>
+                  </svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/>
+                    <path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/>
+                  </svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item tab-item--active">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/>
+                  </svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-unit">
+      <p class="frame-caption"><span class="frame-state frame-state--filled">Filled</span><span class="frame-mode">Note</span></p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+          <div class="screen-scroll">
+            <header class="add-new-header">
+              <h1 class="add-new-title">Save</h1>
+            </header>
+            <div class="add-new-stack">
+              <section class="capture-card" aria-label="Note capture filled">
+                <div class="capture-card-header">
+                  <div class="icon-circle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                    </svg>
+                  </div>
+                  <span class="accent-label">Write note</span>
+                </div>
+                <div class="capture-card-body">
+                  <div class="optional-title">
+                    <input type="text" class="optional-title-input" placeholder="Custom title (optional)" aria-label="Custom title">
+                    <div class="optional-title-divider" aria-hidden="true"></div>
+                  </div>
+                  <div class="inset-well inset-well--editor" aria-label="Note content">
+                    <p class="note-editor-text">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</p>
+                  </div>
+                </div>
+              </section>
+              <button type="button" class="save-cta save-cta--enabled" aria-label="Save to Library">
+                Save to Library
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="mode-bar-dock">
+            <nav class="mode-bar" aria-label="Capture mode">
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Web
+              </button>
+              <button type="button" class="mode-segment mode-segment--active" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+                Note
+              </button>
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" class="icon-photo" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/></svg>
+                Photo
+              </button>
+            </nav>
+          </div>
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/>
+                    <path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/>
+                    <circle cx="14.8" cy="13.2" r="1.1"/>
+                    <path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/>
+                  </svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/>
+                    <path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/>
+                    <rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/>
+                  </svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/>
+                    <path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/>
+                  </svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item tab-item--active">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/>
+                  </svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+      </div>
+    </section>
+
+    <!-- Photo -->
+    <section class="mode-group" aria-labelledby="group-photo">
+      <h2 class="mode-group-title" id="group-photo">Photo</h2>
+      <div class="mode-group-frames">
+
+    <div class="frame-unit">
+      <p class="frame-caption"><span class="frame-state frame-state--starting">Starting</span><span class="frame-mode">Photo</span></p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <div class="screen-scroll">
+            <header class="add-new-header">
+              <h1 class="add-new-title">Save</h1>
+            </header>
+
+            <div class="add-new-stack">
+              <section class="capture-card" aria-label="Photo capture">
+                <div class="capture-card-header">
+                  <div class="icon-circle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="3" y="5" width="18" height="14" rx="2"/>
+                      <circle cx="8.5" cy="10.5" r="1.5"/>
+                      <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/>
+                    </svg>
+                  </div>
+                  <span class="accent-label">Choose photo</span>
+                </div>
+
+                <div class="capture-card-body">
+                  <div class="inset-well">
+                    <div class="photo-picker-row">
+                      <span class="photo-picker-label">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="3" y="5" width="18" height="14" rx="2"/>
+                          <circle cx="8.5" cy="10.5" r="1.5"/>
+                          <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/>
+                        </svg>
+                        Choose photo
+                      </span>
+                      <svg class="photo-picker-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4"/></svg>
+                    </div>
+                  </div>
+
+                  <div class="optional-title">
+                    <input type="text" class="optional-title-input" placeholder="Custom title (optional)" aria-label="Custom title">
+                    <div class="optional-title-divider" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </section>
+
+              <button type="button" class="save-cta save-cta--disabled" disabled aria-label="Save to Library">
+                Save to Library
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="mode-bar-dock">
+            <nav class="mode-bar" aria-label="Capture mode">
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                Web
+              </button>
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                </svg>
+                Note
+              </button>
+              <button type="button" class="mode-segment mode-segment--active" aria-current="page">
+                <svg class="icon-photo" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2"/>
+                  <circle cx="8.5" cy="10.5" r="1.5"/>
+                  <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/>
+                </svg>
+                Photo
+              </button>
+            </nav>
+          </div>
+
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/>
+                    <path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/>
+                    <circle cx="14.8" cy="13.2" r="1.1"/>
+                    <path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/>
+                  </svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/>
+                    <path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/>
+                    <rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/>
+                  </svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/>
+                    <path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/>
+                  </svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item tab-item--active">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/>
+                  </svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-unit">
+      <p class="frame-caption"><span class="frame-state frame-state--filled">Filled</span><span class="frame-mode">Photo</span></p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+          <div class="screen-scroll">
+            <header class="add-new-header">
+              <h1 class="add-new-title">Save</h1>
+            </header>
+            <div class="add-new-stack">
+              <section class="capture-card" aria-label="Photo capture filled">
+                <div class="capture-card-header">
+                  <div class="icon-circle" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <rect x="3" y="5" width="18" height="14" rx="2"/>
+                      <circle cx="8.5" cy="10.5" r="1.5"/>
+                      <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/>
+                    </svg>
+                  </div>
+                  <span class="accent-label">Choose photo</span>
+                </div>
+                <div class="capture-card-body">
+                  <div class="inset-well">
+                    <div class="photo-picker-row">
+                      <span class="photo-picker-label photo-picker-label--filled">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="3" y="5" width="18" height="14" rx="2"/>
+                          <circle cx="8.5" cy="10.5" r="1.5"/>
+                          <path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/>
+                        </svg>
+                        Replace photo
+                      </span>
+                      <svg class="photo-picker-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2l4 4-4 4"/></svg>
+                    </div>
+                    <div class="photo-thumb" role="img" aria-label="Selected photo preview"></div>
+                  </div>
+                  <div class="optional-title">
+                    <input type="text" class="optional-title-input" value="Trail summit" aria-label="Custom title">
+                    <div class="optional-title-divider" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </section>
+              <button type="button" class="save-cta save-cta--enabled" aria-label="Save to Library">
+                Save to Library
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="mode-bar-dock">
+            <nav class="mode-bar" aria-label="Capture mode">
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Web
+              </button>
+              <button type="button" class="mode-segment">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+                Note
+              </button>
+              <button type="button" class="mode-segment mode-segment--active" aria-current="page">
+                <svg viewBox="0 0 24 24" class="icon-photo" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="M21 16l-5.5-5.5a1.5 1.5 0 0 0-2.12 0L3 18"/></svg>
+                Photo
+              </button>
+            </nav>
+          </div>
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/>
+                    <path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/>
+                    <circle cx="14.8" cy="13.2" r="1.1"/>
+                    <path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/>
+                  </svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/>
+                    <path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/>
+                    <rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/>
+                  </svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/>
+                    <path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/>
+                  </svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item tab-item--active">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/>
+                  </svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>
