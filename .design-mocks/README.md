@@ -18,8 +18,9 @@ Static Safari mocks probe layout, spacing, and material language before SwiftUI 
 | `detail-ad-full-hairline-a.html` | Detail — full hairline A |
 | `add-new-ad-filled-card-a.html` | Add New — Web · Note · Photo × Starting + Filled |
 | `notebook-ad-hairline-feed-a.html` | Notebook — Empty + Populated hairline feed |
+| `chat-ad-placeholder-a.html` | Chat placeholder — coming-soon shell |
 
-**Next mock (not started):** `chat-ad-placeholder-*.html` — see hand-off §3.9.
+**Next mock:** Settings — side-by-side representative states; see hand-off [§3.10](../docs/handoff/library-ui-evolution.md#310-settings--next-probe-not-locked).
 
 Open locally in Safari. Files may be gitignored; keep in repo workspace for review.
 

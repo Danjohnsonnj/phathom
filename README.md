@@ -24,7 +24,7 @@
 | Track | Doc |
 | ----- | --- |
 | **RAG / Chat tab** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) |
-| **App UI evolution** (design discovery — Library–Notebook locked, 4 mocks; Chat placeholder next) | [`docs/handoff/library-ui-evolution.md`](docs/handoff/library-ui-evolution.md) (§11 cold-start) |
+| **App UI evolution** (design discovery — probes 1–6 locked, 5 mocks; **Settings** next) | [`docs/handoff/library-ui-evolution.md`](docs/handoff/library-ui-evolution.md) (§11 cold-start) |
 
 **Historical product & phase write-ups:** [`docs/archive/README.md`](docs/archive/README.md) — **not for implementation**.
 
