@@ -86,7 +86,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 
 **UI evolution — design discovery (HTML mocks)**
 
-> Recall `UI-evolution` / `design-mocks` workflow memory (process only). Read [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) §2.2 + locked §§3–3.7. HTML/CSS mocks = **visual guidance** → implement in **SwiftUI** (`Phathom/`), not literal HTML port. Open canonical mock in `.design-mocks/`. **No Swift** unless user green-lights implementation. Paste `<handoff>` packet if provided.
+> Recall `UI-evolution` / `design-mocks` workflow memory (process only). **Mocks:** build HTML in a **subagent**; **main session** grills and locks hand-off. Read [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) §2.2–§2.3 + locked §§3–3.8. HTML = visual guidance → **SwiftUI** in `Phathom/`, not literal port. **No Swift** unless green-lit. Paste `<handoff>` if provided.
 
 ---
 
