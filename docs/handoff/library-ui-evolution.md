@@ -226,7 +226,7 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 | **Horizontal rhythm** | **22px** content inset (up from shipped 16px) |
 | **Tags** | Chip pills on `#401F12` allowed; no enclosing surface card |
 | **Actions** | Hairline-bordered full-width buttons (accent + neutral); **20pt** below section hairline (same rhythm as last Key Figures row → line above actions) |
-| **Nav (pushed)** | Flat accent back chevron + flat secondary share — **no** center wordmark · **not** liquid-glass toolbar buttons |
+| **Nav (pushed)** | **`DetailPushNavBar`** — **22pt** horizontal inset (back chevron aligns with body text); flat accent back + flat secondary share — **no** center wordmark · **not** system toolbar / liquid glass |
 | **Header block** | Web **host** (accent) · editable **title** · **timestamp** only — **no** source-preview snippet under title (source lives in collapsible **Source Content**) |
 | **Section order** | Matches shipped `DetailView` — Hero → header → source → read status → category → highlights → **AI zone** → tags → summary → actions |
 | **AI analysis zone break** | **Option 5 — Zone parent header** — **17pt semibold** “AI analysis” owns zone (token sheet §4; plan §0 tie-breaker — not mock CSS `font-weight: 700`); Tags / Summary / Key Figures use **15pt medium secondary** (`DetailAISubsectionHeader` tier). Hairline separates subsections. **Replace** shipped `DetailAIAnalysisDivider`. |
@@ -469,7 +469,7 @@ See [§2.3](#23-agent-inference-mocks-are-not-exhaustive). Do **not** add tag ed
 | **`SettingsContent` inset** | **Shipped** — **22px** (`AppSpacing.screenHorizontal`) |
 | **`navigationTitle("Settings")`** | **Shipped** — removed; editorial title owns screen name |
 | **`SettingsSectionHeader`** | **Shipped** — **`ZoneSectionHeader`** (17pt semibold zone tier) |
-| **Pushed nav** | **Shipped** — **`DetailBackBarToolbarItem`** (flat chevron, no glass) + hidden system back |
+| **Pushed nav** | **Shipped** — **`DetailPushNavBar`** (22pt inset, mock `.detail-nav`) + hidden system nav bar |
 
 **Rejected Settings alternatives:** Hairline-flat grouped sections · **Phathom** center on pushed Settings · tab-bar Settings root · IA/disclosure redesign · inline nav **Settings** duplicate with editorial title.
 

@@ -5,6 +5,10 @@ enum AppSpacing {
     /// Default content inset — tab roots, Detail, Add New, Notebook, Chat, Settings.
     static let screenHorizontal: CGFloat = 22
 
+    /// Pushed Detail / Settings nav chrome (mock `.detail-nav` vertical padding).
+    static let pushNavBarTop: CGFloat = 4
+    static let pushNavBarBottom: CGFloat = 8
+
     /// Between major section groups (Settings zones, Add New stack).
     static let sectionVerticalGap: CGFloat = 24
 

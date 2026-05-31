@@ -85,9 +85,11 @@ struct DetailView: View {
         .background(AppPalette.background)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
-        .toolbar {
-            DetailBackBarToolbarItem()
-            detailToolbar
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            DetailPushNavBar {
+                DetailShareBarButton(shareURL: shareURL, fallbackTitle: item.displayTitle)
+            }
         }
         .onAppear {
             syncTitleDraftFromItem()
@@ -141,10 +143,6 @@ struct DetailView: View {
                 item.applyCategory(picked, modelContext: modelContext)
             }
         }
-    }
-
-    private var detailToolbar: some ToolbarContent {
-        DetailShareToolbarItem(shareURL: shareURL, fallbackTitle: item.displayTitle)
     }
 
     private var headerBlock: some View {

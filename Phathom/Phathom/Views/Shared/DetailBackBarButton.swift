@@ -1,9 +1,6 @@
 import SwiftUI
 
 /// Detail / Settings push back affordance — accent chevron only (mock `detail-nav-back` parity).
-///
-/// **Not** a liquid-glass toolbar button: use ``DetailBackBarToolbarItem`` in `.toolbar` so
-/// iOS 26 does not apply a shared glass capsule behind the chevron.
 struct DetailBackBarButton: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -19,15 +16,75 @@ struct DetailBackBarButton: View {
         } label: {
             Image(systemName: "chevron.left")
                 .font(.system(size: 17, weight: .regular))
+                .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
         .foregroundStyle(AppPalette.accent)
-        .frame(minWidth: 44, minHeight: 44)
         .accessibilityLabel("Back")
     }
 }
 
-/// Leading toolbar slot for push back — flat chevron, no glass background (iOS 26+).
+/// Trailing Detail share — flat secondary icon (mock `detail-nav-share`).
+struct DetailShareBarButton: View {
+    let shareURL: URL?
+    let fallbackTitle: String
+
+    var body: some View {
+        Group {
+            if let shareURL {
+                ShareLink(item: shareURL) {
+                    shareLabel
+                }
+            } else {
+                ShareLink(item: fallbackTitle) {
+                    shareLabel
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var shareLabel: some View {
+        Image(systemName: "square.and.arrow.up")
+            .font(.system(size: 17, weight: .regular))
+            .foregroundStyle(AppPalette.textSecondary)
+            .padding(8)
+            .accessibilityLabel("Share")
+    }
+}
+
+/// Mock `.detail-nav` — **22pt** horizontal rhythm; back chevron aligns with scroll content inset.
+struct DetailPushNavBar<Trailing: View>: View {
+    var backAction: (() -> Void)?
+    @ViewBuilder var trailing: () -> Trailing
+
+    init(backAction: (() -> Void)? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
+        self.backAction = backAction
+        self.trailing = trailing
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 0) {
+            DetailBackBarButton(action: backAction)
+            Spacer(minLength: 0)
+            trailing()
+        }
+        .padding(.horizontal, AppSpacing.screenHorizontal)
+        .padding(.top, AppSpacing.pushNavBarTop)
+        .padding(.bottom, AppSpacing.pushNavBarBottom)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .center)
+        .background(AppPalette.background)
+    }
+}
+
+extension DetailPushNavBar where Trailing == EmptyView {
+    init(backAction: (() -> Void)? = nil) {
+        self.backAction = backAction
+        self.trailing = { EmptyView() }
+    }
+}
+
+/// Leading toolbar slot — prefer ``DetailPushNavBar`` + `.safeAreaInset` for 22pt alignment.
 struct DetailBackBarToolbarItem: ToolbarContent {
     var action: (() -> Void)?
 
@@ -39,44 +96,32 @@ struct DetailBackBarToolbarItem: ToolbarContent {
     }
 }
 
-/// Trailing Detail share — flat secondary icon (mock `detail-nav-share`), no glass capsule.
+/// Trailing toolbar slot — prefer ``DetailPushNavBar`` + ``DetailShareBarButton`` for 22pt alignment.
 struct DetailShareToolbarItem: ToolbarContent {
     let shareURL: URL?
     let fallbackTitle: String
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Group {
-                if let shareURL {
-                    ShareLink(item: shareURL) {
-                        shareLabel
-                    }
-                } else {
-                    ShareLink(item: fallbackTitle) {
-                        shareLabel
-                    }
-                }
-            }
-            .buttonStyle(.plain)
+            DetailShareBarButton(shareURL: shareURL, fallbackTitle: fallbackTitle)
         }
         .sharedBackgroundVisibility(.hidden)
     }
-
-    private var shareLabel: some View {
-        Image(systemName: "square.and.arrow.up")
-            .font(.system(size: 17, weight: .regular))
-            .foregroundStyle(AppPalette.textSecondary)
-            .frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel("Share")
-    }
 }
 
-#Preview {
+#Preview("Push nav chrome") {
     NavigationStack {
-        Color.clear
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                DetailBackBarToolbarItem()
+        ScrollView {
+            Text("Title block aligns with chevron leading edge")
+                .padding(.horizontal, AppSpacing.screenHorizontal)
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            DetailPushNavBar {
+                DetailShareBarButton(shareURL: nil, fallbackTitle: "Example")
             }
+        }
     }
 }

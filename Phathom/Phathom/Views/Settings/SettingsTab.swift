@@ -223,10 +223,9 @@ struct SettingsContent: View {
             .foregroundStyle(AppPalette.textPrimary)
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
-            .toolbarBackground(AppPalette.background, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                DetailBackBarToolbarItem()
+            .toolbar(.hidden, for: .navigationBar)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                DetailPushNavBar()
             }
             .onAppear {
                 refreshSelectionState()

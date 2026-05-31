@@ -337,7 +337,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 - [x] **`DetailBackBarButton`** leading + **`.navigationBarBackButtonHidden(true)`** · **22pt** inset · hairline sections · action buttons hairline-bordered
 - [x] Back + flat share only (no center wordmark) · processing badge placement unchanged
 
-**Shipped notes (closeout):** **`DetailAIAnalysisDivider.swift`** removed (unwired). Post-rollout polish: no center **Phathom** wordmark; flat share via **`DetailShareToolbarItem`**; **`detailSectionAfterHairlineGap` (20pt)** on action block (was incorrect 8pt in mock). Detail header **snippet** (50-word source preview under title) **removed** — host · title · timestamp only; mock + §3.6 updated.
+**Shipped notes (closeout):** **`DetailAIAnalysisDivider.swift`** removed (unwired). Post-rollout polish: no center **Phathom** wordmark; **`DetailPushNavBar`** (22pt inset, mock `.detail-nav`) replaces toolbar back/share; **`detailSectionAfterHairlineGap` (20pt)** on action block (was incorrect 8pt in mock). Detail header **snippet** removed — host · title · timestamp only; mock + §3.6 updated.
 
 ---
 

@@ -50,6 +50,7 @@ Palette **unchanged** — refine execution only. Map to existing `AppPalette` un
 | **`editorialTitleBottom`** | **~28pt** | Margin below screen-owned large title before first section |
 | **`aiSubsectionHairlineGap`** | **22pt** | Detail AI zone: last tag or summary bullet → hairline, and hairline → next subsection header |
 | **`detailSectionAfterHairlineGap`** | **20pt** | Detail hairline sections: content below top hairline (spaced blocks, action CTAs). Matches last Key Figures row → action hairline (ai-zone bottom padding) |
+| **`pushNavBarTop`** / **`pushNavBarBottom`** | **4pt** / **8pt** | Pushed Detail / Settings nav chrome (mock `.detail-nav`); horizontal = **`screenHorizontal`** |
 | **`tabBarScrollInset`** | **~104pt** | Bottom padding so list scrolls under liquid-glass tab bar |
 | **`galleryRowVertical`** | **~19pt** | Library gallery row padding |
 | **`highlightStackGap`** | **~14pt** | Vertical gap between highlights **within** same Notebook item (no hairline) |
@@ -142,8 +143,9 @@ Content type?
 | **`LibraryPipelineControlButton`** | §3.2.1 | Library actions row (pause/play) |
 | **`SettingsGroupedSurface`** | §3.10 | Settings (style only — preserve disclosure logic) |
 | **`ZoneSectionHeader`** | 17pt + 15pt subtitle | Detail AI zone, Settings |
-| **`DetailBackBarButton`** / **`DetailBackBarToolbarItem`** | Flat accent chevron only — **no** liquid-glass capsule (toolbar item **`.sharedBackgroundVisibility(.hidden)`**); **`.navigationBarBackButtonHidden(true)`** on push host; **~44pt** min row | Detail, Settings |
-| **`DetailShareToolbarItem`** | Flat **secondary** share SF symbol — **no** glass capsule (**`.sharedBackgroundVisibility(.hidden)`**); **~44pt** row | Detail push only |
+| **`DetailPushNavBar`** | Mock **`.detail-nav`**: **22pt** horizontal inset via **`.safeAreaInset(edge: .top)`** (chevron aligns with scroll content); **4pt** top / **8pt** bottom; **`.toolbar(.hidden, for: .navigationBar)`** on push host | Detail, Settings |
+| **`DetailBackBarButton`** / **`DetailShareBarButton`** | Flat chevron (accent) / share (secondary) — **no** glass; mock vertical **8pt** pad on chevron, **8pt** on share | Inside **`DetailPushNavBar`** |
+| **`DetailBackBarToolbarItem`** / **`DetailShareToolbarItem`** | Legacy toolbar slots — prefer **`DetailPushNavBar`** for 22pt alignment | — |
 
 ---
 

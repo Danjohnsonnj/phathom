@@ -32,5 +32,6 @@ Open locally in Safari. Files may be gitignored; keep in repo workspace for revi
 - On conflict: **`Phathom/` code** > `docs/decisions.md` > hand-off > mocks.
 - Mocks are **not exhaustive** — interactions omitted from HTML (tag edit, sheets, navigation) stay governed by shipped Swift + hand-off [§2.3](../docs/handoff/library-ui-evolution.md#23-agent-inference-mocks-are-not-exhaustive).
 - **Links:** always `a { text-decoration: none; color: inherit; }` in mock CSS (matches SwiftUI — no underlines).
-- **Push back (`.detail-nav-back`):** flat accent chevron only (`background: none`, no border/shadow/glass). **Not** a liquid-glass toolbar button — Swift uses `DetailBackBarToolbarItem` + `.sharedBackgroundVisibility(.hidden)`.
-- **Detail share (`.detail-nav-share`):** flat **secondary** icon only — `DetailShareToolbarItem` + `.sharedBackgroundVisibility(.hidden)`.
+- **Push nav (`.detail-nav`):** **22px** horizontal padding — back chevron leading edge aligns with scroll content (`--rhythm`). Swift: **`DetailPushNavBar`** + `.safeAreaInset(edge: .top)` (not system toolbar).
+- **Push back (`.detail-nav-back`):** flat accent chevron only (`background: none`, no border/shadow/glass).
+- **Detail share (`.detail-nav-share`):** flat **secondary** icon only — **8px** pad on icon.
