@@ -2,7 +2,7 @@
 
 > **Status:** **UI evolution rollout complete** (May 2026). Phases **0–4b** shipped. **Next:** product-directed work only — locked surfaces [§3–§12](library-ui-evolution.md); invariants in [`decisions.md`](../decisions.md) UI rows.
 >
-> **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](../../.design-mocks/)
+> **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](design-mocks/)
 >
 > **North star:** 22px rhythm · hairline gallery · editorial screen titles · filled cards for form/config only · preserved liquid-glass tab bar
 
@@ -203,7 +203,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 | `ContentCardRow` | `RelatedItemsSheet`, `RecentlyDeletedView` | Unchanged |
 | `HairlineHighlightRow` | `HighlightsNotesSection`, `HighlightNoteEditSheet` preview | 4a ✓ |
 | `HairlineHighlightRow` | `NotebookItemGroup` | 3b ✓ |
-| `HighlightCardView` | — | Unwired (superseded by `HairlineHighlightRow`; file may remain) |
+| `HighlightCardView` | — | Removed — superseded by `HairlineHighlightRow` |
 
 **Green-light:**
 
@@ -215,7 +215,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 ## 7. Phase 2 — Library (highest risk)
 
-**Goal:** Align with [`library-ad-search-b-toolbar.html`](../../.design-mocks/library-ad-search-b-toolbar.html) + [§3.1–§3.2.1](library-ui-evolution.md#3-locked-decisions-library) — SwiftUI, not HTML port.
+**Goal:** Align with [`library-ad-search-b-toolbar.html`](design-mocks/library-ad-search-b-toolbar.html) + [§3.1–§3.2.1](library-ui-evolution.md#3-locked-decisions-library) — SwiftUI, not HTML port.
 
 **Primary file:** [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift)
 
@@ -295,7 +295,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Shipped notes (closeout):**
 
-- **Empty state:** 17pt semibold title + 15pt hint; **24pt** bottom padding only — no extra top pad beyond `EditorialScreenTitle` **28pt** (see [`notebook-ad-hairline-feed-a.html`](../../.design-mocks/notebook-ad-hairline-feed-a.html) Empty frame).
+- **Empty state:** 17pt semibold title + 15pt hint; **24pt** bottom padding only — no extra top pad beyond `EditorialScreenTitle` **28pt** (see [`notebook-ad-hairline-feed-a.html`](design-mocks/notebook-ad-hairline-feed-a.html) Empty frame).
 - **Group header subtitle:** kind line (`Photo` / `Note` / host) per [§3.8](library-ui-evolution.md#38-locked-decisions-notebook) — **not** `GalleryListRow.sourceLine` (summary/media description).
 
 ---
@@ -310,7 +310,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Tasks:** `EditorialScreenTitle("Chat")` · **`AppSpacing.screenHorizontal`** · top inset per mock · two-tier empty copy · **`tabBarScrollInset`** on scroll (see §3)
 
-**Empty parity:** Match [§9 shipped empty typography](#9-phase-3b--notebook) + [§3.9](library-ui-evolution.md#39-locked-decisions-chat-placeholder) + [`notebook-ad-hairline-feed-a.html`](../../.design-mocks/notebook-ad-hairline-feed-a.html) Empty frame (editorial title → 17/15pt tiers; no card/hairline box).
+**Empty parity:** Match [§9 shipped empty typography](#9-phase-3b--notebook) + [§3.9](library-ui-evolution.md#39-locked-decisions-chat-placeholder) + [`notebook-ad-hairline-feed-a.html`](design-mocks/notebook-ad-hairline-feed-a.html) Empty frame (editorial title → 17/15pt tiers; no card/hairline box).
 
 **Green-light:**
 
@@ -376,7 +376,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 |-----|------|
 | [`library-ui-evolution.md`](library-ui-evolution.md) | Locked §3 per-surface decisions |
 | [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) | Tokens, material matrix, shared components |
-| [`.design-mocks/README.md`](../../.design-mocks/README.md) | Mock inventory |
+| [`.design-mocks/README.md`](design-mocks/README.md) | Mock inventory |
 | [`docs/decisions.md`](../decisions.md) | Product invariants — update per shipped phase |
 | [`AGENTS.md`](../../AGENTS.md) | Agent entry map |
 
@@ -384,74 +384,10 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 ---
 
-## 15. Cold start & rollout status {#15-cold-start--rollout-complete}
+## 15. Rollout status {#15-cold-start--rollout-complete}
 
-**UI evolution rollout complete** (May 2026). Phases **0–4b** shipped in Swift. Do **not** re-run surface swaps without product direction. New UI work: **`Phathom/`** + [`decisions.md`](../decisions.md) UI rows + locked [§3–§3.10](library-ui-evolution.md).
+**UI evolution rollout complete** (May 2026). Phases **0–4b** shipped in Swift. Do **not** re-run surface swaps without product direction.
 
-**Historical cold-start blocks:** archived below (Phase 4b → 4a → …). Stale links to `#15-cold-start--phase-0` should resolve here.
+**Agent cold-start for UI work:** **`Phathom/`** + [`decisions.md`](../decisions.md) UI rows (2026-05-30/31). Opt-in reference: [`library-ui-evolution.md`](library-ui-evolution.md) §3 · [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) · [`.design-mocks/`](design-mocks/).
 
-### Archive — Phase 4b cold start
-
-```
-GOAL: UI evolution Phase 4b — Settings push surface swap. Wire Phase 0 editorial + zone chrome.
-ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom
-
-READ (minimal):
-  1. docs/handoff/ui-evolution-implementation-plan.md §12 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
-  2. docs/handoff/library-ui-evolution.md §3.10
-  3. .design-mocks/settings-ad-grouped-a.html (visual reference)
-  4. Phathom/Phathom/Views/Settings/SettingsTab.swift
-
-WIRE (Phase 4b):
-  - EditorialScreenTitle("Settings") · screenHorizontal · ~4pt top · 28pt bottom
-  - DetailBackBarButton + .navigationBarBackButtonHidden(true) back-only · ZoneSectionHeader zone headers · 8pt gap before grouped cards
-  - 22pt inset · filled grouped surfaces preserved
-
-DO NOT: tab bar redesign · literal HTML port · disclosure IA changes
-
-VERIFY: ReadLints → bash scripts/build-phathom.sh sim → bash scripts/test-phathom.sh
-  Manual sim: back-only nav · zone typography · Configured / Primary unset / Missing file frames
-
-GREEN-LIGHT DONE WHEN: §12 green-light checklist passes
-
-THEN: Stop. UI evolution rollout complete.
-
-AUTHORITY: code > decisions.md > this plan > library-ui-evolution.md > mocks
-```
-
-(Phase 4b complete — see §12 green-light.)
-
-### Archive — Phase 4a cold start
-
-```
-GOAL: UI evolution Phase 4a — Detail push surface swap.
-... (Phase 4a complete — see §11 green-light)
-```
-
-### Archive — Phase 3c cold start
-
-```
-GOAL: UI evolution Phase 3c — Chat tab placeholder surface swap.
-... (Phase 3c complete — see §10 green-light)
-```
-
-### Archive — Phase 3a cold start
-
-```
-GOAL: UI evolution Phase 3a — Add New tab surface swap.
-... (Phase 3a complete — see §8 green-light)
-```
-
-### Archive — Phase 2 cold start
-
-```
-GOAL: UI evolution Phase 2 — Library surface swap (highest risk). Wire Phase 0–1 components.
-... (Phase 2 complete — see §7 green-light)
-```
-
-### Archive — Phase 1 cold start
-
-```
-GOAL: UI evolution Phase 1 — Shared row components. NO surface swaps.
-... (Phase 1 complete — see §6 green-light)
-```
+**Historical:** Per-phase cold-start blocks removed post-rollout (May 2026). Phase task lists and green-light checklists remain in §5–§12 above.

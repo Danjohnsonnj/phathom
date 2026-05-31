@@ -9,10 +9,9 @@ How the engineering skills should consume this repo's domain documentation when 
 3. **[`docs/decisions.md`](../decisions.md)** — locked invariants and decision log (ADR-equivalent; append-only). **Wins over CONTEXT on conflict.**
 4. **Active hand-offs** — read only when the task touches that scope:
    - [`docs/handoff/phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md) (RAG Chat roadmap)
-   - Other files under `docs/handoff/` only when the user directs.
 5. **[`README.md`](../../README.md)** — human orientation only.
 
-**Explicit opt-out:** [`docs/archive/`](../archive/) — do **not** bootstrap from archive. Shipped specs (e.g. [`library-bulk-selection.md`](../archive/library-bulk-selection.md), [`ui-design-refresh.md`](../archive/ui-design-refresh.md), [`media-vision-v1-qa.md`](../archive/media-vision-v1-qa.md)) live here for archaeology only.
+**Explicit opt-out:** [`docs/archive/`](../archive/) — do **not** bootstrap from archive. Shipped specs (e.g. [`library-bulk-selection.md`](../archive/library-bulk-selection.md), [`ui-design-refresh.md`](../archive/ui-design-refresh.md), [`library-ui-evolution.md`](../archive/library-ui-evolution.md), [`media-vision-v1-qa.md`](../archive/media-vision-v1-qa.md)) live here for archaeology only.
 
 **Layout:** single-context (no `CONTEXT-MAP.md`). No `docs/adr/` — use **`docs/decisions.md`** for rationale.
 

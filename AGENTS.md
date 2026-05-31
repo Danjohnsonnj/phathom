@@ -17,7 +17,8 @@ Read **minimal files per task:**
 | 1 | **`Phathom/`** | Shipped behavior, schema, Swift paths |
 | 2 | **[`CONTEXT.md`](CONTEXT.md)** | Domain glossary (names); links to decisions |
 | 3 | **[`docs/decisions.md`](docs/decisions.md)** | Invariants and rationale |
-| 4 | **Active hand-offs** | [`ui-evolution-implementation-plan.md`](docs/handoff/ui-evolution-implementation-plan.md) (**Phases 0–4b shipped** — [§15 rollout complete](docs/handoff/ui-evolution-implementation-plan.md#15-cold-start--rollout-complete)) · [`library-ui-evolution.md`](docs/handoff/library-ui-evolution.md) (locked §3) · [`ui-evolution-token-sheet.md`](docs/handoff/ui-evolution-token-sheet.md) · [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (out of scope) |
+| 4 | **Active hand-offs** | [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG Chat roadmap — not shipped) |
+| — | **UI evolution reference (archived, opt-in)** | [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) (locked §3) · [`ui-evolution-token-sheet.md`](docs/archive/ui-evolution-token-sheet.md) · [`ui-evolution-implementation-plan.md`](docs/archive/ui-evolution-implementation-plan.md) · [`design-mocks/`](docs/archive/design-mocks/) — Phases **0–4b shipped**; invariants in [`decisions.md`](docs/decisions.md) UI rows |
 | 5 | **[`README.md`](README.md)** | Human orientation |
 
 **Archive:** [`docs/archive/`](docs/archive/) — opt-in only; not for cold start.

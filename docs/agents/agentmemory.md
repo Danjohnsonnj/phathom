@@ -37,7 +37,8 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 | Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf, `[PhathomPipeline]` logs |
 | Schema | `ContentItem`, **`Category`**, `processingStatus` | `PhathomCore/` |
 | UI shell & pipeline bridge | `UI`, `LibraryTab`, `DetailView`, `CategoryPicker` | `Views/`, `ProcessingRecovery.swift`, `LibrarySearchService.swift` |
-| **UI evolution (discovery)** | `UI-evolution`, `design-mock-probe`, `design-mocks`, `HTML-probe`, `handoff`, `no-Swift`, `SwiftUI-target` | **Process:** [`design-mock-probe`](~/.cursor/skills/design-mock-probe/SKILL.md) + [`design-mock-probe-pointer.md`](design-mock-probe-pointer.md) · **Particulars:** [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) · [`.design-mocks/README.md`](../../.design-mocks/README.md) |
+| **UI evolution (shipped May 2026)** | `UI-evolution`, `AppSpacing`, `HairlineHighlightRow`, `EditorialScreenTitle` | **Invariants:** [`decisions.md`](../decisions.md) UI rows · **Reference (opt-in):** [`library-ui-evolution.md`](../archive/library-ui-evolution.md) §3 · [`ui-evolution-token-sheet.md`](../archive/ui-evolution-token-sheet.md) · [`design-mocks/README.md`](../archive/design-mocks/README.md) |
+| **UI evolution — design probes (historical process)** | `design-mock-probe`, `HTML-probe`, `SwiftUI-target` | Skill [`design-mock-probe`](~/.cursor/skills/design-mock-probe/SKILL.md) + [`design-mock-probe-pointer.md`](design-mock-probe-pointer.md) — reference mode only post-rollout |
 | UI design refresh (shipped v1) | `tokens`, `AppPalette`, `IA` | [`ui-design-refresh.md`](../archive/ui-design-refresh.md) — historical only |
 | Bulk library select | batch archive undo | [`library-bulk-selection.md`](../archive/library-bulk-selection.md), `MainTabView` |
 | Archived docs | `history` | [`archive/README.md`](../archive/README.md) — opt-in only |
@@ -84,9 +85,9 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 
 > Recall Phathom UI architecture memory. Task: [one sentence]. Read only affected Views + pipeline hooks (`ProcessingRecovery`, `BackgroundPipeline`).
 
-**UI evolution — design discovery (HTML mocks)**
+**UI evolution — reference (post-rollout)**
 
-> Follow global skill **`design-mock-probe`** + Phathom pointer [`design-mock-probe-pointer.md`](design-mock-probe-pointer.md). Recall `design-mock-probe` / `UI-evolution` (process gist only). Read [`library-ui-evolution.md`](../handoff/library-ui-evolution.md) §2.2–§2.3 + locked §§. HTML = visual reference, not implementation spec. **No Swift** unless green-lit.
+> Rollout complete May 2026 (Phases 0–4b). Cold-start UI from **`Phathom/`** + [`decisions.md`](../decisions.md) UI rows. Opt-in §3/tokens: [`library-ui-evolution.md`](../archive/library-ui-evolution.md) · [`ui-evolution-token-sheet.md`](../archive/ui-evolution-token-sheet.md). Archived HTML mocks: [`design-mocks/`](../archive/design-mocks/) (visual reference only).
 
 ---
 

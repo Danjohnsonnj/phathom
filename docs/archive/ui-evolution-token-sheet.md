@@ -1,10 +1,10 @@
 # UI Evolution — Cross-Surface Token Sheet
 
-> **Role:** Consolidated **spacing, type, palette, and material** reference distilled from locked discovery ([`library-ui-evolution.md`](library-ui-evolution.md) §3–§3.10 + §4). **Input** to a multi-phased implementation plan — **not** a build spec and **not** a substitute for surface-level locked tables.
+> **Role:** Consolidated **spacing, type, palette, and material** reference distilled from locked discovery ([`library-ui-evolution.md`](library-ui-evolution.md) §3–§3.10 + §4). **Reference only** — not a build spec; surface locks stay in §3 tables.
 >
-> **Status:** Complete (May 2026). Discovery HTML locked; Safari review done.
+> **Status:** Shipped (May 2026). **`AppSpacing`** / **`AppPalette`** in code are authoritative for tokens.
 >
-> **Use with:** Canonical mocks in [`.design-mocks/`](../../.design-mocks/) · shipped code in **`Phathom/`** · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
+> **Use with:** Canonical mocks in [`.design-mocks/`](design-mocks/) · shipped code in **`Phathom/`** · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
 
 ---
 
@@ -14,10 +14,10 @@
 |-------|---------|
 | **[`library-ui-evolution.md`](library-ui-evolution.md)** | Locked per-surface decisions, behavior, mocks, rejections |
 | **This doc** | Cross-surface tokens + chrome/material matrix + shared components |
-| **Implementation plan** | [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) — **approved**; cold start → Phase 0 |
-| **`Phathom/` code** | Shipped behavior until implementation lands |
+| **Implementation plan** | [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) — **shipped** Phases 0–4b |
+| **`Phathom/` code** | Authoritative for spacing/token drift vs this sheet |
 
-**Do not** implement surface-by-surface by copying §3 prose into Swift. Plan phases first (shared tokens → shared rows → tab roots → pushed surfaces).
+**Do not** re-run phase surface swaps from the archived plan. New UI work: code + [`decisions.md`](../decisions.md) UI rows + [`library-ui-evolution.md`](library-ui-evolution.md) §3.
 
 ---
 
@@ -206,4 +206,4 @@ Items called out across §3 — **Library rows locked May 2026** during implemen
 | [`library-ui-evolution.md`](library-ui-evolution.md) | Discovery authority — locked §3 tables |
 | [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) | **Shipped** Phases 0–4b — [§15 rollout complete](ui-evolution-implementation-plan.md#15-cold-start--rollout-complete) |
 | [`docs/decisions.md`](../decisions.md) | Append product commitments when phases ship |
-| [`.design-mocks/README.md`](../../.design-mocks/README.md) | Mock inventory & CSS conventions |
+| [`.design-mocks/README.md`](design-mocks/README.md) | Mock inventory & CSS conventions |
