@@ -97,6 +97,8 @@ struct HighlightNoteEditSheet: View {
                     }
                     .buttonStyle(.bordered)
                 }
+                .fixedSize(horizontal: false, vertical: true)
+                .phathomSheetHeightMeasurable()
                 .padding(.horizontal, AppSpacing.screenHorizontal)
                 .padding(.vertical, 16)
             }
@@ -113,5 +115,6 @@ struct HighlightNoteEditSheet: View {
             }
             .onAppear { noteDraft = highlight.userNote ?? "" }
         }
+        .phathomSheetPresentation()
     }
 }

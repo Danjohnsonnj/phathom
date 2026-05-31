@@ -55,7 +55,7 @@ Slash vs ask; pipeline order. See [`docs/agents/skills-cheatsheet.md`](docs/agen
 
 Optional **agentmemory** MCP for cross-session recall — **not required** to work in this repo (`docs/decisions.md`, `CONTEXT.md`, and code are sufficient).
 
-- **Session start:** Probe MCP (e.g. list tools on `user-agentmemory`). If available → recall task domain silently; say **"Using agent memory MCP."** once if your host rules require it.
+- **Session start:** Probe MCP with **`memory_recall`** on server **`user-agentmemory`** (read tool schema first — see [`agentmemory.md`](docs/agents/agentmemory.md#obligations); tool-not-found ≠ unavailable). If available → recall task domain silently; say **"Using agent memory MCP."** once if your host rules require it.
 - **If unavailable or errors:** Tell the user **once per session** — not a blocker; repo docs are authoritative. Use the notice in [`docs/agents/agentmemory.md`](docs/agents/agentmemory.md#when-mcp-is-unavailable). Then proceed without retrying unless the user asks.
 - **Playbook:** [`docs/agents/agentmemory.md`](docs/agents/agentmemory.md)
 

@@ -670,19 +670,33 @@ struct SettingsContent: View {
 
     private var importErrorDetailsSheet: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                ScrollView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
                     Text(importErrorDetails ?? "")
                         .font(.footnote.monospaced())
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button {
+                        UIPasteboard.general.string = importErrorDetails ?? ""
+                    } label: {
+                        Text("Copy details to clipboard")
+                            .font(.subheadline.weight(.semibold))
+                            .phathomCapsuleCTALabel()
+                            .foregroundStyle(AppPalette.floralWhite)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(AppPalette.accent)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                Button("Copy details to clipboard") {
-                    UIPasteboard.general.string = importErrorDetails ?? ""
-                }
-                .buttonStyle(.borderedProminent)
+                .fixedSize(horizontal: false, vertical: true)
+                .phathomSheetHeightMeasurable()
+                .padding(.horizontal, AppSpacing.screenHorizontal)
+                .padding(.vertical, 16)
             }
-            .padding()
+            .background(AppPalette.background)
             .navigationTitle("Import error details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -695,6 +709,7 @@ struct SettingsContent: View {
                 }
             }
         }
+        .phathomSheetPresentation()
         .tint(AppPalette.accent)
     }
 

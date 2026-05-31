@@ -100,7 +100,7 @@ HTML probes **do not** depict every interaction (tag editing, category picker, s
 | **Mock silent ≠ cut feature** | If shipped code supports it and this hand-off does not reject it, **keep behavior**; only restyle to match locked material/chrome. |
 | **Mock silent + hand-off says “not v1” / out of scope** | Do **not** add UI (e.g. Notebook search, Chat RAG). |
 | **Mock silent + “resolve at implementation”** | Choose the option that matches north star + nearest locked surface; document in PR if ambiguous. |
-| **Cross-surface editors** | Tag edit, category, read status, summarize/archive, source web highlight — **Detail (and Settings)** only unless a probe adds them elsewhere. |
+| **Cross-surface editors** | Tag edit ([**`TagEditSheet`**](../../Phathom/Phathom/Views/Detail/TagEditSheet.swift) — form-editor family per [`design-tokens.md`](../design-tokens.md) §6.1), category, read status, summarize/archive, source web highlight — **Detail (and Settings)** only unless a probe adds them elsewhere. |
 | **Shared components** | One hairline highlight row for Detail + Notebook when §3.6 + §3.8 align — do not fork fill/rail/typography per tab. |
 
 **Notebook-specific (preserve at implementation — not required in HTML mock):** [`NotebookHighlightsQuery`](../../Phathom/Phathom/Services/NotebookHighlightsQuery.swift) grouping/sort; header tap → `DetailView` push; highlight tap → [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift); **no** Library search/filters/swipe/Settings; **no** tag/category UI on Notebook; empty-state copy; `quotedLineLimit: 3` / `noteLineLimit: 2` on feed only; do not load `sourceMarkdown` in list rows. Historical v1 spec: [`docs/archive/notebook-tab.md`](../archive/notebook-tab.md).

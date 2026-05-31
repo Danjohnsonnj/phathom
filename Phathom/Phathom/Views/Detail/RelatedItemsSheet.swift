@@ -29,30 +29,42 @@ struct RelatedItemsSheet: View {
         max(stage1Related.count, 3)
     }
 
+    private var isEmptyState: Bool {
+        bucketsLoaded && exactMatches.isEmpty && displayedRelated.isEmpty && !isRanking
+    }
+
     var body: some View {
         NavigationStack {
-            content
-                .background(AppPalette.background)
-                .navigationTitle("Related to \"\(tappedTag.name)\"")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    FlatToolbarTextItem(
-                        title: "Done",
-                        placement: .topBarTrailing,
-                        foreground: AppPalette.accent,
-                        action: { dismiss() }
-                    )
-                }
+            ScrollView {
+                sheetBody
+                    .fixedSize(horizontal: false, vertical: true)
+                    .phathomSheetHeightMeasurable()
+            }
+            .background(AppPalette.background)
+            .navigationTitle("Related to \"\(tappedTag.name)\"")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                FlatToolbarTextItem(
+                    title: "Done",
+                    placement: .topBarTrailing,
+                    foreground: AppPalette.accent,
+                    action: { dismiss() }
+                )
+            }
         }
+        .phathomSheetPresentation()
         .task { await runPipeline() }
     }
 
     @ViewBuilder
-    private var content: some View {
-        if !bucketsLoaded {
-            stateView { ProgressView().controlSize(.regular) }
-        } else if exactMatches.isEmpty, displayedRelated.isEmpty, !isRanking {
-            stateView {
+    private var sheetBody: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if !bucketsLoaded {
+                ProgressView()
+                    .controlSize(.regular)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+            } else if isEmptyState {
                 VStack(spacing: 8) {
                     Image(systemName: "tag")
                         .font(.title2)
@@ -61,15 +73,9 @@ struct RelatedItemsSheet: View {
                         .font(.subheadline)
                         .foregroundStyle(AppPalette.textSecondary)
                 }
-            }
-        } else {
-            resultsScroll
-        }
-    }
-
-    private var resultsScroll: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+            } else {
                 if !exactMatches.isEmpty {
                     sectionBlock(title: "With this tag") {
                         ForEach(exactMatches, id: \.id) { item in
@@ -92,9 +98,9 @@ struct RelatedItemsSheet: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
     }
 
     private func sectionBlock<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -147,15 +153,6 @@ struct RelatedItemsSheet: View {
             .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
             .padding(.trailing, trailing)
             .accessibilityHidden(true)
-    }
-
-    private func stateView<V: View>(@ViewBuilder _ body: () -> V) -> some View {
-        VStack {
-            Spacer()
-            body()
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func runPipeline() async {

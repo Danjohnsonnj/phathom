@@ -25,31 +25,36 @@ struct CategoryPicker: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Button {
-                    complete(nil)
-                } label: {
-                    Text("Uncategorized")
-                        .foregroundStyle(AppPalette.textPrimary)
-                }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    Button {
+                        complete(nil)
+                    } label: {
+                        categoryRowLabel("Uncategorized")
+                    }
+                    .buttonStyle(.plain)
 
-                if !sortedCategoriesExceptUncategorizedRows.isEmpty {
-                    Section("Categories") {
-                        ForEach(sortedCategoriesExceptUncategorizedRows, id: \.name) { cat in
+                    if !sortedCategoriesExceptUncategorizedRows.isEmpty {
+                        pickerSectionHeader("Categories")
+                        ForEach(Array(sortedCategoriesExceptUncategorizedRows.enumerated()), id: \.element.name) { index, cat in
                             Button {
                                 complete(cat)
                             } label: {
-                                Text(CategoryDisplayFormatter.displayName(cat.name))
-                                    .foregroundStyle(AppPalette.textPrimary)
+                                categoryRowLabel(CategoryDisplayFormatter.displayName(cat.name))
+                            }
+                            .buttonStyle(.plain)
+                            if index < sortedCategoriesExceptUncategorizedRows.count - 1 {
+                                categoryRowHairline
                             }
                         }
                     }
-                }
 
-                Section("New category") {
+                    pickerSectionHeader("New category")
                     TextField("Name", text: $newDraft)
                         .textInputAutocapitalization(.words)
                         .foregroundStyle(AppPalette.textPrimary)
+                        .padding(.horizontal, AppSpacing.screenHorizontal)
+                        .padding(.vertical, 12)
 
                     Button {
                         guard let norm = CategoryDisplayFormatter.normalize(newDraft) else { return }
@@ -57,10 +62,17 @@ struct CategoryPicker: View {
                     } label: {
                         Text("Create and use")
                             .foregroundStyle(AppPalette.accent)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, AppSpacing.screenHorizontal)
+                            .padding(.vertical, 12)
                     }
+                    .buttonStyle(.plain)
                     .disabled(CategoryDisplayFormatter.normalize(newDraft) == nil)
                 }
+                .fixedSize(horizontal: false, vertical: true)
+                .phathomSheetHeightMeasurable()
             }
+            .background(AppPalette.background)
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -77,6 +89,32 @@ struct CategoryPicker: View {
                 }
             }
         }
+        .phathomSheetPresentation()
+    }
+
+    private func pickerSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(AppPalette.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, AppSpacing.screenHorizontal)
+            .padding(.top, 20)
+            .padding(.bottom, 8)
+    }
+
+    private func categoryRowLabel(_ title: String) -> some View {
+        Text(title)
+            .foregroundStyle(AppPalette.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, AppSpacing.screenHorizontal)
+            .padding(.vertical, 12)
+    }
+
+    private var categoryRowHairline: some View {
+        Rectangle()
+            .fill(AppPalette.hairline)
+            .frame(height: 1)
+            .padding(.leading, AppSpacing.screenHorizontal)
     }
 
     private var sortedCategoriesExceptUncategorizedRows: [PhathomCore.Category] {

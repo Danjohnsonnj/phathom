@@ -20,7 +20,7 @@ struct DetailView: View {
     @State private var relatedSheetTag: Tag?
     @State private var isTagEditMode = false
     @State private var isTagEditorPresented = false
-    @State private var tagEditorMode: TagEditorMode = .add
+    @State private var tagEditorMode: TagEditSheetMode = .add
     @State private var tagEditorDraft = ""
     @State private var tagEditorErrorMessage: String?
     @State private var delaySummarizeDisable = false
@@ -109,7 +109,7 @@ struct DetailView: View {
             }
         }
         .sheet(isPresented: $isTagEditorPresented) {
-            TagEditorSheetView(
+            TagEditSheet(
                 title: tagEditorMode.title,
                 text: $tagEditorDraft,
                 showsDelete: tagEditorMode.isEditingExistingTag,
@@ -127,7 +127,6 @@ struct DetailView: View {
                 modelContext: modelContext,
                 onDismiss: { noteEditHighlight = nil }
             )
-            .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $pendingFileCategorySheet, onDismiss: detailFileCategoryOnDismiss) {
             CategoryPicker { picked in
@@ -310,7 +309,7 @@ struct DetailView: View {
         tagEditorErrorMessage = nil
     }
 
-    private func saveTagChanges(for sheet: TagEditorMode) {
+    private func saveTagChanges(for sheet: TagEditSheetMode) {
         guard let normalized = TagNameNormalizer.normalize(tagEditorDraft) else {
             tagEditorErrorMessage = "Tag format invalid."
             return
@@ -337,7 +336,7 @@ struct DetailView: View {
         dismissTagEditor()
     }
 
-    private func deleteTag(for sheet: TagEditorMode) {
+    private func deleteTag(for sheet: TagEditSheetMode) {
         guard case let .edit(originalTagName) = sheet else { return }
         item.tags.removeAll(where: { $0.name == originalTagName })
         do {
@@ -927,92 +926,6 @@ private extension View {
         }
         .padding(.horizontal, AppSpacing.screenHorizontal)
         .padding(.bottom, vertical.bottom)
-    }
-}
-
-private enum TagEditorMode {
-    case add
-    case edit(originalTagName: String)
-
-    var title: String {
-        switch self {
-        case .add:
-            return "Add Tag"
-        case .edit:
-            return "Edit Tag"
-        }
-    }
-
-    var isEditingExistingTag: Bool {
-        if case .edit = self { return true }
-        return false
-    }
-}
-
-private struct TagEditorSheetView: View {
-    let title: String
-    @Binding var text: String
-    let showsDelete: Bool
-    let saveLabel: String
-    let onSave: () -> Void
-    let onDelete: (() -> Void)?
-    let onCancel: () -> Void
-    let validationMessage: String?
-    let errorMessage: String?
-
-    private var normalizedDraft: String? {
-        TagNameNormalizer.normalize(text)
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                TextField("Tag", text: $text)
-                    .textFieldStyle(.roundedBorder)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                if let validationMessage {
-                    Text(validationMessage)
-                        .font(.caption)
-                        .foregroundStyle(AppPalette.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                HStack(spacing: 10) {
-                    Button(action: onCancel) {
-                        Text("Cancel")
-                            .phathomToolbarTextLabel()
-                    }
-                    .buttonStyle(.bordered)
-
-                    if showsDelete, let onDelete {
-                        Button(role: .destructive, action: onDelete) {
-                            Text("Delete")
-                                .phathomToolbarTextLabel()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-
-                    Button(action: onSave) {
-                        Text(saveLabel)
-                            .phathomToolbarTextLabel()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(normalizedDraft == nil)
-                }
-            }
-            .padding(16)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-        }
     }
 }
 

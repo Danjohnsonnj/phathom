@@ -74,7 +74,6 @@ struct NotebookTab: View {
                 modelContext: modelContext,
                 onDismiss: { noteEditHighlight = nil }
             )
-            .presentationDetents([.medium, .large])
         }
     }
 

@@ -153,11 +153,100 @@ All tappable full-width actions use **`Capsule()`** geometry unless listed as an
 | **Settings push** | **Back only** (Detail back styling) | Editorial **Settings** in scroll | Hidden | Unified; back fixed above scroll |
 | **Library at rest** | Select · Pipeline · Search · Settings | **Library** editorial | Visible | Unified |
 | **Library search active** | Pinned search over actions band (pipeline hidden) | Same | Visible | Content scrolls under pinned bar |
-| **Sheet / modal toolbar** | Flat accent/destructive text (Close, Cancel, Done) | Inline `navigationTitle` | System nav visible | Sheet body scrolls |
+| **Sheet / modal toolbar** | Flat accent/destructive text (**Close** form editors · **Cancel** / **Done** pickers · **Done** diagnostics) | Inline `navigationTitle` | System nav visible | Sheet body scrolls |
 
 **Tab bar (preserved):** Library · Notebook · Chat · Add new — do not redesign.
 
 **Push vs sheet toolbar:** Custom **`DetailPushNavBar`** in **`.safeAreaInset`** is already flat (no modifier). System **`NavigationStack` `.toolbar`** text/icon items require **`.sharedBackgroundVisibility(.hidden)`** via **`FlatToolbarTextItem`** (iOS 26 liquid-glass off).
+
+### 6.1 Editor, picker & diagnostic sheets
+
+Three families for all `.sheet(` presentations in **`Phathom/`**. Cross-link §5.1 (capsule CTAs; bordered destructive only for highest-severity actions — highlight **Remove highlight**).
+
+#### Inventory
+
+| Surface | Component | Family | Call sites |
+|---------|-----------|--------|------------|
+| Detail, Notebook | **`HighlightNoteEditSheet`** | Form editor | `DetailView`, `NotebookTab` — **`phathomSheetPresentation()`** |
+| Detail | **`TagEditSheet`** | Form editor | `DetailView` — **`phathomSheetPresentation()`** |
+| Detail, Library | **`CategoryPicker`** | List picker | `DetailView` ×2, `LibraryTab` swipe + bulk — unified shell |
+| Detail | **`RelatedItemsSheet`** | List picker | `DetailView` — unified shell |
+| Settings | **`importErrorDetailsSheet`** (`SettingsTab`) | Read-only diagnostic | `SettingsTab` — unified shell |
+
+*Push only:* **`RecentlyDeletedView`** — not a sheet.
+
+**All five sheet roots** above use the **unified shell** + measured detents (§ below). Do not add per-sheet detent logic.
+
+#### Sheet sizing
+
+Canonical implementation: [`PhathomSheetPresentation.swift`](../../Phathom/Phathom/Helpers/PhathomSheetPresentation.swift). All sheet roots use the **unified shell** on outermost **`NavigationStack`**:
+
+```text
+NavigationStack {
+  ScrollView {
+    VStack | LazyVStack  // sheet body
+      .fixedSize(horizontal: false, vertical: true)
+      .phathomSheetHeightMeasurable()
+  }
+  // .background, .navigationTitle, .toolbar on ScrollView
+}
+.phathomSheetPresentation()
+```
+
+- **Measure** — inner **`VStack` / `LazyVStack` only** (never `NavigationStack`, never outer `ScrollView`). Always **`fixedSize(horizontal: false, vertical: true)`** on the measure stack.
+- **Initial height** — measured **`.height`** detent from `SheetContentHeightKey` preference + constants below.
+- **Overflow** — internal **`ScrollView`** scrolls when content exceeds cap (sheet stays at cap height; body scrolls inside).
+- **Drag** — **`.presentationDetents([.height(…), .large])`** + drag indicator; programmatic height updates pause after user drags to **`.large`** (`userExpandedToLarge` in helper).
+- **API** — **`phathomSheetHeightMeasurable()`** on measure stack; **`phathomSheetPresentation()`** on **`NavigationStack`** only. No other sheet sizing modifiers.
+- **Parents** — `.sheet { }` call sites do **not** set detents or sizing.
+
+**Helper constants** (`PhathomSheetMetrics` — single source in helper file):
+
+| Constant | Value | Role |
+|----------|-------|------|
+| `navBarAllowance` | **56pt** | Added to reported stack height for inline nav bar |
+| `minSheetHeight` | **200pt** | Floor (avoids zero-height flash on first layout) |
+| `maxSheetHeight` | **92%** of screen height | Cap; content scrolls inside beyond this |
+
+**Anti-patterns (sheet sizing):**
+
+- **`presentationSizing(.fitted…)`** alone — does not set initial detent when paired with only **`.large`**; sheets open full screen.
+- **`frame(maxHeight: .infinity)`** on sheet root — fights content-fit detents.
+- Detents or sizing on **`.sheet { }`** parents — double-application / fighting helper.
+- Measuring **`NavigationStack`** or outer **`ScrollView`** — wrong height (always use inner stack).
+- Native **`List`** on picker sheets — breaks unified measurement; use **`ScrollView` → `LazyVStack`** (**`CategoryPicker`**).
+- Per-sheet custom detent math outside **`PhathomSheetPresentation.swift`**.
+
+**`TextEditor` note:** intrinsic height often under-reports; if form-editor CTAs clip at open, measure a wrapper that includes explicit **`minHeight`** (e.g. highlight note field **140pt**), not raw editor geometry alone.
+
+#### Form editor sheet
+
+User edits fields; explicit **Save** in body. Reference: **`HighlightNoteEditSheet`**, **`TagEditSheet`**.
+
+- **`NavigationStack`**, inline title, **`AppPalette.background`** on scroll content.
+- Toolbar: **`FlatToolbarTextItem`** **Close**, `.cancellationAction`, accent — no duplicate Cancel/Save in toolbar.
+- Body: **always `ScrollView` → bounded `VStack(spacing: 16)`** → **`AppSpacing.screenHorizontal`** + 16pt vertical (same shell for Tag and Highlight).
+- Optional read-only context block above field (highlight quote row).
+- Input: **`surfaceNested`** well, 12pt continuous radius, 10pt pad — not `.roundedBorder`.
+- Validation → `.caption` + `textSecondary`; errors → `.caption` + red.
+- Actions (vertical, full width, `.buttonStyle(.plain)`): **Save** accent capsule; optional **Delete …** `surfaceNested` capsule (edit mode).
+- Anti-patterns: HStack `.bordered` / `.borderedProminent`; 16pt generic padding instead of **`screenHorizontal`**.
+
+#### List picker sheet
+
+User picks from list or creates via row. Reference: **`CategoryPicker`**, **`RelatedItemsSheet`**.
+
+- **`FlatToolbarTextItem`** **Cancel** (dismiss-only or pass-through via `toolbarCancelPassesSelection`) or **Done** (read-only browse).
+- **Unified shell** (above): **`ScrollView` → `LazyVStack` or `VStack`** with section header **`Text`** (`.headline`); row **`Button`s** with **`textPrimary`**; optional **`AppPalette.hairline`** between dense rows (**`CategoryPicker`**).
+- **Create and use** accent label for inline create (**`CategoryPicker`**).
+
+#### Read-only diagnostic sheet
+
+Non-editable content + one utility action. Reference: Settings **`importErrorDetailsSheet`**.
+
+- **`FlatToolbarTextItem`** **Done**, accent.
+- **Unified shell** (above): **`ScrollView` → `VStack`** with **`screenHorizontal`** + 16pt vertical; monospaced read-only text with **`.textSelection(.enabled)`**.
+- Single full-width accent capsule for utility action (e.g. **Copy details to clipboard**). No input well.
 
 ---
 
@@ -169,6 +258,12 @@ All tappable full-width actions use **`Capsule()`** geometry unless listed as an
 | **`HairlineHighlightRow`** | §3.6 + §3.8 | Detail, Notebook |
 | **`HairlineCapsuleButton`** | §5.1 | Detail bottom actions, failed Retry |
 | **`FlatToolbarTextButton`** / **`FlatToolbarTextItem`** | §5.1 / §6 | Sheet toolbars — Close, Cancel, Done, Delete All |
+| **`HighlightNoteEditSheet`** | §6.1 | Detail, Notebook — form editor reference |
+| **`TagEditSheet`** | §6.1 | Detail — tag add/edit form editor |
+| **`CategoryPicker`** | §6.1 | Detail category, Library swipe/bulk file — list picker reference |
+| **`RelatedItemsSheet`** | §6.1 | Detail tag tap — list picker |
+| **`phathomSheetHeightMeasurable()`** | §6.1 | On inner measure stack — reports height preference |
+| **`phathomSheetPresentation()`** | §6.1 | On sheet-root **`NavigationStack`** — measured `.height` + `.large` detents |
 | **`phathomToolbarTextLabel`** / **`phathomCapsuleCTALabel`** | §5.1 | Shared `Text` sizing — no CTA truncation |
 | **`GalleryListRow`** | §3.4 | Library |
 | **`NotebookItemGroupHeader`** | §3.8 | Notebook |

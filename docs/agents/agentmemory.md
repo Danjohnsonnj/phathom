@@ -8,7 +8,7 @@ Recall at session start for the task domain; save after architectural decisions,
 
 ## Obligations
 
-1. **Session start:** Check whether **agentmemory** MCP is installed and responding (tool list or a lightweight recall). If **available** → recall for the task domain before broad file reads; announce per host rules if required. If **unavailable** → notify the user once (see below); **do not treat as failure** — continue with repo docs and code.
+1. **Session start:** Check whether **agentmemory** MCP is installed and responding. **Probe:** server **`user-agentmemory`**, tool **`memory_recall`** — read the tool schema under `mcps/user-agentmemory/tools/` (or list tools) before calling; do **not** guess names like `search_memories`. A **tool-not-found** error means the wrong tool name, **not** that the server is unavailable. Lightweight probe: `memory_recall` with a short query (e.g. task domain), `limit: 1`, `format: compact`. If **available** → recall for the task domain before broad file reads; announce per host rules if required. If **unavailable** → notify the user once (see below); **do not treat as failure** — continue with repo docs and code.
 2. **Authority:** Memory is a gist — never overrides decisions or Swift sources. Read full `docs/decisions.md` for cross-cutting inference/schema/backup edge cases.
 3. **Save after:** final architectural choices, perf root-causes, must-not constraints — **only when MCP is available**.
 4. **Format:** bullets tagged with concepts (`pipeline`, `KV-cache`, `decisions`); not pasted doc paragraphs.
