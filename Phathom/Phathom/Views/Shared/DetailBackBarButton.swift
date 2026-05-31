@@ -74,6 +74,7 @@ struct DetailPushNavBar<Trailing: View>: View {
         .padding(.bottom, AppSpacing.pushNavBarBottom)
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .center)
         .background(AppPalette.background)
+        .background(NavigationInteractivePopEnabler())
     }
 }
 

@@ -155,6 +155,8 @@ All tappable full-width actions use **`Capsule()`** geometry unless listed as an
 
 **Push vs sheet toolbar:** Custom **`DetailPushNavBar`** in **`.safeAreaInset`** is already flat (no modifier). System **`NavigationStack` `.toolbar`** text/icon items require **`.sharedBackgroundVisibility(.hidden)`** via **`FlatToolbarTextItem`** (iOS 26 liquid-glass off).
 
+**Push edge-swipe back:** Hiding the system back button disables UIKit's interactive pop gesture. **`NavigationInteractivePopEnabler`** is attached on **`DetailPushNavBar`** — preserve when adding push screens that use custom back chrome. See [`decisions.md`](decisions.md) **2026-05-31 Push nav — interactive edge-swipe back**.
+
 ### 6.1 Editor, picker & diagnostic sheets
 
 Three families for all `.sheet(` presentations in **`Phathom/`**. Cross-link §5.1 (capsule CTAs; bordered destructive only for highest-severity actions — highlight **Remove highlight**).
@@ -267,7 +269,8 @@ Non-editable content + one utility action. Reference: Settings **`importErrorDet
 | **`LibraryPipelineControlButton`** | Pause/play in actions row | Library |
 | **`settingsGroupedSurface()`** | Private **`ViewBuilder`** on **`SettingsTab`** — filled `#403d39` grouped card with inset hairlines (not a shared type) | Settings |
 | **`ZoneSectionHeader`** | 17pt zone parent + optional 15pt subtitle | Detail AI zone, Settings |
-| **`DetailPushNavBar`** | **22pt** horizontal inset via **`.safeAreaInset(edge: .top)`**; **4pt** top / **8pt** bottom; **`.toolbar(.hidden, for: .navigationBar)`** on push host | Detail, Settings |
+| **`DetailPushNavBar`** | **22pt** horizontal inset via **`.safeAreaInset(edge: .top)`**; **4pt** top / **8pt** bottom; **`.toolbar(.hidden, for: .navigationBar)`** + **`.navigationBarBackButtonHidden(true)`** on push host; includes **`NavigationInteractivePopEnabler`** for edge-swipe back | Detail, Settings |
+| **`NavigationInteractivePopEnabler`** | UIKit bridge re-enabling **`interactivePopGestureRecognizer`** when system back is hidden | Wired on **`DetailPushNavBar`** (do not duplicate on push hosts) |
 | **`DetailBackBarButton`** / **`DetailShareBarButton`** | Flat chevron (accent) / share (secondary) — **no** glass | Inside **`DetailPushNavBar`** |
 | **`DetailBackBarToolbarItem`** / **`DetailShareToolbarItem`** | Legacy toolbar slots — prefer **`DetailPushNavBar`** for 22pt alignment | — |
 
@@ -297,6 +300,7 @@ Non-editable content + one utility action. Reference: Settings **`importErrorDet
 | Verify per [`.cursor/rules/simulator-verify.mdc`](../../.cursor/rules/simulator-verify.mdc) | Parallel Llama / RAG scope |
 | Use **`Capsule()`** for button shapes per §5.1 | Overlay hairline strokes on system `Picker.segmented` / `UISegmentedControl` |
 | Apply **`.sharedBackgroundVisibility(.hidden)`** on every custom **`NavigationStack` `.toolbar`** text/icon item (`FlatToolbarTextItem`) | Raw `ToolbarItem { Button("Cancel") }` without hidden shared background on iOS 26 |
+| Keep **`NavigationInteractivePopEnabler`** on **`DetailPushNavBar`** (or re-enable pop when hiding system back on new push screens) | `.navigationBarBackButtonHidden(true)` without restoring interactive pop |
 | Size toolbar / CTA labels so the full string is visible (`phathomToolbarTextLabel` / `phathomCapsuleCTALabel`) | `.truncationMode(.tail)` or single-line truncation on button labels |
 
 ---
