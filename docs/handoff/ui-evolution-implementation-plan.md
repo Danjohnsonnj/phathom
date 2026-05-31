@@ -1,6 +1,6 @@
 # UI Evolution — Implementation Plan
 
-> **Status:** **Phase 3a shipped** (May 2026). **Next session:** green-light **Phase 3b** ([§9](#9-phase-3b--notebook)). Phases 3c–4b: one phase per session unless user re-confirms.
+> **Status:** **Phase 3b shipped** (May 2026). **Next session:** green-light **Phase 3c** ([§10](#10-phase-3c--chat-placeholder)). Phases 4a–4b: one phase per session unless user re-confirms.
 >
 > **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](../../.design-mocks/)
 >
@@ -172,7 +172,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 | **`EditorialScreenTitle`** | 34pt semibold title + default **`editorialTitleBottom` (28pt)** | Horizontal **`AppSpacing.screenHorizontal`** · **top inset** (tab roots **~12pt** — [§3](#3-rollout-policy); Settings **~4pt** → Phase 4b) · when parent **`VStack`** owns title→content gap via **`sectionVerticalGap`**, pass **`bottomSpacing: 0`** (Add New Phase 3a; avoid double 28+24) |
 | **`ZoneSectionHeader`** | 17pt **semibold** title + optional 15pt subtitle | **8pt** gap before grouped content (Settings Phase 4b) · subsection tier stays **`DetailAISubsectionHeader`** (Phase 4a) |
 | **`DetailBackBarButton`** | Accent chevron, `.plain`, default `dismiss()` | Toolbar placement · **~44pt** min row / vertical padding per mock · optical check vs system back (Phase 4a Detail, Phase 4b Settings) |
-| **`HairlineHighlightRow`** | 4px bar, italic quote (primary), uppercase **Note** label | Note body **secondary** (mock) · horizontal inset on parent · **`showsBottomHairline: false`** on last row in a section (Detail Phase 4a) or between highlights on same Notebook item (Phase 3b) |
+| **`HairlineHighlightRow`** | 4px bar, italic quote (primary), uppercase **Note** label | Note body **secondary** (mock) · horizontal inset on parent · **`showsBottomHairline: false`** on last row in a section (Detail Phase 4a) or between highlights on same Notebook item (Phase 3b) · **`verticalPadding`** (Detail **16pt** default; Notebook feed **0** + parent **`AppSpacing.highlightStackGap`**) |
 
 **Typography tie-breakers (Phase 4+):**
 
@@ -287,7 +287,16 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Preserve:** [`NotebookHighlightsQuery`](../../Phathom/Phathom/Services/NotebookHighlightsQuery.swift), Detail push, [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift), empty copy.
 
-**Green-light:** No paprika parent title · 64×64 thumb · separator rules · empty copy unchanged.
+**Green-light:**
+
+- [x] No paprika parent title · 64×64 thumb · separator rules · empty copy unchanged
+- [x] Unified scroll · `EditorialScreenTitle` · no `Phathom` principal · `tabBarScrollInset`
+- [x] `HairlineHighlightRow` in feed (`showsBottomHairline: false` within item)
+
+**Shipped notes (closeout):**
+
+- **Empty state:** 17pt semibold title + 15pt hint; **24pt** bottom padding only — no extra top pad beyond `EditorialScreenTitle` **28pt** (see [`notebook-ad-hairline-feed-a.html`](../../.design-mocks/notebook-ad-hairline-feed-a.html) Empty frame).
+- **Group header subtitle:** kind line (`Photo` / `Note` / host) per [§3.8](library-ui-evolution.md#38-locked-decisions-notebook) — **not** `GalleryListRow.sourceLine` (summary/media description).
 
 ---
 
@@ -300,6 +309,8 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 **Out of scope:** [`phase-3-rag-chat.md`](phase-3-rag-chat.md)
 
 **Tasks:** `EditorialScreenTitle("Chat")` · **`AppSpacing.screenHorizontal`** · top inset per mock · two-tier empty copy · **`tabBarScrollInset`** on scroll (see §3)
+
+**Empty parity:** Match [§9 shipped empty typography](#9-phase-3b--notebook) + [§3.9](library-ui-evolution.md#39-locked-decisions-chat-placeholder) + [`notebook-ad-hairline-feed-a.html`](../../.design-mocks/notebook-ad-hairline-feed-a.html) Empty frame (editorial title → 17/15pt tiers; no card/hairline box).
 
 **Green-light:** Editorial title in scroll · left-aligned copy · no fake chat UI.
 
@@ -356,35 +367,34 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 ---
 
-## 15. Cold start — Phase 3b
+## 15. Cold start — Phase 3c
 
-Copy-paste for **new session** (Swift authorized for **Phase 3b only**).
+Copy-paste for **new session** (Swift authorized for **Phase 3c only**).
 
 ```
-GOAL: UI evolution Phase 3b — Notebook tab surface swap. Wire Phase 0 + Phase 1 HairlineHighlightRow.
+GOAL: UI evolution Phase 3c — Chat tab placeholder surface swap. Wire Phase 0 EditorialScreenTitle.
 ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom
 
 READ (minimal):
-  1. docs/handoff/ui-evolution-implementation-plan.md §9 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
-  2. docs/handoff/library-ui-evolution.md §3.8
-  3. .design-mocks/notebook-ad-hairline-feed-a.html (visual reference)
-  4. Phathom/Phathom/Views/Notebook/NotebookTab.swift · NotebookItemGroup.swift
+  1. docs/handoff/ui-evolution-implementation-plan.md §10 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
+  2. docs/handoff/library-ui-evolution.md §3.9
+  3. .design-mocks/chat-ad-placeholder-a.html (visual reference)
+  4. Phathom/Phathom/Views/Chat/ChatTab.swift
 
-WIRE (Phase 3b):
-  - EditorialScreenTitle("Notebook") + AppSpacing.screenHorizontal + top inset per mock
-  - Drop nav duplicate / Phathom in content chrome
-  - HairlineHighlightRow in NotebookItemGroup (showsBottomHairline false between highlights on same item)
-  - Header thumb 48→64 · title paprika→primary · inter-group hairline only
+WIRE (Phase 3c):
+  - EditorialScreenTitle("Chat") + AppSpacing.screenHorizontal + top inset per mock
+  - Drop duplicate navigationTitle / centered placeholder
+  - Two-tier coming-soon copy (17pt semibold + 15pt hint)
   - tabBarScrollInset on scroll (see §3)
 
-DO NOT: Notebook search/filters · Chat RAG · change NotebookHighlightsQuery semantics
+DO NOT: Chat RAG · fake chat UI · phase-3-rag-chat.md scope
 
 VERIFY: ReadLints → bash scripts/build-phathom.sh sim → bash scripts/test-phathom.sh
-  Manual sim: Empty + Populated frames · no hairline between highlights on same item · Detail push
+  Manual sim: editorial title scrolls with copy · left-aligned tiers
 
-GREEN-LIGHT DONE WHEN: §9 green-light checklist passes
+GREEN-LIGHT DONE WHEN: §10 green-light checklist passes
 
-THEN: Stop. Next session → green-light Phase 3c (Chat).
+THEN: Stop. Next session → green-light Phase 4a (Detail).
 
 AUTHORITY: code > decisions.md > this plan > library-ui-evolution.md > mocks
 ```

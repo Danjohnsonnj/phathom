@@ -7,6 +7,8 @@ struct HairlineHighlightRow: View {
     var quotedLineLimit: Int?
     var noteLineLimit: Int?
     var showsBottomHairline: Bool = true
+    /// Detail rows use 16pt; Notebook feed uses 0 and `AppSpacing.highlightStackGap` between rows.
+    var verticalPadding: CGFloat = 16
     var onTap: () -> Void
 
     var body: some View {
@@ -44,7 +46,7 @@ struct HairlineHighlightRow: View {
                 }
                 .padding(.leading, 10)
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, verticalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .bottom) {
                 if showsBottomHairline {
