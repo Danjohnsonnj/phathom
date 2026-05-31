@@ -671,10 +671,11 @@ _TBD — When to use stroke (`border.subtle`) vs surface step alone._
 
 | Variant | Fill | Text | Height / padding | Usage |
 |---------|------|------|------------------|--------|
-| **Primary** | `accent.primary` | `text.onAccent` (baseline: use `AppPalette.textPrimary` (#fffcf2) on accent until token split) | 50pt height, 14pt continuous radius (**Add New** “Save to Library”) | Visit Site · **Save to Library** (enabled — **§5.4**) |
+| **Primary** | `accent.primary` | `text.onAccent` (baseline: use `AppPalette.textPrimary` (#fffcf2) on accent until token split) | **Capsule**; 50pt height when full-width (**Add New** Save) | Visit Site · **Save to Library** (enabled — **§5.4**) |
 | **Primary (disabled)** | `surface.secondary` (baseline `surfaceNested`) | `text.secondary` | same frame | Save to Library when URL/body/image missing (**Add New**) |
-| **Secondary** | `surface.secondary` or stroke | `text.primary` | _TBD_ | Summarize again, bulk bar |
-| **Plain / link** | none | `accent.primary` | _TBD_ | Edit, Done, toolbar text |
+| **Secondary hairline** | transparent | `accent` or `text.primary` | **Capsule** + `hairline` 1pt stroke; 15pt medium | Detail Summarize / Archive — see [`design-tokens.md`](../design-tokens.md) §5.1 |
+| **Filled secondary** | `surfaceNested` | `text.primary` | **Capsule**; 12pt vertical pad | Library bulk bar; Highlight Delete note |
+| **Plain / link** | none | `accent.primary` | flat toolbar text; **no glass capsule** (`FlatToolbarTextItem` + `sharedBackgroundVisibility(.hidden)`) | Close, Cancel, Done, Edit, toolbar text |
 | **Destructive** | none or tinted fill | `status.destructive` | _TBD_ | Archive, Forget model, Delete |
 | **Icon** | none | `accent` or `text.secondary` | _TBD_ | Play kickoff, gear, share |
 

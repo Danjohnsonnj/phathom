@@ -88,12 +88,13 @@ struct RecentlyDeletedView: View {
         .navigationBarTitleDisplayMode(.inline)
         .foregroundStyle(AppPalette.textPrimary)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Delete All") {
-                    confirmDeleteAll = true
-                }
-                .disabled(archivedItems.isEmpty)
-                .foregroundStyle(archivedItems.isEmpty ? AppPalette.textTertiary : .red)
+            FlatToolbarTextItem(
+                title: "Delete All",
+                placement: .topBarTrailing,
+                foreground: archivedItems.isEmpty ? AppPalette.textTertiary : .red,
+                disabled: archivedItems.isEmpty
+            ) {
+                confirmDeleteAll = true
             }
         }
         .alert(

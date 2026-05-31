@@ -98,10 +98,13 @@ struct MainTabView: View {
                         .foregroundStyle(AppPalette.textPrimary)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 8)
-                    Button("Undo") {
+                    Button {
                         performUndoArchive()
+                    } label: {
+                        Text("Undo")
+                            .font(.footnote.weight(.semibold))
+                            .phathomToolbarTextLabel()
                     }
-                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(AppPalette.accent)
                 }
                 .padding(.horizontal, 16)

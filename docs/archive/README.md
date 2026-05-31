@@ -16,6 +16,6 @@ Content here is **historical** (pre-build vision or completed phase specs). It *
 | [`ui-design-refresh.md`](ui-design-refresh.md) | UI design refresh brief (**shipped**) | Redesign on `main`; §12 design-system gate never completed — use **code + `AppPalette`** first |
 | [`media-vision-v1-qa.md`](media-vision-v1-qa.md) | Media vision v1 device QA matrix (**shipped**) | Automated tests in CI; device matrix historical — use **code + decisions** first |
 | [`library-ui-evolution.md`](library-ui-evolution.md) | App UI evolution — locked §3 per-surface decisions (**shipped** May 2026) | Invariants in **decisions.md** UI rows; use **code + decisions** first |
-| [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) | UI evolution tokens, material matrix, shared components (**shipped**) | **`AppSpacing`** / **`AppPalette`** in code authoritative |
+| [`../design-tokens.md`](../design-tokens.md) | Cross-surface tokens, material matrix, button shapes (**live** — moved from archive May 2026) | **`AppSpacing`** / **`AppPalette`** in code authoritative for values |
 | [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) | UI evolution Phases 0–4b execution plan (**shipped**) | Historical phase checklists; **decisions.md** + code authoritative |
 | [`design-mocks/`](design-mocks/) | Six canonical HTML/CSS Safari mocks (**shipped** reference) | **`Phathom/`** + **decisions.md** authoritative; prune folder when no longer needed |

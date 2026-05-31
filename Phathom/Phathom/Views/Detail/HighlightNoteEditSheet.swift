@@ -50,11 +50,12 @@ struct HighlightNoteEditSheet: View {
                     } label: {
                         Text("Save")
                             .font(.subheadline.weight(.semibold))
+                            .phathomCapsuleCTALabel()
                             .foregroundStyle(AppPalette.floralWhite)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(AppPalette.accent)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
 
@@ -70,11 +71,12 @@ struct HighlightNoteEditSheet: View {
                     } label: {
                         Text("Delete note")
                             .font(.subheadline.weight(.medium))
+                            .phathomCapsuleCTALabel()
                             .foregroundStyle(AppPalette.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(AppPalette.surfaceNested)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
 
@@ -102,9 +104,12 @@ struct HighlightNoteEditSheet: View {
             .navigationTitle("Highlight")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { onDismiss() }
-                }
+                FlatToolbarTextItem(
+                    title: "Close",
+                    placement: .cancellationAction,
+                    foreground: AppPalette.accent,
+                    action: onDismiss
+                )
             }
             .onAppear { noteDraft = highlight.userNote ?? "" }
         }

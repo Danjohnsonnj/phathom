@@ -36,10 +36,12 @@ struct RelatedItemsSheet: View {
                 .navigationTitle("Related to \"\(tappedTag.name)\"")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { dismiss() }
-                            .foregroundStyle(AppPalette.accent)
-                    }
+                    FlatToolbarTextItem(
+                        title: "Done",
+                        placement: .topBarTrailing,
+                        foreground: AppPalette.accent,
+                        action: { dismiss() }
+                    )
                 }
         }
         .task { await runPipeline() }

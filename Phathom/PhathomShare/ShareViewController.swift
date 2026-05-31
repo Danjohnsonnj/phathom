@@ -35,7 +35,10 @@ private struct ShareRootView: View {
                 .multilineTextAlignment(.center)
                 .padding()
             if isError {
-                Button("Close") { finish() }
+                Button(action: finish) {
+                    Text("Close")
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
         }
         .task {

@@ -686,8 +686,12 @@ struct SettingsContent: View {
             .navigationTitle("Import error details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showImportErrorSheet = false }
+                FlatToolbarTextItem(
+                    title: "Done",
+                    placement: .confirmationAction,
+                    foreground: AppPalette.accent
+                ) {
+                    showImportErrorSheet = false
                 }
             }
         }

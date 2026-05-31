@@ -225,7 +225,7 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 | **Metadata** | Category + read status as **inline / hairline** rows (no category capsule box) |
 | **Horizontal rhythm** | **22px** content inset (up from shipped 16px) |
 | **Tags** | Chip pills on `#401F12` allowed; no enclosing surface card |
-| **Actions** | Hairline-bordered full-width buttons (accent + neutral); **20pt** below section hairline (same rhythm as last Key Figures row → line above actions) |
+| **Actions** | Hairline-bordered full-width **capsule** buttons (transparent fill; accent or primary label); **20pt** below section hairline (same rhythm as last Key Figures row → line above actions) |
 | **Nav (pushed)** | **`DetailPushNavBar`** — **22pt** horizontal inset (back chevron aligns with body text); flat accent back + flat secondary share — **no** center wordmark · **not** system toolbar / liquid glass |
 | **Header block** | Web **host** (accent) · editable **title** · **timestamp** only — **no** source-preview snippet under title (source lives in collapsible **Source Content**) |
 | **Section order** | Matches shipped `DetailView` — Hero → header → source → read status → category → highlights → **AI zone** → tags → summary → actions |
@@ -493,7 +493,7 @@ Palette **unchanged** from shipped dark theme — refine **execution** (spacing,
 
 **Design-taste baseline used during mocks:** variance **8**, motion **6**, density **4** (airy gallery, fluid but not cinematic).
 
-**Cross-surface reference:** Full spacing, type, material matrix, and shared components → **[`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md)**.
+**Cross-surface reference:** Full spacing, type, material matrix, and shared components → **[`../design-tokens.md`](../design-tokens.md)**.
 
 ---
 
@@ -549,7 +549,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 
 | Item | Status |
 |------|--------|
-| **Cross-surface token sheet** | **Done** — [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) |
+| **Cross-surface token sheet** | **Done** — [`../design-tokens.md`](../design-tokens.md) |
 | **Multi-phased implementation plan** | **Shipped** — [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) · Phases **0–4b complete** |
 | **Decisions log** | Append to [`docs/decisions.md`](../decisions.md) when each phase ships |
 | **Per-phase execution** | One phase per session; Phases 0–4b **complete** ([plan §15](ui-evolution-implementation-plan.md#15-cold-start--rollout-complete)) |
@@ -606,7 +606,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | 2026-05-30 | **Settings locked** — §3.10; editorial title + back-only push; filled grouped surfaces; demoted zone headers; three-frame mock `settings-ad-grouped-a.html` |
 | 2026-05-30 | **UI evolution discovery complete** — 6 surfaces locked; 6 canonical mocks; ready for implementation green-light |
 | 2026-05-30 | Mock CSS: global **`a { text-decoration: none }`** on all canonical HTML — no underline (SwiftUI parity) |
-| 2026-05-30 | **Cross-surface token sheet** — [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) |
+| 2026-05-30 | **Cross-surface token sheet** — [`../design-tokens.md`](../design-tokens.md) |
 | 2026-05-30 | **Library planning locks** — drop `Phathom` nav principal; search dismiss Cancel + keyboard only; pipeline **actions row** (§3.2.1); canonical library mock updated |
 | 2026-05-30 | **Implementation plan approved** — [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md); cold start → Phase 0 |
 

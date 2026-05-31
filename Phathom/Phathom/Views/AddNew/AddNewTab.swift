@@ -244,6 +244,7 @@ struct AddNewTab: View {
             HStack(spacing: 8) {
                 Text("Save to Library")
                     .font(.system(size: 17, weight: .semibold))
+                    .phathomCapsuleCTALabel()
                 Image(systemName: "arrow.right")
                     .font(.system(size: 16, weight: .semibold))
             }
@@ -270,6 +271,7 @@ struct AddNewTab: View {
                             .font(.subheadline.weight(.semibold))
                         Text(mode.title)
                             .font(.subheadline.weight(.medium))
+                            .phathomToolbarTextLabel()
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)

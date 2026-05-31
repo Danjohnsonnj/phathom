@@ -25,7 +25,7 @@
 | ----- | --- |
 | **RAG / Chat tab** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) |
 
-**Shipped UI evolution (May 2026):** invariants in [`docs/decisions.md`](docs/decisions.md) UI rows · archived reference [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) · [`ui-evolution-token-sheet.md`](docs/archive/ui-evolution-token-sheet.md) · HTML mocks [`design-mocks/`](docs/archive/design-mocks/) (optional; prune later).
+**Shipped UI evolution (May 2026):** invariants in [`docs/decisions.md`](docs/decisions.md) UI rows · tokens [`docs/design-tokens.md`](docs/design-tokens.md) · archived reference [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) · HTML mocks [`design-mocks/`](docs/archive/design-mocks/) (optional; prune later).
 
 **Historical product & phase write-ups:** [`docs/archive/README.md`](docs/archive/README.md) — **not for implementation**.
 

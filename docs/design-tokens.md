@@ -1,10 +1,10 @@
-# UI Evolution — Cross-Surface Token Sheet
+# Design tokens
 
-> **Role:** Consolidated **spacing, type, palette, and material** reference distilled from locked discovery ([`library-ui-evolution.md`](library-ui-evolution.md) §3–§3.10 + §4). **Reference only** — not a build spec; surface locks stay in §3 tables.
+> **Role:** Cross-surface **spacing, type, palette, material, and button** reference distilled from locked discovery ([`archive/library-ui-evolution.md`](archive/library-ui-evolution.md) §3–§3.10 + §4). Semantic matrix + shared component index — not a build spec; per-surface locks stay in archive §3 tables.
 >
-> **Status:** Shipped (May 2026). **`AppSpacing`** / **`AppPalette`** in code are authoritative for tokens.
+> **Status:** Live reference (May 2026 UI evolution shipped). **`AppSpacing`** / **`AppPalette`** in code are authoritative for token **values**; this doc is authoritative for **semantics** and component vocabulary.
 >
-> **Use with:** Canonical mocks in [`.design-mocks/`](design-mocks/) · shipped code in **`Phathom/`** · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
+> **Use with:** Canonical mocks in [`archive/design-mocks/`](archive/design-mocks/) · shipped code in **`Phathom/`** · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
 
 ---
 
@@ -12,12 +12,12 @@
 
 | Layer | Purpose |
 |-------|---------|
-| **[`library-ui-evolution.md`](library-ui-evolution.md)** | Locked per-surface decisions, behavior, mocks, rejections |
+| **[`archive/library-ui-evolution.md`](archive/library-ui-evolution.md)** | Locked per-surface decisions, behavior, mocks, rejections |
 | **This doc** | Cross-surface tokens + chrome/material matrix + shared components |
-| **Implementation plan** | [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) — **shipped** Phases 0–4b |
+| **Implementation plan** | [`archive/ui-evolution-implementation-plan.md`](archive/ui-evolution-implementation-plan.md) — **shipped** Phases 0–4b |
 | **`Phathom/` code** | Authoritative for spacing/token drift vs this sheet |
 
-**Do not** re-run phase surface swaps from the archived plan. New UI work: code + [`decisions.md`](../decisions.md) UI rows + [`library-ui-evolution.md`](library-ui-evolution.md) §3.
+**Do not** re-run phase surface swaps from the archived plan. New UI work: code + [`decisions.md`](decisions.md) UI rows + [`archive/library-ui-evolution.md`](archive/library-ui-evolution.md) §3.
 
 ---
 
@@ -36,7 +36,7 @@ Palette **unchanged** — refine execution only. Map to existing `AppPalette` un
 | **Text tertiary** | ~72% dust | `textTertiary` — disabled/meta |
 | **Chip / badge bg** | `#401F12` | `metaChipBackground` — processing badge, tag chips (Detail) |
 | **Tag chip bg** | `#401F12` | `tagChipBackground` (= `metaChipBackground`) — Detail tags; **primary** label |
-| **Hairline** | `rgba(255,252,242,0.12)` | Row/section dividers — **add semantic if repeated** (e.g. `AppPalette.hairline`) |
+| **Hairline** | `rgba(255,252,242,0.12)` | Row/section dividers — `AppPalette.hairline` |
 | **Success / warning** | System green / orange | Model status icons, missing-file copy (Settings) — keep system semantic colors |
 
 ---
@@ -110,10 +110,37 @@ Content type?
 | **Notebook intra-item** | None | **No** hairline — 14pt gap only | Notebook highlights same parent |
 | **Grouped config card** | `#403d39`, 14pt radius | Inset hairline between rows | Settings |
 | **Capture card** | Outer `#403d39` + inner `#353330` wells | Internal well borders | Add New |
-| **Detail actions** | None | Hairline-bordered buttons; **20pt** below section hairline (parity with Key Figures → line) | Detail bottom |
+| **Detail actions** | None | Hairline-bordered **capsule** buttons; **20pt** below section hairline (parity with Key Figures → line) | Detail bottom |
 | **Tag chips** | `#401F12` capsule, **primary** text (13pt medium) | No enclosing card | Detail |
 
 **Highlight row (shared):** 4px left paprika bar · italic quote · uppercase **Note** when present · one component for Detail + Notebook.
+
+### 5.1 Button shapes & variants
+
+All tappable full-width actions use **`Capsule()`** geometry unless listed as an exception below.
+
+| Variant | Shape | Fill | Stroke | Min height | Examples |
+|---------|-------|------|--------|------------|----------|
+| **Primary capsule** | `Capsule()` | `accent` | none | 50pt when full-width | Add New Save |
+| **Primary capsule (compact)** | `Capsule()` | `accent` | none | content + 10×28 pad | Detail Visit Site |
+| **Secondary hairline capsule** | `Capsule()` | transparent | `hairline` 1pt | content + 12×16 pad | Detail Summarize / Archive — **`HairlineCapsuleButton`** |
+| **Filled secondary capsule** | `Capsule()` | `surfaceNested` | none | content + 12 vertical pad | Library bulk Mark as… / Archive; Highlight Delete note |
+| **Mode pill shell** | ~26pt continuous rect | `surface` | none | 52pt | Add New mode bar |
+| **Read status** | System `UISegmentedControl` | system | **none** — no overlay stroke | system | Detail New/Read/Filed |
+| **Flat toolbar text** | System toolbar label | transparent | none | system toolbar | Close, Cancel, Done — **`FlatToolbarTextItem`** |
+
+**Documented exceptions (not capsule buttons):**
+
+- System `.bordered` destructive (Highlight Remove highlight)
+- Input wells / TextEditor chrome — use `cardCornerRadius` / nested well tokens, not capsule
+
+**Anti-pattern:** Do **not** overlay hairline strokes on system controls (`Picker.segmented`, `UISegmentedControl`) — causes double-ring artifacts against native chrome.
+
+**Label fidelity (buttons / CTAs):** Interactive button and toolbar strings must display **in full** — no tail ellipsis (`…`) on the visible label.
+
+- **Toolbar / chrome text** — `Text(...).fixedSize(horizontal: true, vertical: false)` via **`phathomToolbarTextLabel()`** in [`PhathomButtonLabelModifiers.swift`](../../Phathom/Phathom/Helpers/PhathomButtonLabelModifiers.swift) (`FlatToolbarTextButton`, Library Select/Cancel, search overlay Cancel, etc.).
+- **Full-width capsule CTAs** — allow multi-line wrap; forbid `.truncationMode(.tail)` on label `Text` — **`phathomCapsuleCTALabel()`** (`HairlineCapsuleButton`, filled secondary capsules).
+- **Filter value capsules** — tappable controls; same rule; column widths must fit longest value (**Uncategorized**) per Library §3.2.
 
 ---
 
@@ -126,8 +153,11 @@ Content type?
 | **Settings push** | **Back only** (Detail back styling) | Editorial **Settings** in scroll | Hidden | Unified; back fixed above scroll |
 | **Library at rest** | Select · Pipeline · Search · Settings | **Library** editorial | Visible | Unified |
 | **Library search active** | Pinned search over actions band (pipeline hidden) | Same | Visible | Content scrolls under pinned bar |
+| **Sheet / modal toolbar** | Flat accent/destructive text (Close, Cancel, Done) | Inline `navigationTitle` | System nav visible | Sheet body scrolls |
 
 **Tab bar (preserved):** Library · Notebook · Chat · Add new — do not redesign.
+
+**Push vs sheet toolbar:** Custom **`DetailPushNavBar`** in **`.safeAreaInset`** is already flat (no modifier). System **`NavigationStack` `.toolbar`** text/icon items require **`.sharedBackgroundVisibility(.hidden)`** via **`FlatToolbarTextItem`** (iOS 26 liquid-glass off).
 
 ---
 
@@ -137,6 +167,9 @@ Content type?
 |-----------|-------------|---------|
 | **`EditorialScreenTitle`** | §3.1, §3.8–§3.10 | Library, Notebook, Save, Chat, Settings |
 | **`HairlineHighlightRow`** | §3.6 + §3.8 | Detail, Notebook |
+| **`HairlineCapsuleButton`** | §5.1 | Detail bottom actions, failed Retry |
+| **`FlatToolbarTextButton`** / **`FlatToolbarTextItem`** | §5.1 / §6 | Sheet toolbars — Close, Cancel, Done, Delete All |
+| **`phathomToolbarTextLabel`** / **`phathomCapsuleCTALabel`** | §5.1 | Shared `Text` sizing — no CTA truncation |
 | **`GalleryListRow`** | §3.4 | Library |
 | **`NotebookItemGroupHeader`** | §3.8 | Notebook |
 | **`PinnedLibrarySearchBar`** | §3.2 | Library overlay (Cancel + keyboard dismiss) |
@@ -188,6 +221,9 @@ Items called out across §3 — **Library rows locked May 2026** during implemen
 | Idiomatic SwiftUI: `.safeAreaInset`, overlays, `DisclosureGroup`, `NavigationStack` | Side-by-side mock layout in app |
 | Preserve shipped behavior unless hand-off explicitly changes UX | Mock lorem as product strings |
 | Verify per [`.cursor/rules/simulator-verify.mdc`](../../.cursor/rules/simulator-verify.mdc) | Parallel Llama / RAG scope |
+| Use **`Capsule()`** for button shapes per §5.1 | Overlay hairline strokes on system `Picker.segmented` / `UISegmentedControl` |
+| Apply **`.sharedBackgroundVisibility(.hidden)`** on every custom **`NavigationStack` `.toolbar`** text/icon item (`FlatToolbarTextItem`) | Raw `ToolbarItem { Button("Cancel") }` without hidden shared background on iOS 26 |
+| Size toolbar / CTA labels so the full string is visible (`phathomToolbarTextLabel` / `phathomCapsuleCTALabel`) | `.truncationMode(.tail)` or single-line truncation on button labels |
 
 **Suggested first code investments (planning input — not execution order):**
 
@@ -203,7 +239,7 @@ Items called out across §3 — **Library rows locked May 2026** during implemen
 
 | Doc | Relationship |
 |-----|--------------|
-| [`library-ui-evolution.md`](library-ui-evolution.md) | Discovery authority — locked §3 tables |
-| [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) | **Shipped** Phases 0–4b — [§15 rollout complete](ui-evolution-implementation-plan.md#15-cold-start--rollout-complete) |
-| [`docs/decisions.md`](../decisions.md) | Append product commitments when phases ship |
-| [`.design-mocks/README.md`](design-mocks/README.md) | Mock inventory & CSS conventions |
+| [`archive/library-ui-evolution.md`](archive/library-ui-evolution.md) | Discovery authority — locked §3 tables |
+| [`archive/ui-evolution-implementation-plan.md`](archive/ui-evolution-implementation-plan.md) | **Shipped** Phases 0–4b — [§15 rollout complete](archive/ui-evolution-implementation-plan.md#15-cold-start--rollout-complete) |
+| [`decisions.md`](decisions.md) | Append product commitments when phases ship |
+| [`archive/design-mocks/README.md`](archive/design-mocks/README.md) | Mock inventory & CSS conventions |

@@ -383,10 +383,6 @@ struct DetailView: View {
         }
         .pickerStyle(.segmented)
         .tint(AppPalette.accent)
-        .overlay {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(AppPalette.hairline, lineWidth: 1)
-        }
         .accessibilityElement(children: .contain)
     }
 
@@ -407,11 +403,14 @@ struct DetailView: View {
             Text(categorySectionDisplayName)
                 .font(.system(size: 15))
                 .foregroundStyle(AppPalette.textPrimary)
-            Button("Edit") {
+            Button {
                 isCategoryPickerPresented = true
+            } label: {
+                Text("Edit")
+                    .font(.system(size: 15, weight: .semibold))
+                    .tracking(-0.15)
+                    .phathomToolbarTextLabel()
             }
-            .font(.system(size: 15, weight: .semibold))
-            .tracking(-0.15)
             .buttonStyle(.plain)
             .foregroundStyle(AppPalette.accent)
             .accessibilityLabel("Edit category")
@@ -465,8 +464,8 @@ struct DetailView: View {
                 Button {
                     _ = ProcessingRecovery.retryFailedItemIfNeeded(item, modelContext: modelContext)
                 } label: {
-                    detailHairlineButtonLabel(
-                        "Retry",
+                    HairlineCapsuleButton(
+                        title: "Retry",
                         foreground: AppPalette.textPrimary,
                         disabled: !ProcessingRecovery.canRetryFailed(item)
                     )
@@ -603,8 +602,8 @@ struct DetailView: View {
                 delaySummarizeDisable = false
             }
         } label: {
-            detailHairlineButtonLabel(
-                analyzeAgainButtonTitle,
+            HairlineCapsuleButton(
+                title: analyzeAgainButtonTitle,
                 foreground: summarizeAgainButtonDisabled ? AppPalette.textSecondary : AppPalette.accent,
                 disabled: summarizeAgainButtonDisabled
             )
@@ -618,8 +617,8 @@ struct DetailView: View {
         Button {
             _ = ProcessingRecovery.regenerateTags(item, modelContext: modelContext)
         } label: {
-            detailHairlineButtonLabel(
-                "Regenerate tags",
+            HairlineCapsuleButton(
+                title: "Regenerate tags",
                 foreground: regenerateTagsButtonDisabled ? AppPalette.textSecondary : AppPalette.accent,
                 disabled: regenerateTagsButtonDisabled
             )
@@ -640,7 +639,7 @@ struct DetailView: View {
             NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
             dismiss()
         } label: {
-            detailHairlineButtonLabel("Restore to Library", foreground: Color.green.opacity(0.95))
+            HairlineCapsuleButton(title: "Restore to Library", foreground: Color.green.opacity(0.95))
         }
         .buttonStyle(.plain)
     }
@@ -662,29 +661,9 @@ struct DetailView: View {
                 )
             }
         } label: {
-            detailHairlineButtonLabel("Archive", foreground: AppPalette.textPrimary)
+            HairlineCapsuleButton(title: "Archive", foreground: AppPalette.textPrimary)
         }
         .buttonStyle(.plain)
-    }
-
-    private func detailHairlineButtonLabel(
-        _ title: String,
-        foreground: Color,
-        disabled: Bool = false
-    ) -> some View {
-        Text(title)
-            .font(.system(size: 15, weight: .medium))
-            .tracking(-0.15)
-            .foregroundStyle(foreground)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(AppPalette.hairline, lineWidth: 1)
-            }
-            .opacity(disabled ? 0.6 : 1.0)
     }
 
     private var sourceMarkdownForDisplay: String? {
@@ -1008,17 +987,26 @@ private struct TagEditorSheetView: View {
                 }
 
                 HStack(spacing: 10) {
-                    Button("Cancel", action: onCancel)
-                        .buttonStyle(.bordered)
+                    Button(action: onCancel) {
+                        Text("Cancel")
+                            .phathomToolbarTextLabel()
+                    }
+                    .buttonStyle(.bordered)
 
                     if showsDelete, let onDelete {
-                        Button("Delete", role: .destructive, action: onDelete)
-                            .buttonStyle(.bordered)
+                        Button(role: .destructive, action: onDelete) {
+                            Text("Delete")
+                                .phathomToolbarTextLabel()
+                        }
+                        .buttonStyle(.bordered)
                     }
 
-                    Button(saveLabel, action: onSave)
-                        .buttonStyle(.borderedProminent)
-                        .disabled(normalizedDraft == nil)
+                    Button(action: onSave) {
+                        Text(saveLabel)
+                            .phathomToolbarTextLabel()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(normalizedDraft == nil)
                 }
             }
             .padding(16)

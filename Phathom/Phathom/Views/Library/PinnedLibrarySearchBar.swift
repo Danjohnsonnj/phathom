@@ -36,10 +36,13 @@ struct PinnedLibrarySearchBar: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Search title, tags, source text")
 
-            Button("Cancel", action: onCancel)
-                .font(.system(size: 17))
-                .foregroundStyle(AppPalette.accent)
-                .buttonStyle(.plain)
+            Button(action: onCancel) {
+                Text("Cancel")
+                    .font(.system(size: 17))
+                    .phathomToolbarTextLabel()
+            }
+            .foregroundStyle(AppPalette.accent)
+            .buttonStyle(.plain)
                 .padding(.leading, 4)
                 .accessibilityHint("Exit search")
         }

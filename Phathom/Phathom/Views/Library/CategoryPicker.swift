@@ -64,13 +64,15 @@ struct CategoryPicker: View {
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        if toolbarCancelPassesSelection {
-                            complete(nil)
-                        } else {
-                            dismiss()
-                        }
+                FlatToolbarTextItem(
+                    title: "Cancel",
+                    placement: .cancellationAction,
+                    foreground: AppPalette.accent
+                ) {
+                    if toolbarCancelPassesSelection {
+                        complete(nil)
+                    } else {
+                        dismiss()
                     }
                 }
             }

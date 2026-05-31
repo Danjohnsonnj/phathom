@@ -39,6 +39,7 @@ struct HeroSection: View {
                 } label: {
                     Text("Visit Site")
                         .font(.subheadline.weight(.semibold))
+                        .phathomToolbarTextLabel()
                         .foregroundStyle(AppPalette.floralWhite)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 10)

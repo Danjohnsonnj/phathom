@@ -14,7 +14,7 @@ Do **not** scan all of `Phathom/`. Read the smallest set for the task:
 | Domain terms | [`CONTEXT.md`](../../CONTEXT.md) — glossary only |
 | RAG Chat roadmap | [`docs/handoff/phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md) |
 | UI design refresh (shipped v1) | [`docs/decisions.md`](../decisions.md) + [`Views/`](../../Phathom/Phathom/Views/); historical spec [`docs/archive/ui-design-refresh.md`](../archive/ui-design-refresh.md) |
-| UI evolution (shipped May 2026) | [`docs/decisions.md`](../decisions.md) UI rows + [`Views/`](../../Phathom/Phathom/Views/); archived [`library-ui-evolution.md`](../archive/library-ui-evolution.md) §3 · [`ui-evolution-token-sheet.md`](../archive/ui-evolution-token-sheet.md) |
+| UI evolution (shipped May 2026) | [`docs/decisions.md`](../decisions.md) UI rows + [`Views/`](../../Phathom/Phathom/Views/); [`design-tokens.md`](../design-tokens.md) · archived [`library-ui-evolution.md`](../archive/library-ui-evolution.md) §3 |
 | Notebook tab (shipped) | [`docs/decisions.md`](../decisions.md) + [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift); historical spec [`docs/archive/notebook-tab.md`](../archive/notebook-tab.md) |
 | Pipeline | [`BackgroundPipeline.swift`](../../Phathom/Phathom/Services/BackgroundPipeline.swift) |
 | Inference | [`SharedLlamaInference.swift`](../../Phathom/Phathom/Services/SharedLlamaInference.swift) |

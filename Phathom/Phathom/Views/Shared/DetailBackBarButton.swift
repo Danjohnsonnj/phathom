@@ -84,6 +84,39 @@ extension DetailPushNavBar where Trailing == EmptyView {
     }
 }
 
+/// Flat accent/destructive toolbar label — no liquid-glass capsule (design-tokens §5.1 / §6).
+struct FlatToolbarTextButton: View {
+    let title: String
+    let foreground: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .phathomToolbarTextLabel()
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(foreground)
+    }
+}
+
+/// Sheet/modal toolbar text action with hidden shared background (iOS 26 glass off).
+struct FlatToolbarTextItem: ToolbarContent {
+    let title: String
+    let placement: ToolbarItemPlacement
+    let foreground: Color
+    var disabled: Bool = false
+    let action: () -> Void
+
+    var body: some ToolbarContent {
+        ToolbarItem(placement: placement) {
+            FlatToolbarTextButton(title: title, foreground: foreground, action: action)
+                .disabled(disabled)
+        }
+        .sharedBackgroundVisibility(.hidden)
+    }
+}
+
 /// Leading toolbar slot — prefer ``DetailPushNavBar`` + `.safeAreaInset` for 22pt alignment.
 struct DetailBackBarToolbarItem: ToolbarContent {
     var action: (() -> Void)?

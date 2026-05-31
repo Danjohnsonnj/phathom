@@ -10,7 +10,7 @@ Static Safari mocks probed layout, spacing, and material language before SwiftUI
 
 **Workflow (historical):** Global skill **`design-mock-probe`** ([`design-mock-probe-pointer.md`](../../agents/design-mock-probe-pointer.md)) — grill-me → lock hand-off → subagent HTML → Safari review → delete forks.
 
-**Ship target:** SwiftUI in `Phathom/`. Translate tokens, rhythm, and hierarchy — do not port HTML structure, Geist, or review chrome.
+**Ship target:** SwiftUI in `Phathom/`. Translate tokens, rhythm, and hierarchy — do not port HTML structure, Geist, or review chrome. Token/button reference: [`design-tokens.md`](../design-tokens.md).
 
 ## Canonical files
 
@@ -37,3 +37,4 @@ Open locally in Safari (`open docs/archive/design-mocks/<file>.html` from repo r
 - **Push nav (`.detail-nav`):** **22px** horizontal padding — Swift: **`DetailPushNavBar`** + `.safeAreaInset(edge: .top)`.
 - **Push back (`.detail-nav-back`):** flat accent chevron only (`background: none`, no border/shadow/glass).
 - **Detail share (`.detail-nav-share`):** flat **secondary** icon only — **8px** pad on icon.
+- **Sheet toolbar (Close / Cancel / Done):** flat accent or destructive text — **no** liquid-glass capsule; labels **never truncate** (Swift: **`FlatToolbarTextItem`** + **`sharedBackgroundVisibility(.hidden)`** + **`phathomToolbarTextLabel`**). See [`design-tokens.md`](../design-tokens.md) §5.1 / §6.

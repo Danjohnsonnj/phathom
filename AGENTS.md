@@ -17,9 +17,10 @@ Read **minimal files per task:**
 | 1 | **`Phathom/`** | Shipped behavior, schema, Swift paths |
 | 2 | **[`CONTEXT.md`](CONTEXT.md)** | Domain glossary (names); links to decisions |
 | 3 | **[`docs/decisions.md`](docs/decisions.md)** | Invariants and rationale |
-| 4 | **Active hand-offs** | [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG Chat roadmap — not shipped) |
-| — | **UI evolution reference (archived, opt-in)** | [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) (locked §3) · [`ui-evolution-token-sheet.md`](docs/archive/ui-evolution-token-sheet.md) · [`ui-evolution-implementation-plan.md`](docs/archive/ui-evolution-implementation-plan.md) · [`design-mocks/`](docs/archive/design-mocks/) — Phases **0–4b shipped**; invariants in [`decisions.md`](docs/decisions.md) UI rows |
-| 5 | **[`README.md`](README.md)** | Human orientation |
+| 4 | **[`docs/design-tokens.md`](docs/design-tokens.md)** | Cross-surface spacing, palette, material, button matrix |
+| 5 | **Active hand-offs** | [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG Chat roadmap — not shipped) |
+| — | **UI evolution reference (archived, opt-in)** | [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) (locked §3) · [`ui-evolution-implementation-plan.md`](docs/archive/ui-evolution-implementation-plan.md) · [`design-mocks/`](docs/archive/design-mocks/) — Phases **0–4b shipped**; invariants in [`decisions.md`](docs/decisions.md) UI rows |
+| 6 | **[`README.md`](README.md)** | Human orientation |
 
 **Archive:** [`docs/archive/`](docs/archive/) — opt-in only; not for cold start.
 

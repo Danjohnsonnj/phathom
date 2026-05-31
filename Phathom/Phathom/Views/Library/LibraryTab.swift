@@ -335,12 +335,17 @@ struct LibraryTab: View {
                             }
                         }
                     } label: {
-                        Label("Mark as…", systemImage: "square.and.pencil")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
+                        Label {
+                            Text("Mark as…")
+                                .font(.subheadline.weight(.semibold))
+                                .phathomCapsuleCTALabel()
+                        } icon: {
+                            Image(systemName: "square.and.pencil")
+                        }
+                        .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(AppPalette.surfaceNested)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Change reading status for selected items")
@@ -348,12 +353,17 @@ struct LibraryTab: View {
                     Button {
                         bulkArchiveSelection()
                     } label: {
-                        Label("Archive", systemImage: "archivebox")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
+                        Label {
+                            Text("Archive")
+                                .font(.subheadline.weight(.semibold))
+                                .phathomCapsuleCTALabel()
+                        } icon: {
+                            Image(systemName: "archivebox")
+                        }
+                        .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(AppPalette.surfaceNested)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .tint(.orange)
@@ -409,19 +419,25 @@ struct LibraryTab: View {
     private var libraryActionsRow: some View {
         HStack(alignment: .center, spacing: 12) {
             if editMode == .active {
-                Button("Done") {
+                Button {
                     editMode = .inactive
                     selectedItemIDs = []
+                } label: {
+                    Text("Done")
+                        .font(.system(size: 17))
+                        .phathomToolbarTextLabel()
                 }
-                .font(.system(size: 17))
                 .foregroundStyle(AppPalette.accent)
                 .buttonStyle(.plain)
                 .accessibilityLabel("Done selecting library items")
             } else {
-                Button("Select") {
+                Button {
                     editMode = .active
+                } label: {
+                    Text("Select")
+                        .font(.system(size: 17))
+                        .phathomToolbarTextLabel()
                 }
-                .font(.system(size: 17))
                 .foregroundStyle(AppPalette.accent)
                 .buttonStyle(.plain)
                 .accessibilityLabel("Select library items")
@@ -521,6 +537,7 @@ struct LibraryTab: View {
                 Image(systemName: "sparkles")
                 Text("Dive deeper")
                     .font(.subheadline.weight(.semibold))
+                    .phathomCapsuleCTALabel()
             }
             .foregroundStyle(AppPalette.accent)
             .frame(maxWidth: .infinity)

@@ -1,6 +1,6 @@
 import CoreGraphics
 
-/// Cross-surface layout rhythm for UI evolution (token sheet §3).
+/// Cross-surface layout rhythm (design-tokens.md §3).
 enum AppSpacing {
     /// Default content inset — tab roots, Detail, Add New, Notebook, Chat, Settings.
     static let screenHorizontal: CGFloat = 22

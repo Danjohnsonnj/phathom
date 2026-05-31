@@ -6,7 +6,7 @@
 >
 > **North star:** 22px rhythm · hairline gallery · editorial screen titles · filled cards for form/config only · preserved liquid-glass tab bar
 
-**Discovery inputs:** Locked surfaces [§3–§3.10](library-ui-evolution.md) · [token sheet](ui-evolution-token-sheet.md) · six canonical HTML mocks (visual reference) · shipped [`Phathom/Phathom/Views/`](../../Phathom/Phathom/Views/)
+**Discovery inputs:** Locked surfaces [§3–§3.10](library-ui-evolution.md) · [token sheet](../design-tokens.md) · six canonical HTML mocks (visual reference) · shipped [`Phathom/Phathom/Views/`](../../Phathom/Phathom/Views/)
 
 **Anti-pattern:** Do not implement by walking `library-ui-evolution.md` surface-by-surface as a checklist. Follow phases below — shared foundation and rows first, then surfaces by dependency.
 
@@ -27,7 +27,7 @@ HTML mocks are **visual reference only**. **Ship target is SwiftUI** in `Phathom
 
 **SwiftUI idioms:** `TabView` liquid glass · `.safeAreaInset` · `NavigationStack` · `DisclosureGroup` · `LibraryFilterBar` **popover** (not `Menu`) · overlays for pinned search · `TextField`/`TextEditor`.
 
-**Typography:** Geist in mocks → **SF Pro** at [token sheet](ui-evolution-token-sheet.md) sizes/weights.
+**Typography:** Geist in mocks → **SF Pro** at [token sheet](../design-tokens.md) sizes/weights.
 
 **Behavior vs look:** Mock and **shipped code** disagree on **behavior** → code wins until hand-off updates. Mocks govern **look and feel** only.
 
@@ -147,7 +147,7 @@ After Swift for a phase passes the verify ladder (+ manual sim when the phase ch
 
 **Files:**
 
-- `Phathom/Phathom/Helpers/AppSpacing.swift` — `screenHorizontal = 22`, gaps from [token sheet §3](ui-evolution-token-sheet.md#3-spacing--layout-rhythm)
+- `Phathom/Phathom/Helpers/AppSpacing.swift` — `screenHorizontal = 22`, gaps from [token sheet §3](../design-tokens.md#3-spacing--layout-rhythm)
 - [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift) — `hairline`
 - `Phathom/Phathom/Views/Shared/EditorialScreenTitle.swift`
 - `Phathom/Phathom/Views/Shared/ZoneSectionHeader.swift` — reuse/extend [`DetailAISubsectionHeader`](../../Phathom/Phathom/Views/Detail/DetailSectionHeader.swift) for child tier
@@ -375,7 +375,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 | Doc | Role |
 |-----|------|
 | [`library-ui-evolution.md`](library-ui-evolution.md) | Locked §3 per-surface decisions |
-| [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) | Tokens, material matrix, shared components |
+| [`../design-tokens.md`](../design-tokens.md) | Tokens, material matrix, shared components |
 | [`.design-mocks/README.md`](design-mocks/README.md) | Mock inventory |
 | [`docs/decisions.md`](../decisions.md) | Product invariants — update per shipped phase |
 | [`AGENTS.md`](../../AGENTS.md) | Agent entry map |
@@ -388,6 +388,6 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **UI evolution rollout complete** (May 2026). Phases **0–4b** shipped in Swift. Do **not** re-run surface swaps without product direction.
 
-**Agent cold-start for UI work:** **`Phathom/`** + [`decisions.md`](../decisions.md) UI rows (2026-05-30/31). Opt-in reference: [`library-ui-evolution.md`](library-ui-evolution.md) §3 · [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) · [`.design-mocks/`](design-mocks/).
+**Agent cold-start for UI work:** **`Phathom/`** + [`decisions.md`](../decisions.md) UI rows (2026-05-30/31). Opt-in reference: [`library-ui-evolution.md`](library-ui-evolution.md) §3 · [`../design-tokens.md`](../design-tokens.md) · [`.design-mocks/`](design-mocks/).
 
 **Historical:** Per-phase cold-start blocks removed post-rollout (May 2026). Phase task lists and green-light checklists remain in §5–§12 above.
