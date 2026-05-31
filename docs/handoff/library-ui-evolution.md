@@ -1,6 +1,6 @@
 # App UI Evolution — Design Hand-off (Discovery)
 
-> **Status:** **Discovery locked — not shipped.** Swift execution via **[`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md)** (approved). **Next:** [Phase 0 cold start §15](ui-evolution-implementation-plan.md#15-cold-start--phase-0).
+> **Status:** **Discovery locked · Swift shipped** (Phases 0–4b, May 2026). Locked §3 reference; execution complete — **[`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md)** [§15 rollout status](ui-evolution-implementation-plan.md#15-cold-start--rollout-complete).
 >
 > **Authority:** This document captures **locked design choices** from HTML mocks and review sessions. **Shipped behavior** remains **`Phathom/`** until implementation lands. On conflict: **code > [`docs/decisions.md`](../decisions.md) > this hand-off**.
 >
@@ -118,7 +118,7 @@ Ordered queue for HTML mocks and design review. **No Swift** until the full disc
 | **5** | **Notebook** | **Done** — locked [§3.8](#38-locked-decisions-notebook) | Hairline feed, full-width group separators, editorial chrome | [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) |
 | **6** | **Chat (placeholder)** | **Done** — locked [§3.9](#39-locked-decisions-chat-placeholder) | Coming-soon shell; Notebook Empty editorial parity; **not** RAG ([`phase-3-rag-chat.md`](phase-3-rag-chat.md)) | [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) |
 
-**After all probes:** Token sheet ✓ · Implementation plan **approved** ✓ · **Next:** cold start → [Phase 0](ui-evolution-implementation-plan.md#15-cold-start--phase-0)
+**After all probes:** Token sheet ✓ · Implementation plan **approved** ✓ · **Shipped:** Phases 0–4b ([rollout complete](ui-evolution-implementation-plan.md#15-cold-start--rollout-complete))
 
 ---
 
@@ -465,10 +465,10 @@ See [§2.3](#23-agent-inference-mocks-are-not-exhaustive). Do **not** add tag ed
 
 | Item | Status |
 |------|--------|
-| **`SettingsContent` inset** | 16px → **22px** |
-| **`navigationTitle("Settings")`** | Remove — editorial title owns screen name |
-| **`SettingsSectionHeader`** | title2 → **17pt semibold** zone tier |
-| **Pushed nav** | Back-only bar; match Detail back affordance |
+| **`SettingsContent` inset** | **Shipped** — **22px** (`AppSpacing.screenHorizontal`) |
+| **`navigationTitle("Settings")`** | **Shipped** — removed; editorial title owns screen name |
+| **`SettingsSectionHeader`** | **Shipped** — **`ZoneSectionHeader`** (17pt semibold zone tier) |
+| **Pushed nav** | **Shipped** — **`DetailBackBarButton`** + hidden system back |
 
 **Rejected Settings alternatives:** Hairline-flat grouped sections · **Phathom** center on pushed Settings · tab-bar Settings root · IA/disclosure redesign · inline nav **Settings** duplicate with editorial title.
 
@@ -551,7 +551,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | **Cross-surface token sheet** | **Done** — [`ui-evolution-token-sheet.md`](ui-evolution-token-sheet.md) |
 | **Multi-phased implementation plan** | **Approved** — [`ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) · **Next:** cold start → **Phase 0** |
 | **Decisions log** | Append to [`docs/decisions.md`](../decisions.md) when each phase ships |
-| **Per-phase execution** | One phase per session; Phase 0 first ([plan §15](ui-evolution-implementation-plan.md#15-cold-start--phase-0)) |
+| **Per-phase execution** | One phase per session; Phases 0–4b **complete** ([plan §15](ui-evolution-implementation-plan.md#15-cold-start--rollout-complete)) |
 
 ---
 
@@ -627,7 +627,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | Doc | Relationship |
 |-----|--------------|
 | [`docs/archive/ui-design-refresh.md`](../archive/ui-design-refresh.md) | Shipped v1 refresh — historical |
-| [`docs/handoff/ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) | **Approved** — execute Phase 0 first ([§15](ui-evolution-implementation-plan.md#15-cold-start--phase-0)) |
+| [`docs/handoff/ui-evolution-implementation-plan.md`](ui-evolution-implementation-plan.md) | **Shipped** Phases 0–4b ([§15 rollout](ui-evolution-implementation-plan.md#15-cold-start--rollout-complete)) |
 | [`docs/handoff/phase-3-rag-chat.md`](phase-3-rag-chat.md) | Chat/RAG — out of scope here |
 | [`docs/decisions.md`](../decisions.md) | Product invariants — update when UI ships |
 
@@ -635,13 +635,4 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 
 ## 11. Cold start handoff (implementation)
 
-**Approved May 2026.** Copy-paste for **Phase 0** — full block in [`ui-evolution-implementation-plan.md` §15](ui-evolution-implementation-plan.md#15-cold-start--phase-0).
-
-```
-GOAL: UI evolution Phase 0 — Foundation. NO surface swaps.
-READ: ui-evolution-implementation-plan.md §5 + §1 · token-sheet §3–§7 · AppPalette.swift · DetailSectionHeader.swift
-CREATE: AppSpacing.swift · AppPalette.hairline · Views/Shared/{EditorialScreenTitle,ZoneSectionHeader,DetailBackBarButton}.swift · pbxproj
-VERIFY: simulator-verify.mdc ladder (build sim + PhathomTests)
-STOP after Phase 0 green-light checklist — Phase 1 is next session.
-OUT OF SCOPE: Chat RAG · wiring shared views into tabs (Phase 1+)
-```
+**Rollout complete (May 2026).** Phases **0–4b** shipped. Historical Phase 0 block and per-phase cold starts: [`ui-evolution-implementation-plan.md` §15 archives](ui-evolution-implementation-plan.md#15-cold-start--rollout-complete).

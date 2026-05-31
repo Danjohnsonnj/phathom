@@ -17,7 +17,7 @@ Read **minimal files per task:**
 | 1 | **`Phathom/`** | Shipped behavior, schema, Swift paths |
 | 2 | **[`CONTEXT.md`](CONTEXT.md)** | Domain glossary (names); links to decisions |
 | 3 | **[`docs/decisions.md`](docs/decisions.md)** | Invariants and rationale |
-| 4 | **Active hand-offs** | [`ui-evolution-implementation-plan.md`](docs/handoff/ui-evolution-implementation-plan.md) (**approved** — start [Phase 0 §15](docs/handoff/ui-evolution-implementation-plan.md#15-cold-start--phase-0)) · [`library-ui-evolution.md`](docs/handoff/library-ui-evolution.md) · [`ui-evolution-token-sheet.md`](docs/handoff/ui-evolution-token-sheet.md) · [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (out of scope) |
+| 4 | **Active hand-offs** | [`ui-evolution-implementation-plan.md`](docs/handoff/ui-evolution-implementation-plan.md) (**Phases 0–4b shipped** — [§15 rollout complete](docs/handoff/ui-evolution-implementation-plan.md#15-cold-start--rollout-complete)) · [`library-ui-evolution.md`](docs/handoff/library-ui-evolution.md) (locked §3) · [`ui-evolution-token-sheet.md`](docs/handoff/ui-evolution-token-sheet.md) · [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (out of scope) |
 | 5 | **[`README.md`](README.md)** | Human orientation |
 
 **Archive:** [`docs/archive/`](docs/archive/) — opt-in only; not for cold start.

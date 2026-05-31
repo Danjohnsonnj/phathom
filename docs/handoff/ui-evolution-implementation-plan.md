@@ -1,6 +1,6 @@
 # UI Evolution — Implementation Plan
 
-> **Status:** **Phase 4a shipped** (May 2026). **Next session:** green-light **Phase 4b** ([§12](#12-phase-4b--settings)).
+> **Status:** **UI evolution rollout complete** (May 2026). Phases **0–4b** shipped. **Next:** product-directed work only — locked surfaces [§3–§12](library-ui-evolution.md); invariants in [`decisions.md`](../decisions.md) UI rows.
 >
 > **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](../../.design-mocks/)
 >
@@ -351,7 +351,13 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Preserve:** full IA, disclosures, importers, backup flows (inference §1.2; mock frames Configured / Primary unset / Missing file).
 
-**Green-light:** Back-only nav (`DetailBackBarButton` + hide system back) · zone typography · all disclosure/sheet flows intact.
+**Green-light:**
+
+- [x] Back-only nav (`DetailBackBarButton` + hide system back) · zone typography · all disclosure/sheet flows intact
+- [x] **`EditorialScreenTitle("Settings")`** · **22pt** inset · **~4pt** top · **28pt** title bottom (nested `VStack`, not 52pt double gap)
+- [x] **`ZoneSectionHeader`** + **8pt** pre-card · filled grouped surfaces · IA / disclosures / importers / backup unchanged
+
+**Shipped notes (closeout):** Title→sections use outer `VStack(spacing: 0)` + inner `sectionVerticalGap` (closeout spacing fix). **`AppAppearance`**: `nav.shadowColor = .clear` (removes push nav hairline; app-wide). **`SettingsContent`**: `toolbarBackground(AppPalette.background)` on push host. **`SettingsSectionHeader`** removed. Recently Deleted nested push chrome deferred.
 
 ---
 
@@ -378,9 +384,13 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 ---
 
-## 15. Cold start — Phase 4b
+## 15. Cold start & rollout status {#15-cold-start--rollout-complete}
 
-Copy-paste for **new session** (Swift authorized for **Phase 4b only**).
+**UI evolution rollout complete** (May 2026). Phases **0–4b** shipped in Swift. Do **not** re-run surface swaps without product direction. New UI work: **`Phathom/`** + [`decisions.md`](../decisions.md) UI rows + locked [§3–§3.10](library-ui-evolution.md).
+
+**Historical cold-start blocks:** archived below (Phase 4b → 4a → …). Stale links to `#15-cold-start--phase-0` should resolve here.
+
+### Archive — Phase 4b cold start
 
 ```
 GOAL: UI evolution Phase 4b — Settings push surface swap. Wire Phase 0 editorial + zone chrome.
@@ -408,6 +418,8 @@ THEN: Stop. UI evolution rollout complete.
 
 AUTHORITY: code > decisions.md > this plan > library-ui-evolution.md > mocks
 ```
+
+(Phase 4b complete — see §12 green-light.)
 
 ### Archive — Phase 4a cold start
 

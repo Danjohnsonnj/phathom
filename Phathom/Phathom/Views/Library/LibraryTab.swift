@@ -239,7 +239,6 @@ struct LibraryTab: View {
             }
             .navigationDestination(isPresented: $isShowingSettings) {
                 SettingsContent()
-                    .navigationTitle("Settings")
             }
             .toolbar(.hidden, for: .navigationBar)
         }

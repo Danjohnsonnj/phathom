@@ -36,6 +36,7 @@ enum AppAppearance {
         let nav = UINavigationBarAppearance()
         nav.configureWithOpaqueBackground()
         nav.backgroundColor = carbon
+        nav.shadowColor = .clear
         nav.titleTextAttributes = [.foregroundColor: floral]
         nav.largeTitleTextAttributes = [.foregroundColor: floral]
 

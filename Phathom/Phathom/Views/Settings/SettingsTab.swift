@@ -110,12 +110,10 @@ struct SettingsContent: View {
         """
     }
 
-    /// Shared with grouped cards; aligns with §12 `space.screenHorizontal` baseline (16).
-    private static let screenHorizontalInset: CGFloat = 16
-    /// Baseline Detail `space.sectionGap` (24).
-    private static let sectionVerticalGap: CGFloat = 24
+    /// Settings editorial stack top inset (§3.10 / Phase 0 wiring — ~4pt, not tab-root 12pt).
+    private static let editorialTopInset: CGFloat = 4
 
-    private var settingsGroupedCornerRadius: CGFloat { 14 }
+    private var settingsGroupedCornerRadius: CGFloat { AppSpacing.cardCornerRadius }
 
     var body: some View {
         configuredForm
@@ -223,6 +221,15 @@ struct SettingsContent: View {
             .background(AppPalette.background)
             .tint(AppPalette.accent)
             .foregroundStyle(AppPalette.textPrimary)
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbarBackground(AppPalette.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    DetailBackBarButton()
+                }
+            }
             .onAppear {
                 refreshSelectionState()
                 refreshArchivedCount()
@@ -264,22 +271,25 @@ struct SettingsContent: View {
 
     private var settingsForm: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Self.sectionVerticalGap) {
-                aiModelsGroupedSection
-                libraryGroupedSection
-                dataGroupedSection
-                settingsScreenFooter
+            VStack(alignment: .leading, spacing: 0) {
+                EditorialScreenTitle(title: "Settings")
+                VStack(alignment: .leading, spacing: AppSpacing.sectionVerticalGap) {
+                    aiModelsGroupedSection
+                    libraryGroupedSection
+                    dataGroupedSection
+                    settingsScreenFooter
+                }
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, Self.screenHorizontalInset)
-            .padding(.top, 8)
-            .padding(.bottom, Self.sectionVerticalGap)
+            .padding(.horizontal, AppSpacing.screenHorizontal)
+            .padding(.top, Self.editorialTopInset)
+            .padding(.bottom, AppSpacing.sectionVerticalGap)
         }
     }
 
     private var aiModelsGroupedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SettingsSectionHeader(
+            ZoneSectionHeader(
                 title: "AI Models",
                 subtitle: "On-device models for summarization, tagging, and photo vision"
             )
@@ -558,7 +568,7 @@ struct SettingsContent: View {
 
     private var libraryGroupedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SettingsSectionHeader(title: "Library")
+            ZoneSectionHeader(title: "Library")
             settingsGroupedSurface {
                 VStack(spacing: 0) {
                     NavigationLink {
@@ -614,7 +624,7 @@ struct SettingsContent: View {
 
     private var dataGroupedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SettingsSectionHeader(title: "Data")
+            ZoneSectionHeader(title: "Data")
             settingsGroupedSurface {
                 VStack(spacing: 0) {
                     Button {
@@ -1187,27 +1197,6 @@ enum SettingsCardCell {
     static let verticalPadding: CGFloat = 12
 }
 
-private struct SettingsSectionHeader: View {
-    let title: String
-    var subtitle: String? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.title2.bold())
-                .foregroundStyle(AppPalette.textPrimary)
-            if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(AppPalette.textSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-    }
-}
-
 private struct BackupJSONDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }
 
@@ -1233,7 +1222,6 @@ struct SettingsTab: View {
     var body: some View {
         NavigationStack {
             SettingsContent()
-                .navigationTitle("Settings")
         }
     }
 }
