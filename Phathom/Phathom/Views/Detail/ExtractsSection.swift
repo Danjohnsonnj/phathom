@@ -22,8 +22,5 @@ struct ExtractsSection: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(AppPalette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }

@@ -1,6 +1,6 @@
 # UI Evolution — Implementation Plan
 
-> **Status:** **Phase 3c shipped** (May 2026). **Next session:** green-light **Phase 4a** ([§11](#11-phase-4a--detail)). Phase 4b: one phase per session unless user re-confirms.
+> **Status:** **Phase 4a shipped** (May 2026). **Next session:** green-light **Phase 4b** ([§12](#12-phase-4b--settings)).
 >
 > **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](../../.design-mocks/)
 >
@@ -110,7 +110,7 @@ flowchart TD
 
 **Tab-root scroll top inset:** Editorial tab roots use **~12pt** padding above the first chrome block (Library, Add New) unless a surface mock specifies otherwise (Settings **~4pt** → Phase 4b).
 
-After each shipped phase: append UI commitments to [`docs/decisions.md`](../decisions.md).
+After each shipped phase: append UI commitments to [`docs/decisions.md`](../decisions.md); optionally sync **`library-ui-evolution.md`** shipped/resolve rows when closeout review-plan finds drift.
 
 ### Post-phase closeout (Phases 3b–4b)
 
@@ -171,7 +171,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 |-----------|-------------------|---------------------------|
 | **`EditorialScreenTitle`** | 34pt semibold title + default **`editorialTitleBottom` (28pt)** | Horizontal **`AppSpacing.screenHorizontal`** · **top inset** (tab roots **~12pt** — [§3](#3-rollout-policy); Settings **~4pt** → Phase 4b) · when parent **`VStack`** owns title→content gap via **`sectionVerticalGap`**, pass **`bottomSpacing: 0`** (Add New Phase 3a; avoid double 28+24) |
 | **`ZoneSectionHeader`** | 17pt **semibold** title + optional 15pt subtitle | **8pt** gap before grouped content (Settings Phase 4b) · subsection tier stays **`DetailAISubsectionHeader`** (Phase 4a) |
-| **`DetailBackBarButton`** | Accent chevron, `.plain`, default `dismiss()` | Toolbar placement · **~44pt** min row / vertical padding per mock · optical check vs system back (Phase 4a Detail, Phase 4b Settings) |
+| **`DetailBackBarButton`** | Accent chevron, `.plain`, default `dismiss()` | **`.navigationBarBackButtonHidden(true)`** on owning push view · toolbar **`.topBarLeading`** · **~44pt** min row per mock · optical sim check (Phase 4a Detail, Phase 4b Settings) |
 | **`HairlineHighlightRow`** | 4px bar, italic quote (primary), uppercase **Note** label | Note body **secondary** (mock) · horizontal inset on parent · **`showsBottomHairline: false`** on last row in a section (Detail Phase 4a) or between highlights on same Notebook item (Phase 3b) · **`verticalPadding`** (Detail **16pt** default; Notebook feed **0** + parent **`AppSpacing.highlightStackGap`**) |
 
 **Typography tie-breakers (Phase 4+):**
@@ -201,9 +201,9 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 |-----------|-----------|-------|
 | `GalleryListRow` | `LibraryTab` | 2 |
 | `ContentCardRow` | `RelatedItemsSheet`, `RecentlyDeletedView` | Unchanged |
-| `HairlineHighlightRow` | `HighlightsNotesSection` | 4a |
-| `HairlineHighlightRow` | `NotebookItemGroup` | 3b |
-| `HighlightCardView` | `HighlightNoteEditSheet` preview | 4a |
+| `HairlineHighlightRow` | `HighlightsNotesSection`, `HighlightNoteEditSheet` preview | 4a ✓ |
+| `HairlineHighlightRow` | `NotebookItemGroup` | 3b ✓ |
+| `HighlightCardView` | — | Unwired (superseded by `HairlineHighlightRow`; file may remain) |
 
 **Green-light:**
 
@@ -324,13 +324,20 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Goal:** [§3.6](library-ui-evolution.md#36-locked-decisions-detail) — hairline material, AI zone Option 5, 22px inset.
 
-**Files:** [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift), [`DetailAIAnalysisDivider.swift`](../../Phathom/Phathom/Views/Detail/DetailAIAnalysisDivider.swift), section views, [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift)
+**Files:** [`DetailView.swift`](../../Phathom/Phathom/Views/Detail/DetailView.swift), [`HighlightsNotesSection.swift`](../../Phathom/Phathom/Views/Detail/HighlightsNotesSection.swift), [`HighlightNoteEditSheet.swift`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift), section views as needed
 
-**Tasks:** `HairlineHighlightRow` in highlights + sheet preview · replace divider with **`ZoneSectionHeader`** (semibold parent, not §3.6 “bold”) · **`DetailBackBarButton`** if replacing system back — verify chevron + **~44pt** row in sim · hairline sections · processing badge placement preserved
+**Tasks:** `HairlineHighlightRow` in highlights + sheet preview · replace divider with **`ZoneSectionHeader`** (semibold parent, not §3.6 “bold”) · **`DetailBackBarButton`** + **`.navigationBarBackButtonHidden(true)`** — verify single accent chevron + **~44pt** row in sim · hairline sections · processing badge placement preserved
 
-**Preserve:** back · **Phathom** center · share · section order · all sheets/flows (inference §1.2).
+**Preserve:** back **navigation** (custom chevron, not system back label) · **Phathom** center · share · section order · all sheets/flows (inference §1.2).
 
-**Green-light:** No filled highlight/summary cards · AI zone Option 5 · highlight tap + edit sheet.
+**Green-light:**
+
+- [x] No filled highlight/summary cards · AI zone Option 5 · highlight tap + edit sheet
+- [x] **`HairlineHighlightRow`** in highlights + sheet preview · **`ZoneSectionHeader("AI analysis")`** replaces divider
+- [x] **`DetailBackBarButton`** leading + **`.navigationBarBackButtonHidden(true)`** · **22pt** inset · hairline sections · action buttons hairline-bordered
+- [x] Phathom center title + share preserved · processing badge placement unchanged
+
+**Shipped notes (closeout):** **`DetailAIAnalysisDivider.swift`** removed (unwired). Share toolbar tint: shipped default (mock secondary — optional polish deferred).
 
 ---
 
@@ -340,11 +347,11 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **File:** [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) (`SettingsContent` — pushed from Library)
 
-**Tasks:** **`EditorialScreenTitle("Settings")`** — **`AppSpacing.screenHorizontal`**, **~4pt top**, **28pt bottom** (token sheet, not mock 24px) · **`DetailBackBarButton`** back-only nav · **`ZoneSectionHeader`** zone headers + **8pt** gap before grouped card · 22px inset · filled grouped surfaces
+**Tasks:** **`EditorialScreenTitle("Settings")`** — **`AppSpacing.screenHorizontal`**, **~4pt top**, **28pt bottom** (token sheet, not mock 24px) · **`DetailBackBarButton`** + **`.navigationBarBackButtonHidden(true)`** back-only nav · **`ZoneSectionHeader`** zone headers + **8pt** gap before grouped card · 22px inset · filled grouped surfaces
 
 **Preserve:** full IA, disclosures, importers, backup flows (inference §1.2; mock frames Configured / Primary unset / Missing file).
 
-**Green-light:** Back-only nav · zone typography · all disclosure/sheet flows intact.
+**Green-light:** Back-only nav (`DetailBackBarButton` + hide system back) · zone typography · all disclosure/sheet flows intact.
 
 ---
 
@@ -371,35 +378,42 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 ---
 
-## 15. Cold start — Phase 4a
+## 15. Cold start — Phase 4b
 
-Copy-paste for **new session** (Swift authorized for **Phase 4a only**).
+Copy-paste for **new session** (Swift authorized for **Phase 4b only**).
 
 ```
-GOAL: UI evolution Phase 4a — Detail push surface swap. Wire Phase 0–1 HairlineHighlightRow + zone chrome.
+GOAL: UI evolution Phase 4b — Settings push surface swap. Wire Phase 0 editorial + zone chrome.
 ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom
 
 READ (minimal):
-  1. docs/handoff/ui-evolution-implementation-plan.md §11 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
-  2. docs/handoff/library-ui-evolution.md §3.6
-  3. .design-mocks/detail-ad-full-hairline-a.html (visual reference)
-  4. Phathom/Phathom/Views/Detail/DetailView.swift (+ section views per §11)
+  1. docs/handoff/ui-evolution-implementation-plan.md §12 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
+  2. docs/handoff/library-ui-evolution.md §3.10
+  3. .design-mocks/settings-ad-grouped-a.html (visual reference)
+  4. Phathom/Phathom/Views/Settings/SettingsTab.swift
 
-WIRE (Phase 4a):
-  - HairlineHighlightRow in highlights + HighlightNoteEditSheet preview
-  - ZoneSectionHeader (Option 5 AI zone); DetailBackBarButton if replacing system back
-  - Hairline sections · 22pt inset · preserve Phathom center title + all sheets/flows
+WIRE (Phase 4b):
+  - EditorialScreenTitle("Settings") · screenHorizontal · ~4pt top · 28pt bottom
+  - DetailBackBarButton + .navigationBarBackButtonHidden(true) back-only · ZoneSectionHeader zone headers · 8pt gap before grouped cards
+  - 22pt inset · filled grouped surfaces preserved
 
-DO NOT: Chat RAG · tab bar redesign · literal HTML port
+DO NOT: tab bar redesign · literal HTML port · disclosure IA changes
 
 VERIFY: ReadLints → bash scripts/build-phathom.sh sim → bash scripts/test-phathom.sh
-  Manual sim: highlight tap + edit sheet · AI zone typography · back chevron ~44pt row
+  Manual sim: back-only nav · zone typography · Configured / Primary unset / Missing file frames
 
-GREEN-LIGHT DONE WHEN: §11 green-light checklist passes
+GREEN-LIGHT DONE WHEN: §12 green-light checklist passes
 
-THEN: Stop. Next session → green-light Phase 4b (Settings).
+THEN: Stop. UI evolution rollout complete.
 
 AUTHORITY: code > decisions.md > this plan > library-ui-evolution.md > mocks
+```
+
+### Archive — Phase 4a cold start
+
+```
+GOAL: UI evolution Phase 4a — Detail push surface swap.
+... (Phase 4a complete — see §11 green-light)
 ```
 
 ### Archive — Phase 3c cold start

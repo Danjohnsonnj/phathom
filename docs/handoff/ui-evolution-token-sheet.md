@@ -140,7 +140,7 @@ Content type?
 | **`LibraryPipelineControlButton`** | §3.2.1 | Library actions row (pause/play) |
 | **`SettingsGroupedSurface`** | §3.10 | Settings (style only — preserve disclosure logic) |
 | **`ZoneSectionHeader`** | 17pt + 15pt subtitle | Detail AI zone, Settings |
-| **Back affordance** | Detail nav back | Detail, Settings |
+| **`DetailBackBarButton`** | Accent chevron; **`.navigationBarBackButtonHidden(true)`** on push host; **~44pt** min row | Detail, Settings |
 
 ---
 
@@ -167,8 +167,8 @@ Items called out across §3 — **Library rows locked May 2026** during implemen
 | **Search dismiss beyond Cancel** | Library | **Locked — Cancel** exits; keyboard dismiss only; no tap-outside |
 | **Pipeline control placement** | Library | **Locked — actions row** trailing, before Search (§3.2.1) |
 | **Processing badge on Detail** | Detail | Preserve shipped placement |
-| **`DetailAIAnalysisDivider` → zone header** | Detail | Replace with Option 5 |
-| **`HighlightCardView` refactor** | Detail, Notebook | Single hairline row |
+| **`DetailAIAnalysisDivider` → zone header** | Detail | **Done (Phase 4a)** — `ZoneSectionHeader` Option 5 |
+| **`HighlightCardView` refactor** | Detail, Notebook | **Done (Phases 3b + 4a)** — `HairlineHighlightRow` |
 | **Drop duplicate nav titles** | Notebook, Chat, Settings | Editorial title owns name |
 | **`ContentCardRow` → gallery** | Library | Preserve swipe, bulk, a11y |
 

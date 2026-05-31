@@ -228,7 +228,7 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 | **Actions** | Hairline-bordered full-width buttons (accent + neutral) |
 | **Nav (pushed)** | Back chevron · center **Phathom** · share — preserve shipped pushed stack |
 | **Section order** | Matches shipped `DetailView` — Hero → header → source → read status → category → highlights → **AI zone** → tags → summary → actions |
-| **AI analysis zone break** | **Option 5 — Zone parent header** — **17pt bold** “AI analysis” owns zone; Tags / Summary / Key Figures use **15pt medium secondary** (`DetailAISubsectionHeader` tier). Hairline separates subsections. **Replace** shipped `DetailAIAnalysisDivider`. |
+| **AI analysis zone break** | **Option 5 — Zone parent header** — **17pt semibold** “AI analysis” owns zone (token sheet §4; plan §0 tie-breaker — not mock CSS `font-weight: 700`); Tags / Summary / Key Figures use **15pt medium secondary** (`DetailAISubsectionHeader` tier). Hairline separates subsections. **Replace** shipped `DetailAIAnalysisDivider`. |
 
 **Rejected Detail alternatives (mocks deleted):** Hybrid **B** (filled highlight/summary cards) · AI zone **2** (whisper label) · **7** (center interrupt) · **5+6** (accent rule).
 
@@ -237,7 +237,7 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 | Item | Status |
 |------|--------|
 | **Processing badge placement** | Not shown in mock — preserve shipped behavior |
-| **`DetailAIAnalysisDivider.swift`** | Replace with zone parent header + demoted subsections when green-lit |
+| **`DetailAIAnalysisDivider.swift`** | **Done (Phase 4a)** — replaced by `ZoneSectionHeader` + demoted subsections; file removed |
 
 ---
 
@@ -350,7 +350,7 @@ See [§2.3](#23-agent-inference-mocks-are-not-exhaustive). Do **not** add tag ed
 
 | Item | Status |
 |------|--------|
-| **`HighlightCardView` → hairline row** | Refactor shared row per §3.6 + §3.8; Detail section + Notebook feed |
+| **`HighlightCardView` → hairline row** | **Done (Phases 3b + 4a)** — `HairlineHighlightRow`; `HighlightCardView.swift` may remain unwired |
 | **`NotebookTab` layout** | Unified scroll; drop fixed chrome `VStack`; 16px → **22px** inset |
 | **System toolbar** | Remove `Phathom` principal; hidden or minimal inline nav per editorial pattern |
 | **`navigationTitle("Notebook")`** | Remove duplicate — editorial title owns screen name |
@@ -361,7 +361,7 @@ See [§2.3](#23-agent-inference-mocks-are-not-exhaustive). Do **not** add tag ed
 
 ## 3.9 Locked decisions (Chat placeholder)
 
-**Shipped entry:** [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) — SwiftUI large `navigationTitle("Chat")`; centered single-line `title3` *“Deep Dive coming in a future update”*; no `Phathom` principal; no RAG.
+**Shipped entry:** [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) — unified scroll + **`EditorialScreenTitle("Chat")`**; hidden nav bar; two-tier left-aligned copy (*Deep Dive is coming soon* + hint); **`tabBarScrollInset`**; no RAG.
 
 **Canonical mock:** [`.design-mocks/chat-ad-placeholder-a.html`](../../.design-mocks/chat-ad-placeholder-a.html) — single frame (coming-soon shell)
 
@@ -573,7 +573,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 - [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) · [`NotebookItemGroup.swift`](../../Phathom/Phathom/Views/Notebook/NotebookItemGroup.swift) — editorial scroll; hairline highlight row; inter-group `border-bottom`
 - [`ChatTab.swift`](../../Phathom/Phathom/Views/Chat/ChatTab.swift) — content-owned **Chat** title; two-tier coming-soon copy; drop centered placeholder + duplicate nav title
 - [`SettingsTab.swift`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) / [`SettingsContent`](../../Phathom/Phathom/Views/Settings/SettingsTab.swift) — editorial **Settings** title; 22px inset; demoted zone headers; back-only pushed nav
-- [`HighlightCardView.swift`](../../Phathom/Phathom/Views/Detail/HighlightCardView.swift) — refactor to shared hairline row (Detail + Notebook)
+- [`HighlightCardView.swift`](../../Phathom/Phathom/Views/Detail/HighlightCardView.swift) — **superseded** by `HairlineHighlightRow` (Phases 3b + 4a); file may remain unwired
 - Optional small view: pinned search bar component (overlay + Cancel)
 
 ---

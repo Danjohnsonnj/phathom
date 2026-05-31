@@ -47,48 +47,51 @@ struct DetailView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 0) {
                 HeroSection(item: item)
 
-                detailStatusChip
+                VStack(alignment: .leading, spacing: 0) {
+                    headerBlock
 
-                failedSection
+                    sourceContentSection
+                        .detailSection(topHairline: true, vertical: .spaced)
 
-                headerSection
+                    readingStatusSection
+                        .detailSection(topHairline: true, vertical: .compact)
 
-                sourceContentSection
+                    categorySection
+                        .detailSection(topHairline: true, vertical: .compact)
 
-                readingStatusSection
+                    if !item.highlightsSortedByOffset.isEmpty || item.kind == .web {
+                        HighlightsNotesSection(
+                            highlights: item.highlightsSortedByOffset,
+                            showsEmptyPlaceholder: item.kind == .web
+                        ) { tapped in
+                            noteEditHighlight = tapped
+                        }
+                        .detailSection(topHairline: true, vertical: .spaced)
+                    }
 
-                categorySection
+                    aiAnalysisZone
+                        .detailSection(topHairline: true, vertical: .spaced)
 
-                HighlightsNotesSection(
-                    highlights: item.highlightsSortedByOffset,
-                    showsEmptyPlaceholder: item.kind == .web
-                ) { tapped in
-                    noteEditHighlight = tapped
+                    actionButtons
+                        .detailSection(topHairline: true, vertical: .actions)
                 }
-
-                DetailAIAnalysisDivider()
-
-                tagsSection
-
-                if item.kind != .media {
-                    summarySection
-                }
-
-                extractsSection
-
-                actionButtons
             }
-            .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
         .id(item.id)
         .background(AppPalette.background)
         .navigationTitle("Phathom")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { detailToolbar }
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                DetailBackBarButton()
+            }
+            detailToolbar
+        }
         .onAppear {
             syncTitleDraftFromItem()
             ensureSourceContentHTMLIfNeeded()
@@ -158,6 +161,17 @@ struct DetailView: View {
         }
     }
 
+    private var headerBlock: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            detailStatusChip
+
+            failedSection
+
+            headerSection
+        }
+        .detailSection(topHairline: false, vertical: .spaced)
+    }
+
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let host = item.displayHost, item.kind == .web {
@@ -201,10 +215,40 @@ struct DetailView: View {
     @ViewBuilder
     private var extractsSection: some View {
         if item.kind != .media, !item.decodedExtracts.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
+            aiSubsection {
                 DetailAISubsectionHeader(title: "Key Figures")
                 ExtractsSection(extracts: item.decodedExtracts)
             }
+        }
+    }
+
+    private var aiAnalysisZone: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZoneSectionHeader(title: "AI analysis")
+                .padding(.bottom, 22)
+
+            tagsSection
+
+            if item.kind != .media {
+                aiSubsection {
+                    summarySection
+                }
+            }
+
+            extractsSection
+        }
+    }
+
+    @ViewBuilder
+    private func aiSubsection<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            content()
+        }
+        .padding(.top, 22)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(AppPalette.hairline)
+                .frame(height: 1)
         }
     }
 
@@ -225,7 +269,7 @@ struct DetailView: View {
             }
             if item.tags.isEmpty {
                 Text("No tags")
-                    .font(.subheadline)
+                    .font(.system(size: 15))
                     .foregroundStyle(AppPalette.textSecondary)
             }
             if isTagEditMode {
@@ -372,14 +416,16 @@ struct DetailView: View {
     }
 
     private var readingStatusSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Picker("Reading status", selection: readStatusBinding) {
-                ForEach(ReadStatus.allCases, id: \.self) { status in
-                    Text(ReadStatusPresentation.label(for: status)).tag(status)
-                }
+        Picker("Reading status", selection: readStatusBinding) {
+            ForEach(ReadStatus.allCases, id: \.self) { status in
+                Text(ReadStatusPresentation.label(for: status)).tag(status)
             }
-            .pickerStyle(.segmented)
-            .tint(AppPalette.accent)
+        }
+        .pickerStyle(.segmented)
+        .tint(AppPalette.accent)
+        .overlay {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .stroke(AppPalette.hairline, lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
     }
@@ -392,30 +438,26 @@ struct DetailView: View {
     }
 
     private var categorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Category")
-                    .font(.headline.bold())
-                    .foregroundStyle(AppPalette.textPrimary)
-                Spacer()
-                Button("Edit") {
-                    isCategoryPickerPresented = true
-                }
-                .font(.subheadline.weight(.semibold))
-                .buttonStyle(.plain)
-                .foregroundStyle(AppPalette.accent)
-                .accessibilityLabel("Edit category")
-                .accessibilityHint("Opens a list to choose, create, or clear the category.")
-            }
-            Text(categorySectionDisplayName)
-                .font(.subheadline)
+        HStack(spacing: 8) {
+            Text("Category")
+                .font(.system(size: 17, weight: .semibold))
+                .tracking(-0.34)
                 .foregroundStyle(AppPalette.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 14)
-                .background(AppPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            Spacer(minLength: 8)
+            Text(categorySectionDisplayName)
+                .font(.system(size: 15))
+                .foregroundStyle(AppPalette.textPrimary)
+            Button("Edit") {
+                isCategoryPickerPresented = true
+            }
+            .font(.system(size: 15, weight: .semibold))
+            .tracking(-0.15)
+            .buttonStyle(.plain)
+            .foregroundStyle(AppPalette.accent)
+            .accessibilityLabel("Edit category")
+            .accessibilityHint("Opens a list to choose, create, or clear the category.")
         }
+        .frame(minHeight: 48, alignment: .center)
     }
 
     private var readStatusBinding: Binding<ReadStatus> {
@@ -451,25 +493,23 @@ struct DetailView: View {
         if item.status == .failed {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Processing failed")
-                    .font(.headline.bold())
+                    .font(.system(size: 17, weight: .semibold))
+                    .tracking(-0.34)
                     .foregroundStyle(AppPalette.textPrimary)
 
                 Text(failedReasonDisplay)
-                    .font(.subheadline)
+                    .font(.system(size: 15))
                     .foregroundStyle(AppPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Button {
                     _ = ProcessingRecovery.retryFailedItemIfNeeded(item, modelContext: modelContext)
                 } label: {
-                    Text("Retry")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppPalette.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(AppPalette.surfaceNested)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    detailHairlineButtonLabel(
+                        "Retry",
+                        foreground: AppPalette.textPrimary,
+                        disabled: !ProcessingRecovery.canRetryFailed(item)
+                    )
                 }
                 .buttonStyle(.plain)
                 .disabled(!ProcessingRecovery.canRetryFailed(item))
@@ -480,10 +520,7 @@ struct DetailView: View {
                         .foregroundStyle(AppPalette.textTertiary)
                 }
             }
-            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppPalette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
 
@@ -505,25 +542,23 @@ struct DetailView: View {
             if item.status == .completed {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(item.displaySummaryBullets.enumerated()), id: \.offset) { _, line in
-                        Text("• \(line)")
-                            .font(.subheadline)
-                            .foregroundStyle(AppPalette.textPrimary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(alignment: .top, spacing: 8) {
+                            Text("•")
+                                .font(.system(size: 15))
+                                .foregroundStyle(AppPalette.textSecondary)
+                            Text(line)
+                                .font(.system(size: 15))
+                                .foregroundStyle(AppPalette.textPrimary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                 }
                 .environment(\.layoutDirection, .leftToRight)
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AppPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else if item.status == .failed {
                 Text("Not available until processing succeeds.")
-                    .font(.subheadline)
+                    .font(.system(size: 15))
                     .foregroundStyle(AppPalette.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .background(AppPalette.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(0 ..< 4, id: \.self) { _ in
@@ -534,9 +569,6 @@ struct DetailView: View {
                             .redacted(reason: .placeholder)
                     }
                 }
-                .padding(16)
-                .background(AppPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
     }
@@ -611,15 +643,11 @@ struct DetailView: View {
                 delaySummarizeDisable = false
             }
         } label: {
-            Text(analyzeAgainButtonTitle)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(summarizeAgainButtonDisabled ? AppPalette.textSecondary : AppPalette.accent)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(AppPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .opacity(summarizeAgainButtonDisabled ? 0.6 : 1.0)
+            detailHairlineButtonLabel(
+                analyzeAgainButtonTitle,
+                foreground: summarizeAgainButtonDisabled ? AppPalette.textSecondary : AppPalette.accent,
+                disabled: summarizeAgainButtonDisabled
+            )
         }
         .buttonStyle(.plain)
         .disabled(summarizeAgainButtonDisabled)
@@ -630,15 +658,11 @@ struct DetailView: View {
         Button {
             _ = ProcessingRecovery.regenerateTags(item, modelContext: modelContext)
         } label: {
-            Text("Regenerate tags")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(regenerateTagsButtonDisabled ? AppPalette.textSecondary : AppPalette.accent)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(AppPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .opacity(regenerateTagsButtonDisabled ? 0.6 : 1.0)
+            detailHairlineButtonLabel(
+                "Regenerate tags",
+                foreground: regenerateTagsButtonDisabled ? AppPalette.textSecondary : AppPalette.accent,
+                disabled: regenerateTagsButtonDisabled
+            )
         }
         .buttonStyle(.plain)
         .disabled(regenerateTagsButtonDisabled)
@@ -656,14 +680,7 @@ struct DetailView: View {
             NotificationCenter.default.post(name: .phathomArchivedItemsDidChange, object: nil)
             dismiss()
         } label: {
-            Text("Restore to Library")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppPalette.floralWhite)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.green.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            detailHairlineButtonLabel("Restore to Library", foreground: Color.green.opacity(0.95))
         }
         .buttonStyle(.plain)
     }
@@ -685,16 +702,29 @@ struct DetailView: View {
                 )
             }
         } label: {
-            Text("Archive")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppPalette.textPrimary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(AppPalette.surfaceNested)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            detailHairlineButtonLabel("Archive", foreground: AppPalette.textPrimary)
         }
         .buttonStyle(.plain)
+    }
+
+    private func detailHairlineButtonLabel(
+        _ title: String,
+        foreground: Color,
+        disabled: Bool = false
+    ) -> some View {
+        Text(title)
+            .font(.system(size: 15, weight: .medium))
+            .tracking(-0.15)
+            .foregroundStyle(foreground)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(AppPalette.hairline, lineWidth: 1)
+            }
+            .opacity(disabled ? 0.6 : 1.0)
     }
 
     private var sourceMarkdownForDisplay: String? {
@@ -721,12 +751,9 @@ struct DetailView: View {
         switch item.status {
         case .failed:
             Text("Not available until processing succeeds.")
-                .font(.subheadline)
+                .font(.system(size: 15))
                 .foregroundStyle(AppPalette.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(AppPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
         default:
             if mediaSourceContentInFlight {
@@ -739,10 +766,7 @@ struct DetailView: View {
                             .redacted(reason: .placeholder)
                     }
                 }
-                .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AppPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else {
                 let desc = (item.mediaDescription ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 if !desc.isEmpty {
@@ -832,7 +856,8 @@ struct DetailView: View {
             } label: {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Source Content")
-                        .font(.headline.bold())
+                        .font(.system(size: 17, weight: .semibold))
+                        .tracking(-0.34)
                         .foregroundStyle(AppPalette.textPrimary)
                     Spacer()
                     Image(systemName: "chevron.down")
@@ -921,6 +946,42 @@ struct DetailView: View {
                     .foregroundStyle(AppPalette.textSecondary)
             }
         }
+    }
+}
+
+private enum DetailSectionVertical {
+    case spaced
+    case compact
+    case actions
+
+    var top: CGFloat {
+        switch self {
+        case .spaced, .compact: 20
+        case .actions: 8
+        }
+    }
+
+    var bottom: CGFloat {
+        switch self {
+        case .spaced, .compact: 20
+        case .actions: 24
+        }
+    }
+}
+
+private extension View {
+    func detailSection(topHairline: Bool, vertical: DetailSectionVertical) -> some View {
+        frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, AppSpacing.screenHorizontal)
+            .padding(.top, vertical.top)
+            .padding(.bottom, vertical.bottom)
+            .overlay(alignment: .top) {
+                if topHairline {
+                    Rectangle()
+                        .fill(AppPalette.hairline)
+                        .frame(height: 1)
+                }
+            }
     }
 }
 

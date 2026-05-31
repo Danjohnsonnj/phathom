@@ -14,9 +14,10 @@ struct HighlightNoteEditSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    HighlightCardView(
+                    HairlineHighlightRow(
                         quotedText: highlight.quotedText,
                         userNote: highlight.userNote,
+                        showsBottomHairline: false,
                         onTap: {}
                     )
                     .allowsHitTesting(false)
@@ -94,7 +95,8 @@ struct HighlightNoteEditSheet: View {
                     }
                     .buttonStyle(.bordered)
                 }
-                .padding(16)
+                .padding(.horizontal, AppSpacing.screenHorizontal)
+                .padding(.vertical, 16)
             }
             .background(AppPalette.background)
             .navigationTitle("Highlight")

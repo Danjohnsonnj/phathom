@@ -14,28 +14,22 @@ struct HighlightsNotesSection: View {
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Highlights & Notes")
-                    .font(.headline.bold())
+                    .font(.system(size: 17, weight: .semibold))
+                    .tracking(-0.34)
                     .foregroundStyle(AppPalette.textPrimary)
 
                 if highlights.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("No highlights")
-                            .font(.subheadline)
-                            .foregroundStyle(AppPalette.textSecondary)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppPalette.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
+                    Text("No highlights")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ForEach(highlights) { highlight in
-                            HighlightCardView(
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(highlights.enumerated()), id: \.element.id) { index, highlight in
+                            HairlineHighlightRow(
                                 quotedText: highlight.quotedText,
                                 userNote: highlight.userNote,
+                                showsBottomHairline: index != highlights.count - 1,
                                 onTap: { onTapHighlight(highlight) }
                             )
                         }
