@@ -2,12 +2,6 @@ import PhathomCore
 import SwiftData
 import SwiftUI
 
-private enum LibraryFilterDefaultsKey {
-    static let kind = "library.filter.kind"
-    static let status = "library.filter.status"
-    static let category = "library.filter.category"
-}
-
 private enum LibraryScrollAnchor {
     static let top = "libraryScrollTop"
 }
@@ -27,9 +21,9 @@ struct LibraryTab: View {
     @Query(sort: \PhathomCore.Category.name, order: .forward)
     private var categories: [PhathomCore.Category]
 
-    @AppStorage(LibraryFilterDefaultsKey.kind) private var filterKindRaw: String = ""
-    @AppStorage(LibraryFilterDefaultsKey.status) private var filterStatusRaw: String = ""
-    @AppStorage(LibraryFilterDefaultsKey.category) private var filterCategoryRaw: String = ""
+    @AppStorage(LibraryFilterStorage.kindKey) private var filterKindRaw: String = ""
+    @AppStorage(LibraryFilterStorage.statusKey) private var filterStatusRaw: String = ""
+    @AppStorage(LibraryFilterStorage.categoryKey) private var filterCategoryRaw: String = ""
 
     private var filterKind: ContentKind? { ContentKind(rawValue: filterKindRaw) }
     private var filterStatus: ReadStatus? { ReadStatus(rawValue: filterStatusRaw) }
@@ -108,8 +102,18 @@ struct LibraryTab: View {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var emptyLibraryMessage: String {
-        trimmedQuery.isEmpty ? "No items yet" : "No matches"
+    private var filtersActive: Bool {
+        filterKind != nil || filterStatus != nil || !filterCategoryRaw.isEmpty
+    }
+
+    /// Non-archived library pool with no kind/status/category filters (for filter-empty vs true-empty).
+    private var unfilteredLibraryCount: Int {
+        TagRelationService.itemsFilteredByKindStatusAndCategory(
+            items: items,
+            filterKind: nil,
+            filterStatus: nil,
+            filterCategory: nil
+        ).count
     }
 
     /// Adjacent rows shown in the "Related by tags" section: deep-ranked when available, otherwise
@@ -495,14 +499,34 @@ struct LibraryTab: View {
     }
 
     @ViewBuilder
+    private var libraryEmptyState: some View {
+        if !trimmedQuery.isEmpty {
+            Text("No matches")
+                .font(.subheadline)
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 48)
+        } else if filtersActive, unfilteredLibraryCount > 0 {
+            EditorialTwoTierEmptyState(
+                title: "No items match these filters",
+                hint: "Try changing Type, Status or Category."
+            )
+            .padding(.vertical, AppSpacing.galleryRowVertical)
+            .padding(.bottom, 24)
+        } else {
+            Text("No items yet")
+                .font(.subheadline)
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 48)
+        }
+    }
+
+    @ViewBuilder
     private var libraryMatchingSection: some View {
         Section {
             if sections.matching.isEmpty {
-                Text(emptyLibraryMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(AppPalette.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 48)
+                libraryEmptyState
                     .listRowInsets(EdgeInsets(top: 0, leading: AppSpacing.screenHorizontal, bottom: 0, trailing: AppSpacing.screenHorizontal))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)

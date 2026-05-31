@@ -30,6 +30,12 @@ enum AppSpacing {
     /// Vertical gap between highlights within the same Notebook item (no hairline).
     static let highlightStackGap: CGFloat = 14
 
+    /// Notebook feed: top inset on first item group header (empty copy uses same band).
+    static let notebookGroupHeaderTop: CGFloat = 16
+
+    /// Gap below `LibraryFilterBar` before feed or empty copy (mock `filter-bar` margin-bottom).
+    static let filterBarBottom: CGFloat = 22
+
     /// Library `LibraryFilterBar` stable height.
     static let filterBarHeight: CGFloat = 72
 

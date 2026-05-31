@@ -314,6 +314,58 @@ struct PhathomTests {
         #expect(textSearch.matching.contains(where: { $0.id == note.id }))
     }
 
+    @Test func notebookHighlightsQuery_groups_appliesKindAndStatusFilters() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let web = ContentItem(contentKind: .web, originalURL: URL(string: "https://notebook-filter.test/web")!)
+        web.readStatus = ReadStatus.read.rawValue
+        let note = ContentItem(contentKind: .note)
+        note.readStatus = ReadStatus.new.rawValue
+        note.rawText = "note body"
+        ctx.insert(web)
+        ctx.insert(note)
+
+        let webHighlight = Highlight(sourceMarkdownOffset: 0, sourceMarkdownLength: 4, quotedText: "web quote")
+        let noteHighlight = Highlight(sourceMarkdownOffset: 0, sourceMarkdownLength: 4, quotedText: "note quote")
+        ctx.insert(webHighlight)
+        ctx.insert(noteHighlight)
+        web.highlights.append(webHighlight)
+        note.highlights.append(noteHighlight)
+        try ctx.save()
+
+        let allHighlights = try ctx.fetch(FetchDescriptor<Highlight>())
+        let unfiltered = NotebookHighlightsQuery.groups(from: allHighlights)
+        #expect(unfiltered.count == 2)
+
+        let webOnly = NotebookHighlightsQuery.groups(from: allHighlights, filterKind: .web, filterStatus: nil, filterCategory: nil)
+        #expect(webOnly.count == 1)
+        #expect(webOnly.first?.item.id == web.id)
+
+        let readOnly = NotebookHighlightsQuery.groups(from: allHighlights, filterKind: nil, filterStatus: .read, filterCategory: nil)
+        #expect(readOnly.count == 1)
+        #expect(readOnly.first?.item.id == web.id)
+    }
+
+    @Test func notebookHighlightsQuery_groups_excludesArchivedParent() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let item = ContentItem(contentKind: .web, originalURL: URL(string: "https://notebook-archive.test/x")!)
+        ctx.insert(item)
+        let highlight = Highlight(sourceMarkdownOffset: 0, sourceMarkdownLength: 3, quotedText: "abc")
+        ctx.insert(highlight)
+        item.highlights.append(highlight)
+        try ctx.save()
+
+        var allHighlights = try ctx.fetch(FetchDescriptor<Highlight>())
+        #expect(NotebookHighlightsQuery.groups(from: allHighlights).count == 1)
+
+        item.isArchived = true
+        try ctx.save()
+        allHighlights = try ctx.fetch(FetchDescriptor<Highlight>())
+        #expect(NotebookHighlightsQuery.groups(from: allHighlights).isEmpty)
+        #expect(NotebookHighlightsQuery.qualifyingHighlights(from: allHighlights).isEmpty)
+    }
+
     @Test @MainActor
     func tagRelation_exactMatchesOtherThanSource_excludesOriginal() throws {
         let container = try makeInMemoryContainer()

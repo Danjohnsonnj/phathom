@@ -15,13 +15,51 @@ struct NotebookTab: View {
     )
     private var activeItems: [ContentItem]
 
+    @Query(sort: \PhathomCore.Category.name, order: .forward)
+    private var categories: [PhathomCore.Category]
+
+    @AppStorage(LibraryFilterStorage.kindKey) private var filterKindRaw: String = ""
+    @AppStorage(LibraryFilterStorage.statusKey) private var filterStatusRaw: String = ""
+    @AppStorage(LibraryFilterStorage.categoryKey) private var filterCategoryRaw: String = ""
+
     @State private var navPath = NavigationPath()
     @State private var noteEditHighlight: Highlight?
     @State private var contentRevision = 0
 
-    private var itemGroups: [NotebookHighlightsQuery.ItemGroup] {
+    private var filterKind: ContentKind? { ContentKind(rawValue: filterKindRaw) }
+    private var filterStatus: ReadStatus? { ReadStatus(rawValue: filterStatusRaw) }
+
+    private var filterKindBinding: Binding<ContentKind?> {
+        Binding(get: { filterKind }, set: { filterKindRaw = $0?.rawValue ?? "" })
+    }
+
+    private var filterStatusBinding: Binding<ReadStatus?> {
+        Binding(get: { filterStatus }, set: { filterStatusRaw = $0?.rawValue ?? "" })
+    }
+
+    private var filterCategoryBinding: Binding<String> {
+        Binding(get: { filterCategoryRaw }, set: { filterCategoryRaw = $0 })
+    }
+
+    /// `nil` means no category filter (All capsule).
+    private var filterCategoryForSearch: String? {
+        guard !filterCategoryRaw.isEmpty else { return nil }
+        return filterCategoryRaw
+    }
+
+    private var unfilteredGroups: [NotebookHighlightsQuery.ItemGroup] {
         _ = contentRevision
         return NotebookHighlightsQuery.groups(from: highlights)
+    }
+
+    private var filteredGroups: [NotebookHighlightsQuery.ItemGroup] {
+        _ = contentRevision
+        return NotebookHighlightsQuery.groups(
+            from: highlights,
+            filterKind: filterKind,
+            filterStatus: filterStatus,
+            filterCategory: filterCategoryForSearch
+        )
     }
 
     var body: some View {
@@ -29,14 +67,18 @@ struct NotebookTab: View {
             List {
                 notebookScrollChrome
 
-                if itemGroups.isEmpty {
-                    emptyState
+                if filteredGroups.isEmpty {
+                    if unfilteredGroups.isEmpty {
+                        trueEmptyState
+                    } else {
+                        filterEmptyState
+                    }
                 } else {
-                    ForEach(itemGroups) { group in
+                    ForEach(filteredGroups) { group in
                         NotebookItemGroup(
                             item: group.item,
                             highlights: group.highlights,
-                            showsBottomGroupHairline: group.id != itemGroups.last?.id,
+                            showsBottomGroupHairline: group.id != filteredGroups.last?.id,
                             onHeaderTap: { navPath.append(group.item.id) },
                             onHighlightTap: { noteEditHighlight = $0 }
                         )
@@ -78,27 +120,43 @@ struct NotebookTab: View {
     }
 
     private var notebookScrollChrome: some View {
-        EditorialScreenTitle(title: "Notebook")
-            .padding(.horizontal, AppSpacing.screenHorizontal)
-            .padding(.top, 12)
-            .listRowInsets(EdgeInsets())
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+        VStack(alignment: .leading, spacing: 0) {
+            EditorialScreenTitle(title: "Notebook")
+            LibraryFilterBar(
+                selectedKind: filterKindBinding,
+                selectedStatus: filterStatusBinding,
+                filterCategoryRaw: filterCategoryBinding,
+                categories: categories
+            )
+            .padding(.bottom, AppSpacing.filterBarBottom)
+        }
+        .textCase(nil)
+        .padding(.horizontal, AppSpacing.screenHorizontal)
+        .padding(.top, 12)
+        .listRowInsets(EdgeInsets())
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
     }
 
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("No highlights yet")
-                .font(.system(size: 17, weight: .semibold))
-                .tracking(-0.34)
-                .foregroundStyle(AppPalette.textPrimary)
-            Text("Highlight text in an article's Source view on Detail.")
-                .font(.system(size: 15))
-                .foregroundStyle(AppPalette.textSecondary)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: 280, alignment: .leading)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private var trueEmptyState: some View {
+        EditorialTwoTierEmptyState(
+            title: "No highlights yet",
+            hint: "Highlight text in an article's Source view on Detail."
+        )
+        .padding(.top, AppSpacing.notebookGroupHeaderTop)
+        .padding(.bottom, 24)
+        .padding(.horizontal, AppSpacing.screenHorizontal)
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private var filterEmptyState: some View {
+        EditorialTwoTierEmptyState(
+            title: "No highlights match these filters",
+            hint: "Try changing Type, Status, or Category."
+        )
+        .padding(.top, AppSpacing.notebookGroupHeaderTop)
         .padding(.bottom, 24)
         .padding(.horizontal, AppSpacing.screenHorizontal)
         .listRowInsets(EdgeInsets())

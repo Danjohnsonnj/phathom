@@ -18,7 +18,14 @@ enum NotebookHighlightsQuery {
 
     /// Groups qualifying highlights by parent item; items ordered by latest highlight `createdAt` desc;
     /// highlights within each item follow `ContentItem.highlightsSortedByOffset`.
-    static func groups(from allHighlights: [Highlight]) -> [ItemGroup] {
+    ///
+    /// `filterCategory`: `nil` = All; otherwise kebab name or ``LibraryCategoryFilterStorage/uncategorizedRaw``.
+    static func groups(
+        from allHighlights: [Highlight],
+        filterKind: ContentKind? = nil,
+        filterStatus: ReadStatus? = nil,
+        filterCategory: String? = nil
+    ) -> [ItemGroup] {
         var seenItemIDs = Set<UUID>()
         var items: [ContentItem] = []
 
@@ -27,6 +34,15 @@ enum NotebookHighlightsQuery {
             if seenItemIDs.insert(item.id).inserted {
                 items.append(item)
             }
+        }
+
+        if filterKind != nil || filterStatus != nil || filterCategory != nil {
+            items = TagRelationService.itemsFilteredByKindStatusAndCategory(
+                items: items,
+                filterKind: filterKind,
+                filterStatus: filterStatus,
+                filterCategory: filterCategory
+            )
         }
 
         return items

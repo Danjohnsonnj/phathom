@@ -50,7 +50,9 @@ Map to existing `AppPalette` unless a new semantic token is justified.
 | **`tabBarScrollInset`** | **~104pt** | Bottom padding so list scrolls under liquid-glass tab bar |
 | **`galleryRowVertical`** | **~19pt** | Library gallery row padding |
 | **`highlightStackGap`** | **~14pt** | Vertical gap between highlights **within** same Notebook item (no hairline) |
-| **`filterBarHeight`** | **72pt** | Library `LibraryFilterBar` stable height |
+| **`filterBarHeight`** | **72pt** | `LibraryFilterBar` stable height (Library + Notebook) |
+| **`filterBarBottom`** | **22pt** | Below filter bar before list / empty (Notebook chrome; mock `filter-bar` margin) |
+| **`notebookGroupHeaderTop`** | **16pt** | First item group header top; Notebook empty copy aligns to same band |
 | **`filterColumnSplit`** | **27.5% / 27.5% / 45%** | Library filters (minus 10pt gaps) — **do not change** |
 | **`cardCornerRadius`** | **14pt** | Grouped Settings surfaces, Add New capture card |
 | **`thumbCornerRadius`** | **6pt** | Library / Notebook 64×64 thumbs |
@@ -71,8 +73,8 @@ Suggested SwiftUI mapping:
 | **Subsection header** | 15pt medium, secondary | Custom — Detail Tags/Summary/Key Figures | Detail AI zone children |
 | **Gallery title** | 16pt medium | `.callout` + medium | Library row, Notebook group header |
 | **Source / kind line** | 13pt secondary | `.footnote` + secondary | Library, Notebook header |
-| **Empty primary** | 17pt semibold | `.headline` | Notebook empty, Chat coming-soon |
-| **Empty hint** | 15pt secondary, ~32ch | `.subheadline` + secondary | Notebook empty, Chat hint |
+| **Empty primary** | 17pt semibold | `.headline` | **`EditorialTwoTierEmptyState`** — Notebook / Library filter empty |
+| **Empty hint** | 15pt secondary, ~32ch | `.subheadline` + secondary | Same; Library true-empty / search still use single-line subheadline |
 | **Meta / date** | 12pt muted | `.caption` + tertiary | Library row meta |
 | **Disclosure label** | Subheadline semibold | `.subheadline.weight(.semibold)` | Settings model rows |
 | **Body / actions** | 17pt body | `.body` | Settings rows, Export/Import |

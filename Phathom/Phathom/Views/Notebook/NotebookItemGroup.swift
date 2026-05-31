@@ -46,7 +46,7 @@ struct NotebookItemGroup: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Opens item detail")
-                .padding(.top, 16)
+                .padding(.top, AppSpacing.notebookGroupHeaderTop)
                 .padding(.bottom, 14)
 
                 VStack(alignment: .leading, spacing: AppSpacing.highlightStackGap) {

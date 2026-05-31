@@ -103,7 +103,7 @@ HTML probes **do not** depict every interaction (tag editing, category picker, s
 | **Cross-surface editors** | Tag edit ([**`TagEditSheet`**](../../Phathom/Phathom/Views/Detail/TagEditSheet.swift) — form-editor family per [`design-tokens.md`](../design-tokens.md) §6.1), category, read status, summarize/archive, source web highlight — **Detail (and Settings)** only unless a probe adds them elsewhere. |
 | **Shared components** | One hairline highlight row for Detail + Notebook when §3.6 + §3.8 align — do not fork fill/rail/typography per tab. |
 
-**Notebook-specific (preserve at implementation — not required in HTML mock):** [`NotebookHighlightsQuery`](../../Phathom/Phathom/Services/NotebookHighlightsQuery.swift) grouping/sort; header tap → `DetailView` push; highlight tap → [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift); **no** Library search/filters/swipe/Settings; **no** tag/category UI on Notebook; empty-state copy; `quotedLineLimit: 3` / `noteLineLimit: 2` on feed only; do not load `sourceMarkdown` in list rows. Historical v1 spec: [`docs/archive/notebook-tab.md`](../archive/notebook-tab.md).
+**Notebook-specific (preserve at implementation — not required in HTML mock):** [`NotebookHighlightsQuery`](../../Phathom/Phathom/Services/NotebookHighlightsQuery.swift) grouping/sort + filter by parent item; header tap → `DetailView` push; highlight tap → [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift); **shared** Library filters (no Notebook search/swipe/Settings); **no** tag/category chips on rows; dual empty states; `quotedLineLimit: 3` / `noteLineLimit: 2` on feed only; do not load `sourceMarkdown` in list rows. Historical v1 spec: [`docs/archive/notebook-tab.md`](../archive/notebook-tab.md).
 
 ### 2.1 Surface probe roadmap
 
@@ -293,7 +293,7 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 
 **Shipped entry:** [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift) · [`NotebookItemGroup.swift`](../../Phathom/Phathom/Views/Notebook/NotebookItemGroup.swift) · [`NotebookHighlightsQuery.swift`](../../Phathom/Phathom/Services/NotebookHighlightsQuery.swift) · **`HairlineHighlightRow`** (shared highlight row)
 
-**Canonical mock:** [`.design-mocks/notebook-ad-hairline-feed-a.html`](design-mocks/notebook-ad-hairline-feed-a.html) — frames **Empty** + **Populated**
+**Canonical mock:** [`.design-mocks/notebook-ad-hairline-feed-a.html`](design-mocks/notebook-ad-hairline-feed-a.html) — frames **Empty** + **Populated** + **Filter empty**
 
 ### Chrome (locked)
 
@@ -301,7 +301,7 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 |-------|----------|
 | **Title band** | **Editorial** — screen-owned **Notebook** large title (Library parity); **22px** inset; **no** `Phathom` in content chrome band. |
 | **System nav** | Drop competing principal brand; pushed **Detail**: back + share only (no center wordmark). |
-| **Search / filters / Settings** | **None** on Notebook v1 — preserve shipped scope. |
+| **Filters** | **Shared `LibraryFilterBar`** under editorial title — same Type / Status / Category layout as Library §3.3 (`filterBarHeight` **72pt**, column split **27.5 / 27.5 / 45**); **shared `@AppStorage`** with Library at implementation; filters **item groups** by parent `ContentItem` (not per-highlight). **No** Notebook search or Settings. |
 | **Tab bar** | Preserved §3.5. |
 | **Scroll** | **Unified (A)** — editorial **Notebook** title scrolls with feed in one surface (Library parity); not fixed chrome above `List`. |
 
@@ -333,15 +333,17 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 
 | Layer | Decision |
 |-------|----------|
-| **Copy** | Preserve shipped — **“No highlights yet”** + Detail Source hint ([`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift)) |
-| **Style** | **Editorial text (A)** — no filled card, no hairline box; **22px** inset, secondary/muted hierarchy |
+| **True empty** | **“No highlights yet”** + Detail Source hint — when library has no qualifying highlights ([`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift)) |
+| **Filter empty** | **“No highlights match these filters”** + hint to change Type / Status / Category — when highlights exist but active filters hide all item groups |
+| **Style** | **Editorial text (A)** — no filled card, no hairline box; **22px** inset, **17pt** semibold title + **15pt** secondary hint (same tiers as true empty) |
 
 ### Mock frames (locked)
 
 | Frame | Shows |
 |-------|--------|
-| **Empty** | Editorial title + empty-state copy only |
-| **Populated** | **2–3** item groups; multi-highlight group; full-width inter-group hairlines; unified scroll |
+| **Empty** | Editorial title + **`LibraryFilterBar`** (All) + true-empty copy |
+| **Populated** | Title + filters (All) + **2–3** item groups; multi-highlight group; full-width inter-group hairlines; unified scroll |
+| **Filter empty** | Title + filters (e.g. Status **Filed**) + filter-empty copy; no feed rows |
 
 ### Notebook — preserve at implementation (not in mock)
 
@@ -600,6 +602,7 @@ Only **canonical** mocks retained as **visual reference** ([§2.2](#22-html-mock
 | 2026-05-30 | Notebook inter-group separator harmonized — full `border-bottom` like Library `gallery-row` (replaces short end-cap div) |
 | 2026-05-30 | Notebook: remove **group-header-divider** — only inter-group full-width hairlines |
 | 2026-05-30 | **Notebook probe complete** — §3.8 locked |
+| 2026-05-31 | **Notebook filters probe** — §3.8 updated: shared `LibraryFilterBar`, Filter empty frame; mock `notebook-ad-hairline-feed-a.html` |
 | 2026-05-30 | **Chat placeholder locked** — §3.9; editorial Notebook Empty parity; two-tier Deep Dive copy; single-frame mock `chat-ad-placeholder-a.html` |
 | 2026-05-30 | Chat: content-owned **Chat** title in scroll; drop large nav title; no actions row; text-only placeholder (no fake chat UI) |
 | 2026-05-30 | **Discovery probes 1–6 complete** — 6 canonical HTML mocks; Settings §3.10 locked |

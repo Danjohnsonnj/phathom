@@ -19,7 +19,7 @@ Static Safari mocks probed layout, spacing, and material language before SwiftUI
 | `library-ad-search-b-toolbar.html` | Library — at rest + Search active; pipeline in actions row |
 | `detail-ad-full-hairline-a.html` | Detail — full hairline A |
 | `add-new-ad-filled-card-a.html` | Add New — Web · Note · Photo × Starting + Filled |
-| `notebook-ad-hairline-feed-a.html` | Notebook — Empty + Populated hairline feed |
+| `notebook-ad-hairline-feed-a.html` | Notebook — Empty + Populated + Filter empty (shared Library filters) |
 | `chat-ad-placeholder-a.html` | Chat placeholder — coming-soon shell |
 | `settings-ad-grouped-a.html` | Settings — Configured · Primary unset · Missing file |
 
