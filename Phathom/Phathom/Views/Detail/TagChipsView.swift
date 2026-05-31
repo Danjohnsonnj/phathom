@@ -52,14 +52,15 @@ struct TagChipsView: View {
 
     private func chipLabel(for tag: Tag) -> some View {
         Text(tag.name.localizedCapitalized)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(AppPalette.accent)
+            .font(.system(size: 13, weight: .medium))
+            .tracking(-0.13)
+            .foregroundStyle(AppPalette.textPrimary)
             .lineLimit(1)
             .truncationMode(.tail)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(AppPalette.tagChipBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .clipShape(Capsule())
     }
 }

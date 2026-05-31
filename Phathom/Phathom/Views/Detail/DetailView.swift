@@ -83,13 +83,10 @@ struct DetailView: View {
         }
         .id(item.id)
         .background(AppPalette.background)
-        .navigationTitle("Phathom")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                DetailBackBarButton()
-            }
+            DetailBackBarToolbarItem()
             detailToolbar
         }
         .onAppear {
@@ -146,19 +143,8 @@ struct DetailView: View {
         }
     }
 
-    @ToolbarContentBuilder
     private var detailToolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            if let url = shareURL {
-                ShareLink(item: url) {
-                    Image(systemName: "square.and.arrow.up")
-                }
-            } else {
-                ShareLink(item: item.displayTitle) {
-                    Image(systemName: "square.and.arrow.up")
-                }
-            }
-        }
+        DetailShareToolbarItem(shareURL: shareURL, fallbackTitle: item.displayTitle)
     }
 
     private var headerBlock: some View {
@@ -190,16 +176,6 @@ struct DetailView: View {
                 .onChange(of: titleFocused) { _, isFocused in
                     if !isFocused { commitTitleDraft() }
                 }
-
-            if let snippet = summarySnippetMarkdown {
-                Markdown(snippet)
-                    .markdownTheme(.phathomNote)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else if let snippet = summarySnippetPlain {
-                Text(snippet)
-                    .font(.subheadline)
-                    .foregroundStyle(AppPalette.textSecondary)
-            }
 
             Text(item.createdAt.formatted(Self.timestampFormat))
                 .font(.subheadline)
@@ -239,17 +215,22 @@ struct DetailView: View {
         }
     }
 
+    /// Subsection after Tags / Summary — mock: 22pt above hairline, hairline, 22pt to header, 12pt header→body.
     @ViewBuilder
     private func aiSubsection<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            content()
-        }
-        .padding(.top, 22)
-        .overlay(alignment: .top) {
+        VStack(alignment: .leading, spacing: 0) {
             Rectangle()
                 .fill(AppPalette.hairline)
+                .frame(maxWidth: .infinity)
                 .frame(height: 1)
+
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, AppSpacing.aiSubsectionHairlineGap)
         }
+        .padding(.top, AppSpacing.aiSubsectionHairlineGap)
     }
 
     private var tagValidationMessage: String? {
@@ -384,25 +365,6 @@ struct DetailView: View {
             return created
         }()
         item.tags.append(tag)
-    }
-
-    private var summarySnippetMarkdown: String? {
-        if let source = item.sourceMarkdown,
-           let preview = SummaryLineSanitization.sourceMarkdownPreview(source, maxWords: 50)
-        {
-            return preview
-        }
-        return nil
-    }
-
-    private var summarySnippetPlain: String? {
-        guard item.kind != .media else { return nil }
-        if let raw = item.rawText,
-           let preview = SummaryLineSanitization.sourcePreview(raw, maxWords: 50)
-        {
-            return preview
-        }
-        return nil
     }
 
     @ViewBuilder
@@ -954,12 +916,8 @@ private enum DetailSectionVertical {
     case compact
     case actions
 
-    var top: CGFloat {
-        switch self {
-        case .spaced, .compact: 20
-        case .actions: 8
-        }
-    }
+    /// Padding below section hairline before section content (mock `.detail-section--spaced` / `.action-buttons`).
+    var topAfterHairline: CGFloat { AppSpacing.detailSectionAfterHairlineGap }
 
     var bottom: CGFloat {
         switch self {
@@ -970,18 +928,28 @@ private enum DetailSectionVertical {
 }
 
 private extension View {
+    /// Hairline at section top, then content inset below (mock `.detail-section + .detail-section` border-top rhythm).
     func detailSection(topHairline: Bool, vertical: DetailSectionVertical) -> some View {
-        frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, AppSpacing.screenHorizontal)
-            .padding(.top, vertical.top)
-            .padding(.bottom, vertical.bottom)
-            .overlay(alignment: .top) {
-                if topHairline {
+        Group {
+            if topHairline {
+                VStack(alignment: .leading, spacing: 0) {
                     Rectangle()
                         .fill(AppPalette.hairline)
+                        .frame(maxWidth: .infinity)
                         .frame(height: 1)
+
+                    self
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, vertical.topAfterHairline)
                 }
+            } else {
+                self
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, vertical.topAfterHairline)
             }
+        }
+        .padding(.horizontal, AppSpacing.screenHorizontal)
+        .padding(.bottom, vertical.bottom)
     }
 }
 

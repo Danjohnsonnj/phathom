@@ -35,7 +35,7 @@ Palette **unchanged** — refine execution only. Map to existing `AppPalette` un
 | **Text secondary** | `#ccc5b9` | `textSecondary` |
 | **Text tertiary** | ~72% dust | `textTertiary` — disabled/meta |
 | **Chip / badge bg** | `#401F12` | `metaChipBackground` — processing badge, tag chips (Detail) |
-| **Tag chip bg** | `#0B0A0A` | `tagChipBackground` — Detail tags (shipped) |
+| **Tag chip bg** | `#401F12` | `tagChipBackground` (= `metaChipBackground`) — Detail tags; **primary** label |
 | **Hairline** | `rgba(255,252,242,0.12)` | Row/section dividers — **add semantic if repeated** (e.g. `AppPalette.hairline`) |
 | **Success / warning** | System green / orange | Model status icons, missing-file copy (Settings) — keep system semantic colors |
 
@@ -48,6 +48,8 @@ Palette **unchanged** — refine execution only. Map to existing `AppPalette` un
 | **`screenHorizontal`** | **22pt** | Default content inset — tab roots, Detail, Add New, Notebook, Chat, Settings (up from shipped 16pt where noted) |
 | **`sectionVerticalGap`** | **24pt** | Between major section groups (Settings zones, Add New stack) |
 | **`editorialTitleBottom`** | **~28pt** | Margin below screen-owned large title before first section |
+| **`aiSubsectionHairlineGap`** | **22pt** | Detail AI zone: last tag or summary bullet → hairline, and hairline → next subsection header |
+| **`detailSectionAfterHairlineGap`** | **20pt** | Detail hairline sections: content below top hairline (spaced blocks, action CTAs). Matches last Key Figures row → action hairline (ai-zone bottom padding) |
 | **`tabBarScrollInset`** | **~104pt** | Bottom padding so list scrolls under liquid-glass tab bar |
 | **`galleryRowVertical`** | **~19pt** | Library gallery row padding |
 | **`highlightStackGap`** | **~14pt** | Vertical gap between highlights **within** same Notebook item (no hairline) |
@@ -107,8 +109,8 @@ Content type?
 | **Notebook intra-item** | None | **No** hairline — 14pt gap only | Notebook highlights same parent |
 | **Grouped config card** | `#403d39`, 14pt radius | Inset hairline between rows | Settings |
 | **Capture card** | Outer `#403d39` + inner `#353330` wells | Internal well borders | Add New |
-| **Detail actions** | None | Hairline-bordered buttons | Detail bottom |
-| **Tag chips** | `#401F12` or shipped tag bg | No enclosing card | Detail |
+| **Detail actions** | None | Hairline-bordered buttons; **20pt** below section hairline (parity with Key Figures → line) | Detail bottom |
+| **Tag chips** | `#401F12` capsule, **primary** text (13pt medium) | No enclosing card | Detail |
 
 **Highlight row (shared):** 4px left paprika bar · italic quote · uppercase **Note** when present · one component for Detail + Notebook.
 
@@ -119,7 +121,7 @@ Content type?
 | Context | Nav | Screen title | Tab bar | Scroll |
 |---------|-----|--------------|---------|--------|
 | **Tab root** (Library, Notebook, Chat, Add New) | Drop duplicate `navigationTitle`; Library: **no `Phathom` principal** — actions row only | Editorial **large title in scroll** | Liquid glass §3.5 | Unified — title scrolls with content |
-| **Detail push** | Back · **Phathom** center · share | None (article content) | Hidden | Content scroll |
+| **Detail push** | Back + share only (no center wordmark) | None (article content) | Toolbar visible | Content scroll |
 | **Settings push** | **Back only** (Detail back styling) | Editorial **Settings** in scroll | Hidden | Unified; back fixed above scroll |
 | **Library at rest** | Select · Pipeline · Search · Settings | **Library** editorial | Visible | Unified |
 | **Library search active** | Pinned search over actions band (pipeline hidden) | Same | Visible | Content scrolls under pinned bar |
@@ -140,7 +142,8 @@ Content type?
 | **`LibraryPipelineControlButton`** | §3.2.1 | Library actions row (pause/play) |
 | **`SettingsGroupedSurface`** | §3.10 | Settings (style only — preserve disclosure logic) |
 | **`ZoneSectionHeader`** | 17pt + 15pt subtitle | Detail AI zone, Settings |
-| **`DetailBackBarButton`** | Accent chevron; **`.navigationBarBackButtonHidden(true)`** on push host; **~44pt** min row | Detail, Settings |
+| **`DetailBackBarButton`** / **`DetailBackBarToolbarItem`** | Flat accent chevron only — **no** liquid-glass capsule (toolbar item **`.sharedBackgroundVisibility(.hidden)`**); **`.navigationBarBackButtonHidden(true)`** on push host; **~44pt** min row | Detail, Settings |
+| **`DetailShareToolbarItem`** | Flat **secondary** share SF symbol — **no** glass capsule (**`.sharedBackgroundVisibility(.hidden)`**); **~44pt** row | Detail push only |
 
 ---
 
@@ -149,7 +152,7 @@ Content type?
 | Surface | Hand-off | Mock | Primary token deltas vs shipped |
 |---------|----------|------|--------------------------------|
 | **Library** | §3 | `library-ad-search-b-toolbar.html` | 22px inset; gallery hairlines; Search B overlay; editorial title; pipeline in actions row |
-| **Detail** | §3.6 | `detail-ad-full-hairline-a.html` | 22px inset; hairline sections; AI zone Option 5 |
+| **Detail** | §3.6 | `detail-ad-full-hairline-a.html` | 22px inset; hairline sections; AI zone Option 5; header = host · title · timestamp (**no** source-preview snippet) |
 | **Add New** | §3.7 | `add-new-ad-filled-card-a.html` | 22px inset; capsule Save; drop hints/subtitle |
 | **Notebook** | §3.8 | `notebook-ad-hairline-feed-a.html` | Unified scroll; shared highlight row; inter-group hairline |
 | **Chat** | §3.9 | `chat-ad-placeholder-a.html` | Editorial + two-tier empty copy |
@@ -163,7 +166,7 @@ Items called out across §3 — **Library rows locked May 2026** during implemen
 
 | Item | Surfaces | Decision / status |
 |------|----------|-------------------|
-| **Library `Phathom` principal** | Library | **Locked — drop** on Library tab; Detail push keeps center **Phathom** |
+| **Library `Phathom` principal** | Library | **Locked — drop** on Library tab; Detail push **no** center wordmark |
 | **Search dismiss beyond Cancel** | Library | **Locked — Cancel** exits; keyboard dismiss only; no tap-outside |
 | **Pipeline control placement** | Library | **Locked — actions row** trailing, before Search (§3.2.1) |
 | **Processing badge on Detail** | Detail | Preserve shipped placement |

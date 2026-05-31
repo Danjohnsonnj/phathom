@@ -11,6 +11,12 @@ enum AppSpacing {
     /// Margin below screen-owned large title before first section.
     static let editorialTitleBottom: CGFloat = 28
 
+    /// Detail AI zone: gap before subsection hairline + gap from hairline to subsection header (mock `.ai-subsection + .ai-subsection`).
+    static let aiSubsectionHairlineGap: CGFloat = 22
+
+    /// Detail hairline sections: inset below top hairline (spaced blocks + action CTAs). Matches ai-zone bottom → action hairline gap (last Key Figures row to line).
+    static let detailSectionAfterHairlineGap: CGFloat = 20
+
     /// Bottom padding so list scrolls under liquid-glass tab bar.
     static let tabBarScrollInset: CGFloat = 104
 

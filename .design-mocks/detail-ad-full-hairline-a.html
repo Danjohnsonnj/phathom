@@ -284,20 +284,22 @@
     /* ── Detail nav chrome (pushed stack) ── */
     .detail-nav {
       flex-shrink: 0;
-      display: grid;
-      grid-template-columns: 72px 1fr 72px;
+      display: flex;
       align-items: center;
+      justify-content: space-between;
       padding: 4px var(--rhythm) 8px;
       min-height: 44px;
     }
 
+    /* Flat accent chevron only — NOT liquid-glass / bordered toolbar capsule (Swift: sharedBackgroundVisibility hidden). */
     .detail-nav-back {
-      justify-self: start;
       display: flex;
       align-items: center;
       gap: 2px;
       background: none;
       border: none;
+      box-shadow: none;
+      backdrop-filter: none;
       color: var(--accent);
       font-family: var(--font);
       font-size: 17px;
@@ -317,18 +319,12 @@
       stroke-linejoin: round;
     }
 
-    .detail-nav-title {
-      justify-self: center;
-      font-size: 17px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      color: var(--text-primary);
-    }
-
+    /* Flat secondary share icon — NOT liquid-glass toolbar button (Swift: sharedBackgroundVisibility hidden). */
     .detail-nav-share {
-      justify-self: end;
       background: none;
       border: none;
+      box-shadow: none;
+      backdrop-filter: none;
       color: var(--text-secondary);
       padding: 8px;
       display: flex;
@@ -439,13 +435,6 @@
       line-height: 1.15;
       letter-spacing: -0.03em;
       color: var(--text-primary);
-      margin-bottom: 10px;
-    }
-
-    .detail-snippet {
-      font-size: 15px;
-      line-height: 1.45;
-      color: var(--text-secondary);
       margin-bottom: 10px;
     }
 
@@ -656,13 +645,14 @@
       margin-bottom: 0;
     }
 
+    /* 22px before hairline + 22px after hairline to subsection header (Swift: aiSubsectionHairlineGap ×2). */
     .ai-subsection + .ai-subsection {
       margin-top: 22px;
       padding-top: 22px;
       border-top: 1px solid var(--hairline);
     }
 
-    /* Tags — outline chips (tags-only exception; no surface card wrapper) */
+    /* Tags — filled #401F12 capsules, primary label (not accent-on-black); no surface card wrapper */
     .tags-header-row {
       display: flex;
       align-items: center;
@@ -723,12 +713,34 @@
       color: var(--text-secondary);
     }
 
-    /* Action buttons */
+    /* Key Figures — flush rows (Detail ExtractsSection parity) */
+    .extracts-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .extracts-list li {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-primary);
+    }
+
+    .extracts-list .extract-label {
+      font-weight: 500;
+    }
+
+    .extracts-list .extract-mid {
+      color: var(--text-secondary);
+    }
+
+    /* Action buttons — 20px below hairline (same as last Key Figures row → hairline above). */
     .action-buttons {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding-top: 8px;
+      padding-top: 20px;
       padding-bottom: 24px;
     }
 
@@ -798,7 +810,6 @@
             <button type="button" class="detail-nav-back" aria-label="Back">
               <svg viewBox="0 0 13 20" aria-hidden="true"><path d="M11 2 3 10l8 8"/></svg>
             </button>
-            <span class="detail-nav-title">Phathom</span>
             <button type="button" class="detail-nav-share" aria-label="Share">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 3v12"/>
@@ -821,7 +832,6 @@
               <section class="detail-section detail-header">
                 <p class="detail-host">www.robert-glaser.de</p>
                 <h1 class="detail-title">When everyone has AI and the company still learns nothing</h1>
-                <p class="detail-snippet">I think everyone knows this is the phase where it gets complicated, like, really complicated. The “messy middle” of AI adoption starts when AI use is everywhere, uneven, partially hidden, difficult to compare, and not yet connected to organizational learning.</p>
                 <time class="detail-timestamp" datetime="2025-05-06T13:24:18">May 6, 2025 at 1:24 PM</time>
               </section>
 
@@ -894,6 +904,15 @@
                     <li>Companies need to move beyond tool usage and bean counting to understand which AI-assisted loops produce learning and which ones decay.</li>
                     <li>The adoption question is not just about tool usage, but about understanding which loops to use, where to apply resistance, and how to create learning artifacts.</li>
                     <li>The 'feedback harness' is a crucial concept, where the organization collects and acts on signals from real work loops to inform decision-making.</li>
+                  </ul>
+                </div>
+
+                <div class="ai-subsection" aria-labelledby="figures-heading">
+                  <h3 class="ai-subsection-header" id="figures-heading">Key Figures</h3>
+                  <ul class="extracts-list">
+                    <li><span class="extract-label">Adoption rate</span><span class="extract-mid"> · </span>42%</li>
+                    <li><span class="extract-label">Pilot teams</span><span class="extract-mid"> · </span>12</li>
+                    <li><span class="extract-label">Time to value</span><span class="extract-mid"> · </span>6 weeks</li>
                   </ul>
                 </div>
               </section>

@@ -173,12 +173,15 @@
       min-height: 44px;
     }
 
+    /* Flat accent chevron only — NOT liquid-glass / bordered toolbar capsule (Swift: sharedBackgroundVisibility hidden). */
     .detail-nav-back {
       display: flex;
       align-items: center;
       gap: 2px;
       background: none;
       border: none;
+      box-shadow: none;
+      backdrop-filter: none;
       color: var(--accent);
       font-family: var(--font);
       font-size: 17px;

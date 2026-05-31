@@ -226,9 +226,7 @@ struct SettingsContent: View {
             .toolbarBackground(AppPalette.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    DetailBackBarButton()
-                }
+                DetailBackBarToolbarItem()
             }
             .onAppear {
                 refreshSelectionState()

@@ -129,7 +129,7 @@ Ordered queue for HTML mocks and design review. **No Swift** until the full disc
 | Layer | Decision |
 |-------|----------|
 | **Top actions** | Minimal row: **Select** (leading); **Pipeline** pause/play when in-flight or paused/queued (trailing, before Search); **Search** + **Settings** (trailing). No persistent search field in the editorial stack. |
-| **System nav** | **No `Phathom` principal** on Library — editorial **Library** title owns screen identity; **Phathom** remains center on pushed Detail only (§3.6). |
+| **System nav** | **No `Phathom` principal** on Library or pushed Detail — editorial / content owns identity (§3.6 back + share only). |
 | **Screen title** | Large left-aligned **Library** (`~34pt`, semibold, tight tracking) below the actions row — screen owns the title, not the system nav brand. |
 | **List material** | **Gallery rows** — hairline dividers, **no filled card background**, 64×64 thumbs, generous vertical padding (`~19px`), content scrolls with editorial chrome. |
 | **Horizontal rhythm** | **22px** (`--rhythm`) content inset; align title, filters, and row text to this grid. |
@@ -225,8 +225,9 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 | **Metadata** | Category + read status as **inline / hairline** rows (no category capsule box) |
 | **Horizontal rhythm** | **22px** content inset (up from shipped 16px) |
 | **Tags** | Chip pills on `#401F12` allowed; no enclosing surface card |
-| **Actions** | Hairline-bordered full-width buttons (accent + neutral) |
-| **Nav (pushed)** | Back chevron · center **Phathom** · share — preserve shipped pushed stack |
+| **Actions** | Hairline-bordered full-width buttons (accent + neutral); **20pt** below section hairline (same rhythm as last Key Figures row → line above actions) |
+| **Nav (pushed)** | Flat accent back chevron + flat secondary share — **no** center wordmark · **not** liquid-glass toolbar buttons |
+| **Header block** | Web **host** (accent) · editable **title** · **timestamp** only — **no** source-preview snippet under title (source lives in collapsible **Source Content**) |
 | **Section order** | Matches shipped `DetailView` — Hero → header → source → read status → category → highlights → **AI zone** → tags → summary → actions |
 | **AI analysis zone break** | **Option 5 — Zone parent header** — **17pt semibold** “AI analysis” owns zone (token sheet §4; plan §0 tie-breaker — not mock CSS `font-weight: 700`); Tags / Summary / Key Figures use **15pt medium secondary** (`DetailAISubsectionHeader` tier). Hairline separates subsections. **Replace** shipped `DetailAIAnalysisDivider`. |
 
@@ -299,7 +300,7 @@ Implementation reference: [`MainTabView.swift`](../../Phathom/Phathom/Views/Main
 | Layer | Decision |
 |-------|----------|
 | **Title band** | **Editorial** — screen-owned **Notebook** large title (Library parity); **22px** inset; **no** `Phathom` in content chrome band. |
-| **System nav** | Drop competing principal brand; pushed **Detail** keeps locked back · Phathom · share. |
+| **System nav** | Drop competing principal brand; pushed **Detail**: back + share only (no center wordmark). |
 | **Search / filters / Settings** | **None** on Notebook v1 — preserve shipped scope. |
 | **Tab bar** | Preserved §3.5. |
 | **Scroll** | **Unified (A)** — editorial **Notebook** title scrolls with feed in one surface (Library parity); not fixed chrome above `List`. |
@@ -422,7 +423,7 @@ See [§2.3](#23-agent-inference-mocks-are-not-exhaustive). Do **not** add tag ed
 | Layer | Decision |
 |-------|----------|
 | **Push context** | **Pushed from Library** — no tab bar in mock |
-| **Nav bar** | **Back only** — fixed bar above scroll; Detail `detail-nav-back` styling; **no** center **Phathom**, **no** share |
+| **Nav bar** | **Back only** — fixed bar above scroll; Detail `detail-nav-back` styling (flat accent chevron, **not** liquid-glass toolbar button); **no** center **Phathom**, **no** share |
 | **Screen title** | Content-owned editorial **Settings** (~34pt semibold) in unified scroll; drop inline nav **Settings** at implementation |
 | **Scroll** | **Unified** — editorial title + sections scroll together; back row **fixed** above scroll |
 | **Horizontal rhythm** | **22px** inset (from shipped 16px) |
@@ -468,7 +469,7 @@ See [§2.3](#23-agent-inference-mocks-are-not-exhaustive). Do **not** add tag ed
 | **`SettingsContent` inset** | **Shipped** — **22px** (`AppSpacing.screenHorizontal`) |
 | **`navigationTitle("Settings")`** | **Shipped** — removed; editorial title owns screen name |
 | **`SettingsSectionHeader`** | **Shipped** — **`ZoneSectionHeader`** (17pt semibold zone tier) |
-| **Pushed nav** | **Shipped** — **`DetailBackBarButton`** + hidden system back |
+| **Pushed nav** | **Shipped** — **`DetailBackBarToolbarItem`** (flat chevron, no glass) + hidden system back |
 
 **Rejected Settings alternatives:** Hairline-flat grouped sections · **Phathom** center on pushed Settings · tab-bar Settings root · IA/disclosure redesign · inline nav **Settings** duplicate with editorial title.
 

@@ -18,8 +18,8 @@ enum AppPalette {
     static let textSecondary = dustGrey
     static let accent = spicyPaprika
 
-    /// Tag chips on detail (high contrast with accent label).
-    static let tagChipBackground = Color(hex: "#0B0A0A")
+    /// Detail tag chips — same paprika-tint fill as meta/processing chips (`#401F12`, mock `--chip-bg`).
+    static let tagChipBackground = metaChipBackground
 
     /// Subtle lift between background and `surface` for nested blocks.
     static let surfaceNested = Color(hex: "#353330")

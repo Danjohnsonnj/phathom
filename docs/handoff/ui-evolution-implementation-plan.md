@@ -64,7 +64,7 @@ Sheets, modals, popovers, swipes, and navigation pushes are **not** fully drawn 
 
 | Decision | Locked choice |
 |----------|---------------|
-| Library nav | **Drop `Phathom` principal**; Detail push keeps center **Phathom** |
+| Library nav | **Drop `Phathom` principal** on tab roots; Detail push **back + share only** (no center wordmark) |
 | Search dismiss | **Cancel** exits; **keyboard dismiss** only while active; no tap-outside |
 | Pipeline control | **Actions row** trailing, before Search ([§3.2.1](library-ui-evolution.md#321-pipeline-control--actions-row-trailing)) |
 | Rollout | **Per-phase green-light** before Swift |
@@ -171,7 +171,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 |-----------|-------------------|---------------------------|
 | **`EditorialScreenTitle`** | 34pt semibold title + default **`editorialTitleBottom` (28pt)** | Horizontal **`AppSpacing.screenHorizontal`** · **top inset** (tab roots **~12pt** — [§3](#3-rollout-policy); Settings **~4pt** → Phase 4b) · when parent **`VStack`** owns title→content gap via **`sectionVerticalGap`**, pass **`bottomSpacing: 0`** (Add New Phase 3a; avoid double 28+24) |
 | **`ZoneSectionHeader`** | 17pt **semibold** title + optional 15pt subtitle | **8pt** gap before grouped content (Settings Phase 4b) · subsection tier stays **`DetailAISubsectionHeader`** (Phase 4a) |
-| **`DetailBackBarButton`** | Accent chevron, `.plain`, default `dismiss()` | **`.navigationBarBackButtonHidden(true)`** on owning push view · toolbar **`.topBarLeading`** · **~44pt** min row per mock · optical sim check (Phase 4a Detail, Phase 4b Settings) |
+| **`DetailBackBarButton`** / **`DetailBackBarToolbarItem`** | Accent chevron, `.plain`, default `dismiss()` — **no** liquid-glass capsule (**`.sharedBackgroundVisibility(.hidden)`** on toolbar item) | **`DetailBackBarToolbarItem`** in `.toolbar` · **`.navigationBarBackButtonHidden(true)`** on push host · **~44pt** min row · optical sim (Detail, Settings) |
 | **`HairlineHighlightRow`** | 4px bar, italic quote (primary), uppercase **Note** label | Note body **secondary** (mock) · horizontal inset on parent · **`showsBottomHairline: false`** on last row in a section (Detail Phase 4a) or between highlights on same Notebook item (Phase 3b) · **`verticalPadding`** (Detail **16pt** default; Notebook feed **0** + parent **`AppSpacing.highlightStackGap`**) |
 
 **Typography tie-breakers (Phase 4+):**
@@ -328,16 +328,16 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Tasks:** `HairlineHighlightRow` in highlights + sheet preview · replace divider with **`ZoneSectionHeader`** (semibold parent, not §3.6 “bold”) · **`DetailBackBarButton`** + **`.navigationBarBackButtonHidden(true)`** — verify single accent chevron + **~44pt** row in sim · hairline sections · processing badge placement preserved
 
-**Preserve:** back **navigation** (custom chevron, not system back label) · **Phathom** center · share · section order · all sheets/flows (inference §1.2).
+**Preserve:** back **navigation** (custom chevron, not system back label) · flat share · section order · all sheets/flows (inference §1.2). **No** center **Phathom** wordmark (removed — was mock mistake).
 
 **Green-light:**
 
 - [x] No filled highlight/summary cards · AI zone Option 5 · highlight tap + edit sheet
 - [x] **`HairlineHighlightRow`** in highlights + sheet preview · **`ZoneSectionHeader("AI analysis")`** replaces divider
 - [x] **`DetailBackBarButton`** leading + **`.navigationBarBackButtonHidden(true)`** · **22pt** inset · hairline sections · action buttons hairline-bordered
-- [x] Phathom center title + share preserved · processing badge placement unchanged
+- [x] Back + flat share only (no center wordmark) · processing badge placement unchanged
 
-**Shipped notes (closeout):** **`DetailAIAnalysisDivider.swift`** removed (unwired). Share toolbar tint: shipped default (mock secondary — optional polish deferred).
+**Shipped notes (closeout):** **`DetailAIAnalysisDivider.swift`** removed (unwired). Post-rollout polish: no center **Phathom** wordmark; flat share via **`DetailShareToolbarItem`**; **`detailSectionAfterHairlineGap` (20pt)** on action block (was incorrect 8pt in mock). Detail header **snippet** (50-word source preview under title) **removed** — host · title · timestamp only; mock + §3.6 updated.
 
 ---
 
