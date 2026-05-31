@@ -10,37 +10,22 @@
 
 ## Product features
 
-- **Capture** — Add items from the in-app **Add New** flow and the **`PhathomShare`** share extension (URLs, text, images). Web captures can be saved offline-first and finish when the network is back.
-- **Library & detail** — Browse saved **Content** with filters (**type**, **read status**, **structural category**), clear **processing status** (queued → fetch → summarize → tags, and related states), and open a **detail** view with summaries, tags, category (optional edit separate from filing), extracts, and **source** text or markdown where available.
-- **Highlights & notes** — In detail **source**, select text to create a **highlight** (persisted in SwiftData); optional **per-highlight note**. Anchors are **UTF-16** ranges into stored **`sourceMarkdown`** (aligned with `SourceContentIndexer` / WKWebView `data-md-*` offsets).
-- **On-device LLM** — After ingest, the pipeline runs **summarization**, **auto-tagging**, and **structured extracts** using a **primary GGUF** you choose in Settings. You can optionally pick a **second GGUF** used only for tagging (ingest + **Regenerate tags**); if it is missing or fails to load, tagging uses the primary model.
-- **Privacy** — **SwiftData** on device only; no CloudKit/sync in the current design. See [`docs/decisions.md`](docs/decisions.md).
-- **Library backup / restore** — Settings exports non-archived items as versioned JSON (`LibraryBackupService`); **v3** envelopes may include optional **`categoryName`** per item (kebab-case storage). Details: [`docs/decisions.md`](docs/decisions.md).
-- **Archive & recovery** — **Archive** behaves like delete in the library, with **undo** and **Recently Deleted** under Settings (time-limited retention). See [`docs/decisions.md`](docs/decisions.md).
-- **System integration** — **Spotlight** (**`PhathomCore/ContentItem+Spotlight.swift`**) and an **Open in Phathom** **App Intent** (**`OpenPhathomItemIntent`**) surface library items system-wide (`CSSearchableIndex` updates when metadata changes; pipeline calls **`indexInSpotlight()`** when ingest/analyze reaches **`.completed`**). See [`docs/decisions.md`](docs/decisions.md) (Spotlight + archive rows).
+- **Capture**: Add items from the in-app **Add New** flow and the **PhathomShare** share extension (URLs, text, images). Web captures can be saved offline-first and finish when the network is back.
+- **Library & detail**: Browse saved content with filters (**type**, **read status**, **category**), clear **processing status** (queued → fetch → summarize → tags, and related states), and open a **detail** view with summaries, tags, category (optional edit separate from filing), extracts, and **source** text or markdown where available.
+- **Highlights & notes**: In detail **source**, select text to create a **highlight**; optional **per-highlight note**.
+- **On-device LLM**: After ingest, the pipeline runs **summarization**, **auto-tagging**, and **structured extracts** using a **primary GGUF** you choose in Settings. You can optionally pick a **second GGUF** used only for tagging (ingest + **Regenerate tags**); if it is missing or fails to load, tagging uses the primary model.
+- **Privacy**: All data stays on device; no CloudKit or sync in the current design.
+- **Library backup / restore**: Settings exports non-archived items as versioned JSON for recovery after reinstall or device migration.
+- **Archive & recovery**: **Archive** behaves like delete in the library, with **undo** and **Recently Deleted** under Settings (time-limited retention).
+- **System integration**: **Spotlight** search and an **Open in Phathom** App Intent surface library items system-wide.
 
-## Roadmap (active specs)
+## Roadmap (coming soon)
 
-| Track | Doc |
-| ----- | --- |
+| Track              | Doc                                                                    |
+| ------------------ | ---------------------------------------------------------------------- |
 | **RAG / Chat tab** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) |
 
-**Shipped UI evolution (May 2026):** invariants in [`docs/decisions.md`](docs/decisions.md) UI rows · tokens [`docs/design-tokens.md`](docs/design-tokens.md) · archived reference [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) · HTML mocks [`design-mocks/`](docs/archive/design-mocks/) (optional; prune later).
-
-**Historical product & phase write-ups:** [`docs/archive/README.md`](docs/archive/README.md) — **not for implementation**.
-
-**Not shipped yet:** the **Chat** tab UI for RAG-grounded conversations (Phase 3). See [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md).
-
-## Major functionality
-
-| Area          | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Ingest**    | Fetches and normalizes web pages (generic HTML uses a Readability-style **main content** pass for both plain **`rawText`** and optional **`sourceMarkdown`**). Specialized paths exist for some social hosts.                                                                                                                                                                                                                                                                                                                                                                |
-| **Pipeline**  | **Background** tasks and foreground **drain** coordinate scraping, then **embedding** queue stages, then **Llama** passes—serialized so overlapping wakes don’t corrupt in-flight analysis.                                                                                                                                                                                                                                                                                                                                                                                  |
-| **Inference** | **`SharedLlamaInference`** loads/unloads GGUF(s) inside a locked **`withSession`** (serialized — never concurrent dual-load). **`LlamaCppRuntime`** wraps vendored **`llama.xcframework`** (Metal on device, CPU on simulator). **Summarize** and **extracts** share **KV cache prefix reuse** (`llama_memory_seq_cp`) on the primary model in one session. **Tags** (`tagsFromDerived` from summary + extracts + highlights) run in a following **`taggingPreferred`** session that loads an optional tagging GGUF when set, otherwise reuses primary. Also enables Flash Attention (AUTO), **`offload_kqv`**, and tuned **`n_ubatch`**. See **Llama performance** below. |
-| **Storage**   | **SwiftData** models for items, tags, optional structural **`Category`** per item, **highlights** (with optional user notes), chat scaffolding, etc. **Embeddings** are not persisted yet (queue state only); RAG storage is future work.                                                                                                                                                                                                                                                                                                                                                                                  |
-
-**Where to read code first:** ingest + queue — **`Phathom/Phathom/Services/BackgroundPipeline.swift`**; GGUF lifecycle — **`Phathom/Phathom/Services/SharedLlamaInference.swift`**; models — **`Phathom/PhathomCore/Sources/PhathomCore/`**. Agent onboarding: **[`AGENTS.md`](AGENTS.md)**.
+The **Chat** tab for RAG-grounded conversations is not shipped yet. See the hand-off above for scope and design.
 
 ## Requirements
 
@@ -75,15 +60,7 @@ If that folder is missing in your checkout, you need a compatible **llama.cpp** 
 bash scripts/setup-llama-xcframework.sh
 ```
 
-The script’s comments point at a typical source (`intrai-llama`); you can also produce **`llama.xcframework`** from upstream **llama.cpp** using the same packaging approach your team uses for iOS static libraries + headers. **Bridging expectation:** statically link **`llama.xcframework`**, **`import llama`** from Swift, toolchain links **`-lc++`** — no alternate Swift wrappers. More detail: [AGENTS.md](AGENTS.md), `SharedLlamaInference.swift`, `Inference/LlamaCppRuntime.swift`.
-
-### Manual QA — category filing (Detail)
-
-Before release or after touching filing UI:
-
-1. From **Detail**, move an item to **Filed** when the category sheet appears — confirm picker choice persists and library filter reflects category.
-2. **Cancel** / swipe-dismiss the sheet without confirming — item should stay non-Filed until user completes filing (library + Detail consistent).
-3. Rotate device while sheet visible — no orphan pending state; filing completes or dismisses cleanly.
+The script’s comments point at a typical source (`intrai-llama`); you can also produce **`llama.xcframework`** from upstream **llama.cpp** using the same packaging approach your team uses for iOS static libraries + headers. **Bridging expectation:** statically link **`llama.xcframework`**, **`import llama`** from Swift, toolchain links **`-lc++`** — no alternate Swift wrappers. More detail: [AGENTS.md](AGENTS.md).
 
 ## Llama.cpp: setup and use
 
@@ -96,17 +73,5 @@ Before release or after touching filing UI:
 
 ### Runtime behavior
 
-- **Load / unload** are tied to **`SharedLlamaInference.withSession`**: the model is loaded for a pipeline or Settings test, then unloaded when the session ends (including error and cooperative cancel paths). Background **expiration** signals cancel and lets the session tear down cleanly—avoid parallel **unload** from task handlers.
-- **Device:** `LlamaCppRuntime` sets **`n_gpu_layers = -1`** (GPU/ANE path). **Simulator:** **`n_gpu_layers = 0`** (CPU).
-
-### Llama performance (article analyze)
-
-Summarize and extract share one primary-model session with **article-first prompts** so the chat-templated article prefix is identical across tasks; the runtime **decodes that prefix once** into sequence 0, then **forks** it via **`llama_memory_seq_cp`** before decoding each task’s suffix. **Tagging** runs afterward in a separate session (optional second GGUF via **`taggingPreferred`** routing; **reload skipped** when the resolved path matches the already-loaded primary). Context creation also enables **Flash Attention (AUTO)**, **`offload_kqv`**, **`n_ubatch`** (default 1024), **`n_seq_max = 4`**, and **`kv_unified`** for the summarize/extract multi-sequence path.
-
-### Optional warm-up
-
-After a valid selection, the app may **warm** the model shortly after launch when thermals allow (see **`scheduleWarmFromPersistedSelection`** in code).
-
----
-
-**Further reading (live docs):** [`docs/decisions.md`](docs/decisions.md) · [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md). **Historical archive:** [`docs/archive/README.md`](docs/archive/README.md).
+- The model loads for a pipeline pass or Settings test, then unloads when the session ends (including error and cancel paths).
+- **Device:** GPU/ANE path enabled. **Simulator:** CPU only.

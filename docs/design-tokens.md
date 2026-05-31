@@ -1,10 +1,8 @@
 # Design tokens
 
-> **Role:** Cross-surface **spacing, type, palette, material, and button** reference distilled from locked discovery ([`archive/library-ui-evolution.md`](archive/library-ui-evolution.md) §3–§3.10 + §4). Semantic matrix + shared component index — not a build spec; per-surface locks stay in archive §3 tables.
->
-> **Status:** Live reference (May 2026 UI evolution shipped). **`AppSpacing`** / **`AppPalette`** in code are authoritative for token **values**; this doc is authoritative for **semantics** and component vocabulary.
->
-> **Use with:** Canonical mocks in [`archive/design-mocks/`](archive/design-mocks/) · shipped code in **`Phathom/`** · [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift)
+Cross-surface **design spec** — palette, spacing, typography, material, chrome, and shared components for Phathom.
+
+**Authority:** **`AppSpacing`** / **`AppPalette`** in code are authoritative for token **values**; this doc is authoritative for **semantics** and component vocabulary. Implementation: [`AppPalette.swift`](../../Phathom/Phathom/Helpers/AppPalette.swift), [`AppSpacing.swift`](../../Phathom/Phathom/Helpers/AppSpacing.swift).
 
 ---
 
@@ -12,18 +10,16 @@
 
 | Layer | Purpose |
 |-------|---------|
-| **[`archive/library-ui-evolution.md`](archive/library-ui-evolution.md)** | Locked per-surface decisions, behavior, mocks, rejections |
-| **This doc** | Cross-surface tokens + chrome/material matrix + shared components |
-| **Implementation plan** | [`archive/ui-evolution-implementation-plan.md`](archive/ui-evolution-implementation-plan.md) — **shipped** Phases 0–4b |
-| **`Phathom/` code** | Authoritative for spacing/token drift vs this sheet |
+| **`Phathom/` code** | Authoritative for token values and shipped behavior |
+| **This doc** | Cross-surface semantics, material matrix, chrome patterns, shared component index |
 
-**Do not** re-run phase surface swaps from the archived plan. New UI work: code + [`decisions.md`](decisions.md) UI rows + [`archive/library-ui-evolution.md`](archive/library-ui-evolution.md) §3.
+New UI work: follow this doc + [`decisions.md`](decisions.md) UI rows.
 
 ---
 
 ## 2. Palette
 
-Palette **unchanged** — refine execution only. Map to existing `AppPalette` unless a new semantic token is justified.
+Map to existing `AppPalette` unless a new semantic token is justified.
 
 | Token | Hex | `AppPalette` / use |
 |-------|-----|-------------------|
@@ -45,12 +41,12 @@ Palette **unchanged** — refine execution only. Map to existing `AppPalette` un
 
 | Token | Value | Use |
 |-------|-------|-----|
-| **`screenHorizontal`** | **22pt** | Default content inset — tab roots, Detail, Add New, Notebook, Chat, Settings (up from shipped 16pt where noted) |
+| **`screenHorizontal`** | **22pt** | Default content inset — tab roots, Detail, Add New, Notebook, Chat, Settings |
 | **`sectionVerticalGap`** | **24pt** | Between major section groups (Settings zones, Add New stack) |
 | **`editorialTitleBottom`** | **~28pt** | Margin below screen-owned large title before first section |
 | **`aiSubsectionHairlineGap`** | **22pt** | Detail AI zone: last tag or summary bullet → hairline, and hairline → next subsection header |
 | **`detailSectionAfterHairlineGap`** | **20pt** | Detail hairline sections: content below top hairline (spaced blocks, action CTAs). Matches last Key Figures row → action hairline (ai-zone bottom padding) |
-| **`pushNavBarTop`** / **`pushNavBarBottom`** | **4pt** / **8pt** | Pushed Detail / Settings nav chrome (mock `.detail-nav`); horizontal = **`screenHorizontal`** |
+| **`pushNavBarTop`** / **`pushNavBarBottom`** | **4pt** / **8pt** | Pushed Detail / Settings nav chrome; horizontal = **`screenHorizontal`** |
 | **`tabBarScrollInset`** | **~104pt** | Bottom padding so list scrolls under liquid-glass tab bar |
 | **`galleryRowVertical`** | **~19pt** | Library gallery row padding |
 | **`highlightStackGap`** | **~14pt** | Vertical gap between highlights **within** same Notebook item (no hairline) |
@@ -65,7 +61,7 @@ Palette **unchanged** — refine execution only. Map to existing `AppPalette` un
 
 ## 4. Typography (SF Pro)
 
-Mocks use **Geist**; ship **SF Pro** at equivalent sizes/weights. Suggested SwiftUI mapping:
+Suggested SwiftUI mapping:
 
 | Role | Size / weight | SwiftUI (approx.) | Surfaces |
 |------|---------------|-------------------|----------|
@@ -78,12 +74,12 @@ Mocks use **Geist**; ship **SF Pro** at equivalent sizes/weights. Suggested Swif
 | **Empty primary** | 17pt semibold | `.headline` | Notebook empty, Chat coming-soon |
 | **Empty hint** | 15pt secondary, ~32ch | `.subheadline` + secondary | Notebook empty, Chat hint |
 | **Meta / date** | 12pt muted | `.caption` + tertiary | Library row meta |
-| **Disclosure label** | Subheadline semibold | `.subheadline.weight(.semibold)` | Settings model rows (preserve) |
+| **Disclosure label** | Subheadline semibold | `.subheadline.weight(.semibold)` | Settings model rows |
 | **Body / actions** | 17pt body | `.body` | Settings rows, Export/Import |
 | **Footnote / footer** | Footnote secondary | `.footnote` + secondary | Settings footer, model info |
-| **Filter labels** | Static above capsules | Shipped `LibraryFilterBar` | Library only |
+| **Filter labels** | Static above capsules | `LibraryFilterBar` | Library only |
 
-**Links:** No underline — SwiftUI `NavigationLink` / plain buttons; mocks use `a { text-decoration: none }`.
+**Links:** No underline — SwiftUI `NavigationLink` / plain buttons.
 
 ---
 
@@ -96,7 +92,7 @@ Content type?
 ├─ Browse / gallery lists (Library, Notebook headers)
 │  └─ Hairline rows, NO fill — 1px hairline between rows/groups
 ├─ Article / reading (Detail body, highlights, summary)
-│  └─ Hairline sections — NO filled card wrappers (Detail A)
+│  └─ Hairline sections — NO filled card wrappers
 ├─ Form / config density (Add New capture, Settings disclosures)
 │  └─ Filled #403d39 grouped surface + #353330 nested wells
 └─ Primary action on form screen
@@ -140,7 +136,7 @@ All tappable full-width actions use **`Capsule()`** geometry unless listed as an
 
 - **Toolbar / chrome text** — `Text(...).fixedSize(horizontal: true, vertical: false)` via **`phathomToolbarTextLabel()`** in [`PhathomButtonLabelModifiers.swift`](../../Phathom/Phathom/Helpers/PhathomButtonLabelModifiers.swift) (`FlatToolbarTextButton`, Library Select/Cancel, search overlay Cancel, etc.).
 - **Full-width capsule CTAs** — allow multi-line wrap; forbid `.truncationMode(.tail)` on label `Text` — **`phathomCapsuleCTALabel()`** (`HairlineCapsuleButton`, filled secondary capsules).
-- **Filter value capsules** — tappable controls; same rule; column widths must fit longest value (**Uncategorized**) per Library §3.2.
+- **Filter value capsules** — tappable controls; same rule; column widths must fit longest value (**Uncategorized**).
 
 ---
 
@@ -148,14 +144,14 @@ All tappable full-width actions use **`Capsule()`** geometry unless listed as an
 
 | Context | Nav | Screen title | Tab bar | Scroll |
 |---------|-----|--------------|---------|--------|
-| **Tab root** (Library, Notebook, Chat, Add New) | Drop duplicate `navigationTitle`; Library: **no `Phathom` principal** — actions row only | Editorial **large title in scroll** | Liquid glass §3.5 | Unified — title scrolls with content |
+| **Tab root** (Library, Notebook, Chat, Add New) | Drop duplicate `navigationTitle`; Library: **no `Phathom` principal** — actions row only | Editorial **large title in scroll** | Liquid glass | Unified — title scrolls with content |
 | **Detail push** | Back + share only (no center wordmark) | None (article content) | Toolbar visible | Content scroll |
 | **Settings push** | **Back only** (Detail back styling) | Editorial **Settings** in scroll | Hidden | Unified; back fixed above scroll |
 | **Library at rest** | Select · Pipeline · Search · Settings | **Library** editorial | Visible | Unified |
 | **Library search active** | Pinned search over actions band (pipeline hidden) | Same | Visible | Content scrolls under pinned bar |
 | **Sheet / modal toolbar** | Flat accent/destructive text (**Close** form editors · **Cancel** / **Done** pickers · **Done** diagnostics) | Inline `navigationTitle` | System nav visible | Sheet body scrolls |
 
-**Tab bar (preserved):** Library · Notebook · Chat · Add new — do not redesign.
+**Tab bar:** Library · Notebook · Chat · Add new — do not redesign.
 
 **Push vs sheet toolbar:** Custom **`DetailPushNavBar`** in **`.safeAreaInset`** is already flat (no modifier). System **`NavigationStack` `.toolbar`** text/icon items require **`.sharedBackgroundVisibility(.hidden)`** via **`FlatToolbarTextItem`** (iOS 26 liquid-glass off).
 
@@ -250,91 +246,63 @@ Non-editable content + one utility action. Reference: Settings **`importErrorDet
 
 ---
 
-## 7. Shared components (implement once)
+## 7. Shared components
 
-| Component | Spec source | Used on |
-|-----------|-------------|---------|
-| **`EditorialScreenTitle`** | §3.1, §3.8–§3.10 | Library, Notebook, Save, Chat, Settings |
-| **`HairlineHighlightRow`** | §3.6 + §3.8 | Detail, Notebook |
-| **`HairlineCapsuleButton`** | §5.1 | Detail bottom actions, failed Retry |
-| **`FlatToolbarTextButton`** / **`FlatToolbarTextItem`** | §5.1 / §6 | Sheet toolbars — Close, Cancel, Done, Delete All |
-| **`HighlightNoteEditSheet`** | §6.1 | Detail, Notebook — form editor reference |
-| **`TagEditSheet`** | §6.1 | Detail — tag add/edit form editor |
-| **`CategoryPicker`** | §6.1 | Detail category, Library swipe/bulk file — list picker reference |
-| **`RelatedItemsSheet`** | §6.1 | Detail tag tap — list picker |
-| **`phathomSheetHeightMeasurable()`** | §6.1 | On inner measure stack — reports height preference |
-| **`phathomSheetPresentation()`** | §6.1 | On sheet-root **`NavigationStack`** — measured `.height` + `.large` detents |
-| **`phathomToolbarTextLabel`** / **`phathomCapsuleCTALabel`** | §5.1 | Shared `Text` sizing — no CTA truncation |
-| **`GalleryListRow`** | §3.4 | Library |
-| **`NotebookItemGroupHeader`** | §3.8 | Notebook |
-| **`PinnedLibrarySearchBar`** | §3.2 | Library overlay (Cancel + keyboard dismiss) |
-| **`LibraryPipelineControlButton`** | §3.2.1 | Library actions row (pause/play) |
-| **`SettingsGroupedSurface`** | §3.10 | Settings (style only — preserve disclosure logic) |
-| **`ZoneSectionHeader`** | 17pt + 15pt subtitle | Detail AI zone, Settings |
-| **`DetailPushNavBar`** | Mock **`.detail-nav`**: **22pt** horizontal inset via **`.safeAreaInset(edge: .top)`** (chevron aligns with scroll content); **4pt** top / **8pt** bottom; **`.toolbar(.hidden, for: .navigationBar)`** on push host | Detail, Settings |
-| **`DetailBackBarButton`** / **`DetailShareBarButton`** | Flat chevron (accent) / share (secondary) — **no** glass; mock vertical **8pt** pad on chevron, **8pt** on share | Inside **`DetailPushNavBar`** |
+| Component | Role | Used on |
+|-----------|------|---------|
+| **`EditorialScreenTitle`** | 34pt semibold editorial screen title | Library, Notebook, Save, Chat, Settings |
+| **`HairlineHighlightRow`** | 4px bar, italic quote, optional Note label | Detail, Notebook |
+| **`HairlineCapsuleButton`** | Hairline-stroke capsule CTA | Detail bottom actions, failed Retry |
+| **`FlatToolbarTextButton`** / **`FlatToolbarTextItem`** | Flat toolbar text actions | Sheet toolbars — Close, Cancel, Done, Delete All |
+| **`HighlightNoteEditSheet`** | Form editor sheet (reference) | Detail, Notebook |
+| **`TagEditSheet`** | Tag add/edit form editor | Detail |
+| **`CategoryPicker`** | Category list picker | Detail category, Library swipe/bulk file |
+| **`RelatedItemsSheet`** | Related-items list picker | Detail tag tap |
+| **`phathomSheetHeightMeasurable()`** | Height preference on measure stack | All sheet roots |
+| **`phathomSheetPresentation()`** | Measured `.height` + `.large` detents | Sheet-root **`NavigationStack`** |
+| **`phathomToolbarTextLabel`** / **`phathomCapsuleCTALabel`** | Full-label sizing — no CTA truncation | Toolbar and capsule CTAs |
+| **`GalleryListRow`** | Hairline gallery row with 64×64 thumb | Library |
+| **`NotebookItemGroup`** | Gallery-style item header (64×64 thumb, title, source line) + **`HairlineHighlightRow`** stack; inter-group hairline | Notebook |
+| **`PinnedLibrarySearchBar`** | Search overlay with Cancel + keyboard dismiss | Library |
+| **`LibraryPipelineControlButton`** | Pause/play in actions row | Library |
+| **`settingsGroupedSurface()`** | Private **`ViewBuilder`** on **`SettingsTab`** — filled `#403d39` grouped card with inset hairlines (not a shared type) | Settings |
+| **`ZoneSectionHeader`** | 17pt zone parent + optional 15pt subtitle | Detail AI zone, Settings |
+| **`DetailPushNavBar`** | **22pt** horizontal inset via **`.safeAreaInset(edge: .top)`**; **4pt** top / **8pt** bottom; **`.toolbar(.hidden, for: .navigationBar)`** on push host | Detail, Settings |
+| **`DetailBackBarButton`** / **`DetailShareBarButton`** | Flat chevron (accent) / share (secondary) — **no** glass | Inside **`DetailPushNavBar`** |
 | **`DetailBackBarToolbarItem`** / **`DetailShareToolbarItem`** | Legacy toolbar slots — prefer **`DetailPushNavBar`** for 22pt alignment | — |
 
 ---
 
-## 8. Surface index (details in hand-off)
+## 8. Surface index
 
-| Surface | Hand-off | Mock | Primary token deltas vs shipped |
-|---------|----------|------|--------------------------------|
-| **Library** | §3 | `library-ad-search-b-toolbar.html` | 22px inset; gallery hairlines; Search B overlay; editorial title; pipeline in actions row |
-| **Detail** | §3.6 | `detail-ad-full-hairline-a.html` | 22px inset; hairline sections; AI zone Option 5; header = host · title · timestamp (**no** source-preview snippet) |
-| **Add New** | §3.7 | `add-new-ad-filled-card-a.html` | 22px inset; capsule Save; drop hints/subtitle |
-| **Notebook** | §3.8 | `notebook-ad-hairline-feed-a.html` | Unified scroll; shared highlight row; inter-group hairline |
-| **Chat** | §3.9 | `chat-ad-placeholder-a.html` | Editorial + two-tier empty copy |
-| **Settings** | §3.10 | `settings-ad-grouped-a.html` | 22px inset; editorial title; demoted zone headers; back-only |
-
----
-
-## 9. Resolve at implementation (rollup)
-
-Items called out across §3 — **Library rows locked May 2026** during implementation planning; remainder decide in phased plan:
-
-| Item | Surfaces | Decision / status |
-|------|----------|-------------------|
-| **Library `Phathom` principal** | Library | **Locked — drop** on Library tab; Detail push **no** center wordmark |
-| **Search dismiss beyond Cancel** | Library | **Locked — Cancel** exits; keyboard dismiss only; no tap-outside |
-| **Pipeline control placement** | Library | **Locked — actions row** trailing, before Search (§3.2.1) |
-| **Processing badge on Detail** | Detail | Preserve shipped placement |
-| **`DetailAIAnalysisDivider` → zone header** | Detail | **Done (Phase 4a)** — `ZoneSectionHeader` Option 5 |
-| **`HighlightCardView` refactor** | Detail, Notebook | **Done (Phases 3b + 4a)** — `HairlineHighlightRow` |
-| **Drop duplicate nav titles** | Notebook, Chat, Settings | Editorial title owns name |
-| **`ContentCardRow` → gallery** | Library | Preserve swipe, bulk, a11y |
+| Surface | Key patterns |
+|---------|--------------|
+| **Library** | 22pt inset; gallery hairlines; pinned search overlay; editorial title; pipeline control in actions row; no center wordmark |
+| **Detail** | 22pt inset; hairline sections; AI zone with **`ZoneSectionHeader`**; header = host · title · timestamp (no source-preview snippet) |
+| **Add New** | 22pt inset; filled capture card; capsule Save |
+| **Notebook** | Unified scroll; shared **`HairlineHighlightRow`**; inter-group hairline; editorial title |
+| **Chat** | Editorial title + two-tier empty copy (coming soon) |
+| **Settings** | 22pt inset; editorial title; grouped filled surfaces; demoted zone headers; back-only push nav |
 
 ---
 
-## 10. Swift translation notes
+## 9. Swift translation notes
 
 | Do | Don't |
 |----|--------|
-| Centralize **`screenHorizontal = 22`** (extend existing spacing helpers or new `AppSpacing` enum) | Port HTML class names or Geist |
-| Use `AppPalette` + optional `hairline` Color | Copy `backdrop-filter` literally |
-| Idiomatic SwiftUI: `.safeAreaInset`, overlays, `DisclosureGroup`, `NavigationStack` | Side-by-side mock layout in app |
-| Preserve shipped behavior unless hand-off explicitly changes UX | Mock lorem as product strings |
+| Centralize **`screenHorizontal = 22`** via **`AppSpacing`** | Port HTML class names or non-SF fonts |
+| Use `AppPalette` + optional `hairline` Color | Copy web-only effects literally (e.g. `backdrop-filter`) |
+| Idiomatic SwiftUI: `.safeAreaInset`, overlays, `DisclosureGroup`, `NavigationStack` | Duplicate layout patterns from static prototypes in app |
+| Preserve existing UX unless this doc or **`decisions.md`** explicitly changes it | Use placeholder copy as product strings |
 | Verify per [`.cursor/rules/simulator-verify.mdc`](../../.cursor/rules/simulator-verify.mdc) | Parallel Llama / RAG scope |
 | Use **`Capsule()`** for button shapes per §5.1 | Overlay hairline strokes on system `Picker.segmented` / `UISegmentedControl` |
 | Apply **`.sharedBackgroundVisibility(.hidden)`** on every custom **`NavigationStack` `.toolbar`** text/icon item (`FlatToolbarTextItem`) | Raw `ToolbarItem { Button("Cancel") }` without hidden shared background on iOS 26 |
 | Size toolbar / CTA labels so the full string is visible (`phathomToolbarTextLabel` / `phathomCapsuleCTALabel`) | `.truncationMode(.tail)` or single-line truncation on button labels |
 
-**Suggested first code investments (planning input — not execution order):**
-
-1. Spacing + hairline semantic on `AppPalette` / layout constants  
-2. `HairlineHighlightRow` (Detail + Notebook)  
-3. `GalleryListRow` / `ContentCardRow` refactor  
-4. `EditorialScreenTitle` + tab-root scroll structure  
-5. Surface-by-surface UI swaps per approved phase  
-
 ---
 
-## 11. Related documents
+## 10. Related documents
 
 | Doc | Relationship |
 |-----|--------------|
-| [`archive/library-ui-evolution.md`](archive/library-ui-evolution.md) | Discovery authority — locked §3 tables |
-| [`archive/ui-evolution-implementation-plan.md`](archive/ui-evolution-implementation-plan.md) | **Shipped** Phases 0–4b — [§15 rollout complete](archive/ui-evolution-implementation-plan.md#15-cold-start--rollout-complete) |
-| [`decisions.md`](decisions.md) | Append product commitments when phases ship |
-| [`archive/design-mocks/README.md`](archive/design-mocks/README.md) | Mock inventory & CSS conventions |
+| [`decisions.md`](decisions.md) | Product and UI invariants; append when shipping new UI commitments |

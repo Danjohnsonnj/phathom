@@ -59,6 +59,16 @@ Optional **agentmemory** MCP for cross-session recall — **not required** to wo
 - **If unavailable or errors:** Tell the user **once per session** — not a blocker; repo docs are authoritative. Use the notice in [`docs/agents/agentmemory.md`](docs/agents/agentmemory.md#when-mcp-is-unavailable). Then proceed without retrying unless the user asks.
 - **Playbook:** [`docs/agents/agentmemory.md`](docs/agents/agentmemory.md)
 
+## Manual QA
+
+### Category filing (Detail)
+
+Before release or after touching filing UI:
+
+1. From **Detail**, move an item to **Filed** when the category sheet appears — confirm picker choice persists and library filter reflects category.
+2. **Cancel** / swipe-dismiss the sheet without confirming — item should stay non-Filed until user completes filing (library + Detail consistent).
+3. Rotate device while sheet visible — no orphan pending state; filing completes or dismisses cleanly.
+
 ## Read next (on demand)
 
 | Topic | Doc |
