@@ -1,6 +1,6 @@
 # UI Evolution — Implementation Plan
 
-> **Status:** **Phase 1 shipped** (May 2026). **Next session:** green-light **Phase 2** ([§7](#7-phase-2--library-highest-risk)). Phases 3a–4b: one phase per session unless user re-confirms.
+> **Status:** **Phase 3a shipped** (May 2026). **Next session:** green-light **Phase 3b** ([§9](#9-phase-3b--notebook)). Phases 3c–4b: one phase per session unless user re-confirms.
 >
 > **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](../../.design-mocks/)
 >
@@ -104,9 +104,25 @@ flowchart TD
 2. `bash scripts/build-phathom.sh sim`
 3. `bash scripts/test-phathom.sh` (full `PhathomTests`; `--grep` subset OK for UI-only)
 
-**Manual sim (required):** Library search overlay · filter popovers · bulk select · Settings disclosure states (Configured / Primary unset / Missing file).
+**Manual sim (required):** Library search overlay · filter popovers (including **while list scrolled**) · bulk select · Settings disclosure states (Configured / Primary unset / Missing file).
+
+**Tab-root scroll inset:** Tab surfaces with editorial scroll apply **`.contentMargins(.bottom, AppSpacing.tabBarScrollInset, for: .scrollContent)`** so content clears the liquid-glass tab bar (~104pt). **Library** is the reference impl (Phase 2); **Phases 3a–3c** wire in the owning phase.
+
+**Tab-root scroll top inset:** Editorial tab roots use **~12pt** padding above the first chrome block (Library, Add New) unless a surface mock specifies otherwise (Settings **~4pt** → Phase 4b).
 
 After each shipped phase: append UI commitments to [`docs/decisions.md`](../decisions.md).
+
+### Post-phase closeout (Phases 3b–4b)
+
+After Swift for a phase passes the verify ladder (+ manual sim when the phase checklist requires it), run this **closeout loop** before marking the phase shipped and stopping:
+
+1. **Build** — `ReadLints` → `bash scripts/build-phathom.sh sim` → `bash scripts/test-phathom.sh`
+2. **Code review** — [`code-review`](../../.cursor/skills/code-review/SKILL.md) in a **readonly subagent**; compare diff to that phase’s plan section + locked §3 + canonical mock
+3. **Fix** — address **Critical** and **Warning** items specific to the phase, plus items that help later phases; skip mock micro-polish unless user asks
+4. **Review-plan** — [`review-plan`](../../.cursor/skills/review-plan/SKILL.md) on **remaining** review feedback; triage against plan gates; **propose** plan/doc updates
+5. **Await user** — apply approved plan edits only after explicit yes; then update status, green-light boxes, cold start, and `decisions.md`
+
+**Do not** skip closeout to jump to the next phase. **Do not** apply plan edits in the same turn as the triage report.
 
 ---
 
@@ -153,7 +169,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 | Component | Owned by shared view | **Call site owns** (phase) |
 |-----------|-------------------|---------------------------|
-| **`EditorialScreenTitle`** | 34pt semibold title + **`editorialTitleBottom` (28pt)** | Horizontal **`AppSpacing.screenHorizontal`** · **top inset** (Library **~12pt** → Phase 2; Settings **~4pt** → Phase 4b; others per mock) |
+| **`EditorialScreenTitle`** | 34pt semibold title + default **`editorialTitleBottom` (28pt)** | Horizontal **`AppSpacing.screenHorizontal`** · **top inset** (tab roots **~12pt** — [§3](#3-rollout-policy); Settings **~4pt** → Phase 4b) · when parent **`VStack`** owns title→content gap via **`sectionVerticalGap`**, pass **`bottomSpacing: 0`** (Add New Phase 3a; avoid double 28+24) |
 | **`ZoneSectionHeader`** | 17pt **semibold** title + optional 15pt subtitle | **8pt** gap before grouped content (Settings Phase 4b) · subsection tier stays **`DetailAISubsectionHeader`** (Phase 4a) |
 | **`DetailBackBarButton`** | Accent chevron, `.plain`, default `dismiss()` | Toolbar placement · **~44pt** min row / vertical padding per mock · optical check vs system back (Phase 4a Detail, Phase 4b Settings) |
 | **`HairlineHighlightRow`** | 4px bar, italic quote (primary), uppercase **Note** label | Note body **secondary** (mock) · horizontal inset on parent · **`showsBottomHairline: false`** on last row in a section (Detail Phase 4a) or between highlights on same Notebook item (Phase 3b) |
@@ -220,6 +236,9 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 - **`showsBottomHairline`**: `false` on each section’s **last** row (mock `:last-child`)
 - **`LibraryPipelineControlButton`**: delete nested **`LibraryPipelineControl`** in `LibraryTab`; use module enum + extracted button
 - **`PinnedLibrarySearchBar`**: overlay above scroll (material/blur per mock, **~8pt** vertical bar padding); **hide** pipeline + actions row under search; dim list chrome (mock `.gallery-list--dimmed`); keyboard swipe-down dismisses keyboard **only** — not search mode
+- **Search open**: `ScrollViewReader` scrolls to actions-row anchor (mock Search active frame at top)
+- **Cancel**: exits search overlay only — **retains query** (distinct from keyboard dismiss while active)
+- **Tab bar scroll inset**: `.contentMargins(.bottom, AppSpacing.tabBarScrollInset, for: .scrollContent)` on tab-root scroll (Library reference; Phases 3a–3c in owning phase)
 - **Optional**: shared `chipAction` helper if touching [`ContentCardRow`](../../Phathom/Phathom/Views/Library/ContentCardRow.swift) during wire (avoid duplicating retry/ingest logic)
 
 **Preserve (inference §1.2):** [`LibrarySearchService`](../../Phathom/Phathom/Services/LibrarySearchService.swift), Dive deeper, swipes, bulk select, filter 27.5/27.5/45, Settings push, category sheet, deep links.
@@ -228,10 +247,10 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Green-light:**
 
-- [ ] At rest + Search active align with mock + §3
-- [ ] Unmocked flows work (swipes, bulk, category sheet, pipeline)
-- [ ] Cancel / keyboard dismiss correct
-- [ ] No `LibrarySearchService` semantic changes
+- [x] At rest + Search active align with mock + §3
+- [x] Unmocked flows work (swipes, bulk, category sheet, pipeline)
+- [x] Cancel / keyboard dismiss correct
+- [x] No `LibrarySearchService` semantic changes
 
 ---
 
@@ -243,9 +262,18 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Tasks:** inset 16→22 · Save capsule · remove `processingHint` · Note editor no placeholder · Web/Photo placeholders per §3.7
 
-**Preserve:** mode pill, capture save rules, tab bar inset (inference §1.2).
+**Wiring mechanics:**
 
-**Green-light:** Six mock states · capsule Save states · no processing footnotes.
+- **`EditorialScreenTitle("Save", bottomSpacing: 0)`** — parent **`VStack(spacing: AppSpacing.sectionVerticalGap)`** owns 24pt title→card and card→Save rhythm (mock `add-new-stack` gap); do **not** stack default 28pt title bottom + section gap
+- **Scroll top inset ~12pt** on editorial content (see [§3 tab-root scroll top inset](#3-rollout-policy))
+- **`tabBarScrollInset`** via `.contentMargins(.bottom, …, for: .scrollContent)` on `ScrollView`
+
+**Preserve:** mode pill, capture save rules, tab bar inset via **`AppSpacing.tabBarScrollInset`** (see [§3 tab-root scroll inset](#3-rollout-policy); Library reference).
+
+**Green-light:**
+
+- [x] Six mock states (Web · Note · Photo × Starting / Filled) · capsule Save enabled/disabled · no processing footnotes
+- [x] Manual sim: mode pill · Save capsule states · scroll clears tab bar + mode bar
 
 ---
 
@@ -255,7 +283,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Files:** [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift), [`NotebookItemGroup.swift`](../../Phathom/Phathom/Views/Notebook/NotebookItemGroup.swift)
 
-**Tasks:** `EditorialScreenTitle` · drop nav duplicate · surface-appropriate **top inset** per mock · `HairlineHighlightRow` (3/2 limits, **`showsBottomHairline: false`** between highlights on same item) · header thumb 48→64 · title paprika→primary · inter-group hairline only · inset 22
+**Tasks:** `EditorialScreenTitle` · drop nav duplicate · surface-appropriate **top inset** per mock · `HairlineHighlightRow` (3/2 limits, **`showsBottomHairline: false`** between highlights on same item) · header thumb 48→64 · title paprika→primary · inter-group hairline only · inset 22 · **`tabBarScrollInset`** on scroll (see §3)
 
 **Preserve:** [`NotebookHighlightsQuery`](../../Phathom/Phathom/Services/NotebookHighlightsQuery.swift), Detail push, [`HighlightNoteEditSheet`](../../Phathom/Phathom/Views/Detail/HighlightNoteEditSheet.swift), empty copy.
 
@@ -271,7 +299,7 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Out of scope:** [`phase-3-rag-chat.md`](phase-3-rag-chat.md)
 
-**Tasks:** `EditorialScreenTitle("Chat")` · **`AppSpacing.screenHorizontal`** · top inset per mock · two-tier empty copy
+**Tasks:** `EditorialScreenTitle("Chat")` · **`AppSpacing.screenHorizontal`** · top inset per mock · two-tier empty copy · **`tabBarScrollInset`** on scroll (see §3)
 
 **Green-light:** Editorial title in scroll · left-aligned copy · no fake chat UI.
 
@@ -328,39 +356,51 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 ---
 
-## 15. Cold start — Phase 2
+## 15. Cold start — Phase 3b
 
-Copy-paste for **new session** (Swift authorized for **Phase 2 only**).
+Copy-paste for **new session** (Swift authorized for **Phase 3b only**).
 
 ```
-GOAL: UI evolution Phase 2 — Library surface swap (highest risk). Wire Phase 0–1 components.
+GOAL: UI evolution Phase 3b — Notebook tab surface swap. Wire Phase 0 + Phase 1 HairlineHighlightRow.
 ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom
 
 READ (minimal):
-  1. docs/handoff/ui-evolution-implementation-plan.md §7 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
-  2. docs/handoff/library-ui-evolution.md §3.1–§3.2.1
-  3. .design-mocks/library-ad-search-b-toolbar.html (visual reference)
-  4. Phathom/Phathom/Views/Library/LibraryTab.swift
+  1. docs/handoff/ui-evolution-implementation-plan.md §9 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
+  2. docs/handoff/library-ui-evolution.md §3.8
+  3. .design-mocks/notebook-ad-hairline-feed-a.html (visual reference)
+  4. Phathom/Phathom/Views/Notebook/NotebookTab.swift · NotebookItemGroup.swift
 
-WIRE (Phase 2):
-  - EditorialScreenTitle("Library") + AppSpacing.screenHorizontal + ~12pt top
-  - GalleryListRow inside libraryItemRow shell (keep swipes/bulk/nav)
-  - Zero horizontal listRowInsets on gallery rows; showsBottomHairline false on section last row
-  - LibraryPipelineControlButton — remove nested LibraryPipelineControl enum in LibraryTab
-  - PinnedLibrarySearchBar overlay (remove .searchable): material/blur, ~8pt bar padding, hide pipeline under search, dim chrome; keyboard dismiss ≠ exit
-  - Drop Phathom principal + duplicate navigationTitle
-  - See §7 Wiring mechanics for full checklist
+WIRE (Phase 3b):
+  - EditorialScreenTitle("Notebook") + AppSpacing.screenHorizontal + top inset per mock
+  - Drop nav duplicate / Phathom in content chrome
+  - HairlineHighlightRow in NotebookItemGroup (showsBottomHairline false between highlights on same item)
+  - Header thumb 48→64 · title paprika→primary · inter-group hairline only
+  - tabBarScrollInset on scroll (see §3)
 
-DO NOT: Change LibrarySearchService semantics · filter 27.5/27.5/45 · Chat RAG
+DO NOT: Notebook search/filters · Chat RAG · change NotebookHighlightsQuery semantics
 
 VERIFY: ReadLints → bash scripts/build-phathom.sh sim → bash scripts/test-phathom.sh
-  Manual sim: search overlay · filter popovers · bulk select · swipes
+  Manual sim: Empty + Populated frames · no hairline between highlights on same item · Detail push
 
-GREEN-LIGHT DONE WHEN: §7 green-light checklist passes
+GREEN-LIGHT DONE WHEN: §9 green-light checklist passes
 
-THEN: Stop. Next session → green-light Phase 3a (Add New).
+THEN: Stop. Next session → green-light Phase 3c (Chat).
 
 AUTHORITY: code > decisions.md > this plan > library-ui-evolution.md > mocks
+```
+
+### Archive — Phase 3a cold start
+
+```
+GOAL: UI evolution Phase 3a — Add New tab surface swap.
+... (Phase 3a complete — see §8 green-light)
+```
+
+### Archive — Phase 2 cold start
+
+```
+GOAL: UI evolution Phase 2 — Library surface swap (highest risk). Wire Phase 0–1 components.
+... (Phase 2 complete — see §7 green-light)
 ```
 
 ### Archive — Phase 1 cold start

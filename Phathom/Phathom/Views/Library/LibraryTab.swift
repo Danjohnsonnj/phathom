@@ -8,6 +8,10 @@ private enum LibraryFilterDefaultsKey {
     static let category = "library.filter.category"
 }
 
+private enum LibraryScrollAnchor {
+    static let top = "libraryScrollTop"
+}
+
 struct LibraryTab: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
@@ -88,16 +92,13 @@ struct LibraryTab: View {
     @State private var foregroundDrainActive = BackgroundPipeline.isForegroundDrainActive
     @State private var isPauseInFlight = false
 
-    private enum LibraryPipelineControl {
-        case pause
-        case resume
-    }
+    @State private var isSearchActive = false
+    @FocusState private var isSearchFieldFocused: Bool
+    @State private var isShowingSettings = false
 
     private static let inFlightStatuses: Set<ProcessingStatus> = [
         .scraping, .embedding, .summarizing, .extracting, .tagging,
     ]
-
-    private static let libraryChromeHorizontalPadding: CGFloat = 16
 
     init(deepLinkItemID: Binding<UUID?> = .constant(nil)) {
         _deepLinkItemID = deepLinkItemID
@@ -184,26 +185,43 @@ struct LibraryTab: View {
 
     var body: some View {
         NavigationStack(path: $navPath) {
-            VStack(alignment: .leading, spacing: 0) {
-                libraryChromeAboveList
-                Group {
-                    if editMode == .active {
-                        List(selection: $selectedItemIDs) {
-                            libraryListSections
-                        }
-                    } else {
-                        List {
-                            libraryListSections
+            ZStack(alignment: .top) {
+                ScrollViewReader { scrollProxy in
+                    Group {
+                        if editMode == .active {
+                            List(selection: $selectedItemIDs) {
+                                libraryScrollChrome
+                                libraryListSections
+                            }
+                        } else {
+                            List {
+                                libraryScrollChrome
+                                libraryListSections
+                            }
                         }
                     }
+                    .environment(\.editMode, $editMode)
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .scrollDismissesKeyboard(.interactively)
+                    .contentMargins(.bottom, AppSpacing.tabBarScrollInset, for: .scrollContent)
+                    .background(AppPalette.background)
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        libraryBulkActionsBar
+                    }
+                    .onChange(of: isSearchActive) { _, active in
+                        guard active else { return }
+                        scrollProxy.scrollTo(LibraryScrollAnchor.top, anchor: .top)
+                        isSearchFieldFocused = true
+                    }
                 }
-                .environment(\.editMode, $editMode)
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .background(AppPalette.background)
-                .searchable(text: $searchText, prompt: "Search title, tags, source text")
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    libraryBulkActionsBar
+
+                if isSearchActive {
+                    PinnedLibrarySearchBar(
+                        text: $searchText,
+                        onCancel: cancelSearch,
+                        isFieldFocused: $isSearchFieldFocused
+                    )
                 }
             }
             .navigationDestination(for: UUID.self) { id in
@@ -219,39 +237,11 @@ struct LibraryTab: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .navigationTitle("Library")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if editMode == .active {
-                        Button("Done") {
-                            editMode = .inactive
-                            selectedItemIDs = []
-                        }
-                        .accessibilityLabel("Done selecting library items")
-                    } else {
-                        Button("Select") {
-                            editMode = .active
-                        }
-                        .accessibilityLabel("Select library items")
-                    }
-                }
-                ToolbarItem(placement: .principal) {
-                    Text("Phathom")
-                        .font(.headline)
-                        .foregroundStyle(AppPalette.textPrimary)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        SettingsContent()
-                            .navigationTitle("Settings")
-                    } label: {
-                        Image(systemName: isModelHealthyForIndicator ? "gearshape.fill" : "gearshape")
-                    }
-                    .accessibilityLabel("Settings")
-                    .accessibilityValue(isModelHealthyForIndicator ? "AI model ready" : "AI model needs attention")
-                }
+            .navigationDestination(isPresented: $isShowingSettings) {
+                SettingsContent()
+                    .navigationTitle("Settings")
             }
+            .toolbar(.hidden, for: .navigationBar)
         }
         .task(id: SearchSignature(
             query: searchText,
@@ -371,7 +361,7 @@ struct LibraryTab: View {
                     .accessibilityHint("Archive selected items to Recently Deleted")
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, AppSpacing.screenHorizontal)
             .padding(.vertical, 12)
             .background(AppPalette.surface)
             .overlay {
@@ -379,35 +369,114 @@ struct LibraryTab: View {
                     .stroke(AppPalette.textTertiary.opacity(0.35), lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .padding(.horizontal, 16)
+            .padding(.horizontal, AppSpacing.screenHorizontal)
             .padding(.bottom, 8)
         }
     }
 
-    /// Title row + Type/Status filters above the `List`. `LibraryFilterBar` uses anchored `popover`, not
-    /// `Menu`, to avoid UIMenu / `_UIReparentingView` console warnings with `NavigationStack` + `List` + `.searchable`.
-    private var libraryChromeAboveList: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .center, spacing: 12) {
-                Text("Library")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(AppPalette.textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                pipelineControlButton
-                    .offset(x: -12)
+    /// Actions row + editorial title + filters — unified scroll with gallery rows (§3.1).
+    @ViewBuilder
+    private var libraryScrollChrome: some View {
+        Section {
+            libraryActionsRow
+                .id(LibraryScrollAnchor.top)
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 0, trailing: 0))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .opacity(isSearchActive ? 0 : 1)
+                .allowsHitTesting(!isSearchActive)
+                .accessibilityHidden(isSearchActive)
+
+            VStack(alignment: .leading, spacing: 0) {
+                EditorialScreenTitle(title: "Library")
+                LibraryFilterBar(
+                    selectedKind: filterKindBinding,
+                    selectedStatus: filterStatusBinding,
+                    filterCategoryRaw: filterCategoryBinding,
+                    categories: categories
+                )
             }
-            LibraryFilterBar(
-                selectedKind: filterKindBinding,
-                selectedStatus: filterStatusBinding,
-                filterCategoryRaw: filterCategoryBinding,
-                categories: categories
-            )
+            .textCase(nil)
+            .padding(.horizontal, AppSpacing.screenHorizontal)
+            .padding(.top, 12)
+            .opacity(isSearchActive ? 0.55 : 1)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
-        .textCase(nil)
-        .padding(.horizontal, Self.libraryChromeHorizontalPadding)
-        .padding(.bottom, 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppPalette.background)
+    }
+
+    /// Top actions: Select/Done · Pipeline · Search · Settings (§3.1, §3.2.1).
+    private var libraryActionsRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            if editMode == .active {
+                Button("Done") {
+                    editMode = .inactive
+                    selectedItemIDs = []
+                }
+                .font(.system(size: 17))
+                .foregroundStyle(AppPalette.accent)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Done selecting library items")
+            } else {
+                Button("Select") {
+                    editMode = .active
+                }
+                .font(.system(size: 17))
+                .foregroundStyle(AppPalette.accent)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Select library items")
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 2) {
+                if let control = pipelineControl {
+                    LibraryPipelineControlButton(
+                        control: control,
+                        isSettling: isPipelineControlSettling,
+                        resumeAccessibilityLabel: resumeAccessibilityLabel,
+                        resumeAccessibilityHint: resumeAccessibilityHint,
+                        onPause: runPipelinePause,
+                        onResume: runPipelineResume
+                    )
+                }
+
+                Button {
+                    activateSearch()
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .frame(width: 38, height: 38)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Search")
+
+                Button {
+                    isShowingSettings = true
+                } label: {
+                    Image(systemName: isModelHealthyForIndicator ? "gearshape.fill" : "gearshape")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundStyle(AppPalette.textSecondary)
+                        .frame(width: 38, height: 38)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
+                .accessibilityValue(isModelHealthyForIndicator ? "AI model ready" : "AI model needs attention")
+            }
+            .offset(x: -8)
+        }
+        .padding(.horizontal, AppSpacing.screenHorizontal)
+    }
+
+    private func activateSearch() {
+        isSearchActive = true
+    }
+
+    private func cancelSearch() {
+        isSearchFieldFocused = false
+        isSearchActive = false
     }
 
     @ViewBuilder
@@ -419,24 +488,32 @@ struct LibraryTab: View {
                     .foregroundStyle(AppPalette.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 48)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 0, leading: AppSpacing.screenHorizontal, bottom: 0, trailing: AppSpacing.screenHorizontal))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
                 ForEach(sections.matching, id: \.id) { item in
-                    libraryItemRow(item: item)
+                    libraryItemRow(
+                        item: item,
+                        showsBottomHairline: !isLastMatchingGalleryRow(itemID: item.id)
+                    )
                 }
             }
 
             if canDiveDeeper {
                 diveDeeperFooter
-                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 12, leading: AppSpacing.screenHorizontal, bottom: 12, trailing: AppSpacing.screenHorizontal))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             }
         }
+        .opacity(isSearchActive ? 0.55 : 1)
     }
 
+    private func isLastMatchingGalleryRow(itemID: UUID) -> Bool {
+        guard let last = sections.matching.last, last.id == itemID else { return false }
+        return !canDiveDeeper
+    }
     private var diveDeeperFooter: some View {
         Button {
             Task { await runDiveDeeper() }
@@ -459,33 +536,47 @@ struct LibraryTab: View {
     @ViewBuilder
     private var relatedByTagsSection: some View {
         Section {
-            if isDeepRanking {
-                ForEach(0..<skeletonCount, id: \.self) { _ in
-                    rankingPlaceholder
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                }
-            } else {
-                ForEach(displayedAdjacent, id: \.id) { item in
-                    libraryItemRow(item: item)
-                }
-            }
-        } header: {
             Text("Related by tags")
                 .font(.headline)
                 .foregroundStyle(AppPalette.textPrimary)
                 .textCase(nil)
-                .padding(.bottom, 4)
-        }
-    }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .listRowInsets(EdgeInsets(top: 8, leading: AppSpacing.screenHorizontal, bottom: 4, trailing: AppSpacing.screenHorizontal))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
 
-    /// Skeleton card matching `ContentCardRow.card` chrome — same affordance as `RelatedItemsSheet`.
+            if isDeepRanking {
+                ForEach(0..<skeletonCount, id: \.self) { index in
+                    rankingPlaceholder
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .overlay(alignment: .bottom) {
+                            if index < skeletonCount - 1 {
+                                Rectangle()
+                                    .fill(AppPalette.hairline)
+                                    .frame(height: 1)
+                                    .padding(.horizontal, AppSpacing.screenHorizontal)
+                            }
+                        }
+                }
+            } else {
+                ForEach(displayedAdjacent, id: \.id) { item in
+                    libraryItemRow(
+                        item: item,
+                        showsBottomHairline: item.id != displayedAdjacent.last?.id
+                    )
+                }
+            }
+        }
+        .opacity(isSearchActive ? 0.55 : 1)
+    }
+    /// Skeleton row matching gallery hairline layout while deep ranking runs.
     private var rankingPlaceholder: some View {
-        HStack(alignment: .top, spacing: 12) {
-            RoundedRectangle(cornerRadius: 76 * 0.15)
+        HStack(alignment: .top, spacing: 14) {
+            RoundedRectangle(cornerRadius: AppSpacing.thumbCornerRadius)
                 .fill(AppPalette.surfaceNested)
-                .frame(width: 76, height: 76)
+                .frame(width: 64, height: 64)
 
             VStack(alignment: .leading, spacing: 8) {
                 skeletonLine(width: nil)
@@ -493,16 +584,14 @@ struct LibraryTab: View {
                 skeletonLine(width: 140)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 2)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppPalette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.vertical, AppSpacing.galleryRowVertical)
+        .padding(.horizontal, AppSpacing.screenHorizontal)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Re-ranking related item")
         .accessibilityAddTraits(.updatesFrequently)
     }
-
     private func skeletonLine(width: CGFloat?, trailing: CGFloat = 0) -> some View {
         RoundedRectangle(cornerRadius: 4)
             .fill(AppPalette.surfaceNested)
@@ -590,15 +679,15 @@ struct LibraryTab: View {
     }
 
     @ViewBuilder
-    private func libraryItemRow(item: ContentItem) -> some View {
+    private func libraryItemRow(item: ContentItem, showsBottomHairline: Bool) -> some View {
         if editMode == .inactive {
             Button {
                 navPath.append(item.id)
             } label: {
-                ContentCardRow(item: item)
+                GalleryListRow(item: item, showsBottomHairline: showsBottomHairline)
             }
             .buttonStyle(.plain)
-            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+            .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
             .swipeActions(edge: .leading, allowsFullSwipe: false) {
@@ -613,14 +702,13 @@ struct LibraryTab: View {
                 .tint(.orange)
             }
         } else {
-            ContentCardRow(item: item)
+            GalleryListRow(item: item, showsBottomHairline: showsBottomHairline)
                 .tag(item.id)
-                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
         }
     }
-
     private func resolvedSelectedItems() -> [ContentItem] {
         selectedItemIDs.compactMap { id in items.first { $0.id == id } }
     }
@@ -695,40 +783,6 @@ struct LibraryTab: View {
             return "Resume ingest and analysis for paused items"
         }
         return "Process \(manualKickoffItemCount) item\(manualKickoffItemCount == 1 ? "" : "s") now"
-    }
-
-    @ViewBuilder
-    private var pipelineControlButton: some View {
-        if let control = pipelineControl {
-            Group {
-                switch control {
-                case .pause:
-                    Button {
-                        runPipelinePause()
-                    } label: {
-                        Image(systemName: "pause.circle.fill")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppPalette.accent)
-                    }
-                    .accessibilityLabel("Pause processing")
-                    .accessibilityHint("Stop in-flight ingest and analysis")
-                case .resume:
-                    Button {
-                        runPipelineResume()
-                    } label: {
-                        Image(systemName: "play.circle.fill")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(AppPalette.accent)
-                    }
-                    .accessibilityLabel(resumeAccessibilityLabel)
-                    .accessibilityHint(resumeAccessibilityHint)
-                }
-            }
-            .buttonStyle(.plain)
-            .disabled(isPipelineControlSettling)
-            .opacity(isPipelineControlSettling ? 0.45 : 1)
-            .accessibilityValue(isPipelineControlSettling ? "Waiting for processing to stop" : "")
-        }
     }
 
     private func refreshPipelineControlState() {

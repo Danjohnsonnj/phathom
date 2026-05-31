@@ -20,16 +20,18 @@ struct LibraryPipelineControlButton: View {
             case .pause:
                 Button(action: onPause) {
                     Image(systemName: "pause.circle.fill")
-                        .font(.title3.weight(.semibold))
+                        .font(.system(size: 26))
                         .foregroundStyle(AppPalette.accent)
+                        .frame(width: 38, height: 38)
                 }
                 .accessibilityLabel("Pause processing")
                 .accessibilityHint("Stop in-flight ingest and analysis")
             case .resume:
                 Button(action: onResume) {
                     Image(systemName: "play.circle.fill")
-                        .font(.title3.weight(.semibold))
+                        .font(.system(size: 26))
                         .foregroundStyle(AppPalette.accent)
+                        .frame(width: 38, height: 38)
                 }
                 .accessibilityLabel(resumeAccessibilityLabel)
                 .accessibilityHint(resumeAccessibilityHint)

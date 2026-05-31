@@ -6,17 +6,12 @@ import UIKit
 
 struct AddNewTab: View {
     private enum Layout {
-        static let horizontalInset: CGFloat = 16
-        static let sectionSpacing: CGFloat = 24
-        static let captureCardCornerRadius: CGFloat = 14
         static let insetWellCornerRadius: CGFloat = 11
         static let insetWellPadding: CGFloat = 14
         static let iconWellSize: CGFloat = 28
         static let noteEditorMinHeight: CGFloat = 180
         static let photoPreviewMaxHeight: CGFloat = 220
-        static let ctaCornerRadius: CGFloat = 14
-        static let ctaHeight: CGFloat = 50
-        static let modeBarOuterCornerRadius: CGFloat = 26
+        static let photoPreviewCornerRadius: CGFloat = 8
         static let modeBarInnerInset: CGFloat = 4
     }
 
@@ -87,25 +82,24 @@ struct AddNewTab: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                    addNewHeader
+                VStack(alignment: .leading, spacing: AppSpacing.sectionVerticalGap) {
+                    EditorialScreenTitle(title: "Save", bottomSpacing: 0)
 
                     captureCard
 
                     saveToLibraryButton
-
-                    processingHint
                 }
-                .padding(.horizontal, Layout.horizontalInset)
-                .padding(.top, 8)
-                .padding(.bottom, Layout.sectionSpacing)
+                .padding(.horizontal, AppSpacing.screenHorizontal)
+                .padding(.top, 12)
+                .padding(.bottom, AppSpacing.sectionVerticalGap)
             }
             .scrollIndicators(.hidden)
+            .contentMargins(.bottom, AppSpacing.tabBarScrollInset, for: .scrollContent)
             .foregroundStyle(AppPalette.textPrimary)
             .background(AppPalette.background)
             .safeAreaInset(edge: .bottom, spacing: Layout.modeBarInnerInset * 2) {
                 captureModeBar
-                    .padding(.horizontal, Layout.horizontalInset)
+                    .padding(.horizontal, AppSpacing.screenHorizontal)
                     .padding(.bottom, Layout.modeBarInnerInset)
             }
             .tint(AppPalette.accent)
@@ -124,18 +118,6 @@ struct AddNewTab: View {
                 Text(saveError ?? "")
             }
         }
-    }
-
-    private var addNewHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Save")
-                .font(.largeTitle.bold())
-                .foregroundStyle(AppPalette.textPrimary)
-            Text("Add to your library")
-                .font(.subheadline)
-                .foregroundStyle(AppPalette.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var captureCard: some View {
@@ -173,7 +155,7 @@ struct AddNewTab: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppPalette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Layout.captureCardCornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.cardCornerRadius, style: .continuous))
     }
 
     private var urlInsetWell: some View {
@@ -202,34 +184,32 @@ struct AddNewTab: View {
     }
 
     private var noteEditorInsetWell: some View {
-        ZStack(alignment: .topLeading) {
-            TextEditor(text: $noteMarkdown)
-                .frame(minHeight: Layout.noteEditorMinHeight)
-                .scrollContentBackground(.hidden)
-                .foregroundStyle(AppPalette.textPrimary)
-                .padding(.horizontal, Layout.insetWellPadding - 4)
-                .padding(.vertical, Layout.insetWellPadding - 2)
-
-            if trimmedNote.isEmpty {
-                Text("Write or paste Markdown...")
-                    .font(.body)
-                    .foregroundStyle(AppPalette.textTertiary)
-                    .padding(.leading, Layout.insetWellPadding + 4)
-                    .padding(.top, Layout.insetWellPadding + 6)
-                    .allowsHitTesting(false)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppPalette.surfaceNested)
-        .clipShape(RoundedRectangle(cornerRadius: Layout.insetWellCornerRadius, style: .continuous))
+        TextEditor(text: $noteMarkdown)
+            .frame(minHeight: Layout.noteEditorMinHeight)
+            .scrollContentBackground(.hidden)
+            .foregroundStyle(AppPalette.textPrimary)
+            .padding(.horizontal, Layout.insetWellPadding - 4)
+            .padding(.vertical, Layout.insetWellPadding - 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppPalette.surfaceNested)
+            .clipShape(RoundedRectangle(cornerRadius: Layout.insetWellCornerRadius, style: .continuous))
     }
 
     private var photoInsetWell: some View {
         VStack(alignment: .leading, spacing: 12) {
             PhotosPicker(selection: $photoPickerItem, matching: .images, photoLibrary: .shared()) {
                 HStack {
-                    Label(pickedImagePreview == nil ? "Choose photo" : "Replace photo", systemImage: "photo")
-                        .foregroundStyle(AppPalette.textPrimary)
+                    Label {
+                        Text(pickedImagePreview == nil ? "Choose photo" : "Replace photo")
+                            .foregroundStyle(
+                                pickedImagePreview == nil
+                                    ? AppPalette.textSecondary.opacity(0.38)
+                                    : AppPalette.textPrimary
+                            )
+                    } icon: {
+                        Image(systemName: "photo")
+                            .foregroundStyle(AppPalette.textSecondary)
+                    }
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
@@ -249,7 +229,7 @@ struct AddNewTab: View {
                     .resizable()
                     .scaledToFit()
                     .frame(maxHeight: Layout.photoPreviewMaxHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: Layout.insetWellCornerRadius, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Layout.photoPreviewCornerRadius, style: .continuous))
                     .frame(maxWidth: .infinity)
             }
         }
@@ -263,43 +243,20 @@ struct AddNewTab: View {
         Button(action: saveItem) {
             HStack(spacing: 8) {
                 Text("Save to Library")
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 17, weight: .semibold))
                 Image(systemName: "arrow.right")
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 16, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
-            .frame(height: Layout.ctaHeight)
+            .frame(minHeight: AppSpacing.capsuleCTAHeight)
             .foregroundStyle(canSave ? AppPalette.textPrimary : AppPalette.textSecondary)
             .background(canSave ? AppPalette.accent : AppPalette.surfaceNested)
-            .clipShape(RoundedRectangle(cornerRadius: Layout.ctaCornerRadius, style: .continuous))
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
         .disabled(!canSave)
         .accessibilityHint("Adds the item and opens your Library tab.")
         .opacity(canSave ? 1 : 0.85)
-    }
-
-    private var processingHint: some View {
-        Text(processingHintText)
-            .font(.footnote)
-            .foregroundStyle(AppPalette.textTertiary)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-    }
-
-    private var processingHintText: String {
-        switch captureMode {
-        case .web:
-            "We'll fetch the article and process it with AI"
-        case .note:
-            "We'll index your note and process it with AI"
-        case .media:
-            if ModelManager.hasReadableVisionSelection {
-                "We'll analyze the photo on device with your Vision model"
-            } else {
-                "Photo saves to your library; add a Vision model in Settings for AI analysis"
-            }
-        }
     }
 
     private var captureModeBar: some View {
@@ -319,8 +276,11 @@ struct AddNewTab: View {
                     .foregroundStyle(captureMode == mode ? AppPalette.textPrimary : AppPalette.textSecondary)
                     .background {
                         if captureMode == mode {
-                            RoundedRectangle(cornerRadius: Layout.modeBarOuterCornerRadius - Layout.modeBarInnerInset, style: .continuous)
-                                .fill(AppPalette.surfaceNested)
+                            RoundedRectangle(
+                                cornerRadius: AppSpacing.modePillOuterRadius - Layout.modeBarInnerInset,
+                                style: .continuous
+                            )
+                            .fill(AppPalette.surfaceNested)
                         }
                     }
                 }
@@ -331,9 +291,9 @@ struct AddNewTab: View {
         }
         .padding(Layout.modeBarInnerInset)
         .frame(maxWidth: .infinity)
-        .frame(height: Layout.modeBarOuterCornerRadius * 2)
+        .frame(height: AppSpacing.modePillOuterRadius * 2)
         .background(AppPalette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Layout.modeBarOuterCornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.modePillOuterRadius, style: .continuous))
     }
 
     @MainActor

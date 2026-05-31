@@ -44,8 +44,12 @@ struct PinnedLibrarySearchBar: View {
                 .accessibilityHint("Exit search")
         }
         .padding(.horizontal, AppSpacing.screenHorizontal)
-        .padding(.vertical, 4)
-        .background(AppPalette.background.opacity(0.94))
+        .padding(.vertical, 8)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .background(AppPalette.background.opacity(0.94))
+        }
         .overlay(alignment: .bottom) {
             // Search mock uses 0.5px rule — not full 1px gallery hairline.
             Rectangle()
