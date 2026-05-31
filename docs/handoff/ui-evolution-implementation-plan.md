@@ -1,6 +1,6 @@
 # UI Evolution — Implementation Plan
 
-> **Status:** **Phase 3b shipped** (May 2026). **Next session:** green-light **Phase 3c** ([§10](#10-phase-3c--chat-placeholder)). Phases 4a–4b: one phase per session unless user re-confirms.
+> **Status:** **Phase 3c shipped** (May 2026). **Next session:** green-light **Phase 4a** ([§11](#11-phase-4a--detail)). Phase 4b: one phase per session unless user re-confirms.
 >
 > **Authority:** **`Phathom/` code** > [`docs/decisions.md`](../decisions.md) > **this plan** > [`library-ui-evolution.md`](library-ui-evolution.md) > [`.design-mocks/`](../../.design-mocks/)
 >
@@ -312,7 +312,11 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 **Empty parity:** Match [§9 shipped empty typography](#9-phase-3b--notebook) + [§3.9](library-ui-evolution.md#39-locked-decisions-chat-placeholder) + [`notebook-ad-hairline-feed-a.html`](../../.design-mocks/notebook-ad-hairline-feed-a.html) Empty frame (editorial title → 17/15pt tiers; no card/hairline box).
 
-**Green-light:** Editorial title in scroll · left-aligned copy · no fake chat UI.
+**Green-light:**
+
+- [x] Editorial title in scroll · left-aligned copy · no fake chat UI
+- [x] **`EditorialScreenTitle("Chat")`** · **`AppSpacing.screenHorizontal`** · **12pt** top · **`tabBarScrollInset`**
+- [x] Two-tier copy (17pt semibold + 15pt hint); no `navigationTitle` duplicate
 
 ---
 
@@ -367,36 +371,42 @@ Shared views **defer layout the parent owns** — wire in the owning phase below
 
 ---
 
-## 15. Cold start — Phase 3c
+## 15. Cold start — Phase 4a
 
-Copy-paste for **new session** (Swift authorized for **Phase 3c only**).
+Copy-paste for **new session** (Swift authorized for **Phase 4a only**).
 
 ```
-GOAL: UI evolution Phase 3c — Chat tab placeholder surface swap. Wire Phase 0 EditorialScreenTitle.
+GOAL: UI evolution Phase 4a — Detail push surface swap. Wire Phase 0–1 HairlineHighlightRow + zone chrome.
 ENV: iOS 26 / Swift 6 / SwiftUI | repo:phathom
 
 READ (minimal):
-  1. docs/handoff/ui-evolution-implementation-plan.md §10 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
-  2. docs/handoff/library-ui-evolution.md §3.9
-  3. .design-mocks/chat-ad-placeholder-a.html (visual reference)
-  4. Phathom/Phathom/Views/Chat/ChatTab.swift
+  1. docs/handoff/ui-evolution-implementation-plan.md §11 + [Phase 0 wiring contracts](#phase-0-wiring-contracts)
+  2. docs/handoff/library-ui-evolution.md §3.6
+  3. .design-mocks/detail-ad-full-hairline-a.html (visual reference)
+  4. Phathom/Phathom/Views/Detail/DetailView.swift (+ section views per §11)
 
-WIRE (Phase 3c):
-  - EditorialScreenTitle("Chat") + AppSpacing.screenHorizontal + top inset per mock
-  - Drop duplicate navigationTitle / centered placeholder
-  - Two-tier coming-soon copy (17pt semibold + 15pt hint)
-  - tabBarScrollInset on scroll (see §3)
+WIRE (Phase 4a):
+  - HairlineHighlightRow in highlights + HighlightNoteEditSheet preview
+  - ZoneSectionHeader (Option 5 AI zone); DetailBackBarButton if replacing system back
+  - Hairline sections · 22pt inset · preserve Phathom center title + all sheets/flows
 
-DO NOT: Chat RAG · fake chat UI · phase-3-rag-chat.md scope
+DO NOT: Chat RAG · tab bar redesign · literal HTML port
 
 VERIFY: ReadLints → bash scripts/build-phathom.sh sim → bash scripts/test-phathom.sh
-  Manual sim: editorial title scrolls with copy · left-aligned tiers
+  Manual sim: highlight tap + edit sheet · AI zone typography · back chevron ~44pt row
 
-GREEN-LIGHT DONE WHEN: §10 green-light checklist passes
+GREEN-LIGHT DONE WHEN: §11 green-light checklist passes
 
-THEN: Stop. Next session → green-light Phase 4a (Detail).
+THEN: Stop. Next session → green-light Phase 4b (Settings).
 
 AUTHORITY: code > decisions.md > this plan > library-ui-evolution.md > mocks
+```
+
+### Archive — Phase 3c cold start
+
+```
+GOAL: UI evolution Phase 3c — Chat tab placeholder surface swap.
+... (Phase 3c complete — see §10 green-light)
 ```
 
 ### Archive — Phase 3a cold start
