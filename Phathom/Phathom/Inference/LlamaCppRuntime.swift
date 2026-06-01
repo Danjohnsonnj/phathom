@@ -101,7 +101,7 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         jpegData: Data,
         configuration: VisionRunConfiguration,
         userPrompt: String?,
-        maxNewTokens: Int = 384,
+        maxNewTokens: Int = 192,
         temperature: Float = 0.2
     ) throws -> VisionDescribeOutput {
         guard let resizedJPEG = MediaImageEncoding.normalizedJPEG(

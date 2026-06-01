@@ -900,7 +900,11 @@ struct VisionContentAnalyzerTests {
         let prompt = VisionContentAnalyzer.defaultDescribePrompt
         #expect(!prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         #expect(prompt.localizedCaseInsensitiveContains("knowledge library"))
-        #expect(prompt.localizedCaseInsensitiveContains("visible text"))
+        #expect(prompt.localizedCaseInsensitiveContains("2 sentences"))
+        #expect(prompt.localizedCaseInsensitiveContains("readable text"))
+        #expect(prompt.localizedCaseInsensitiveContains("mood"))
+        #expect(prompt.localizedCaseInsensitiveContains("camera"))
+        #expect(!prompt.localizedCaseInsensitiveContains("in detail"))
     }
 }
 

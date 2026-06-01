@@ -19,10 +19,9 @@ struct VisionDescribeResult: Sendable {
 
 /// On-device VLM describe for media items (text GGUF + mmproj via libmtmd).
 actor VisionContentAnalyzer {
-    static let defaultDescribePrompt =
-        "Describe this image in detail for a personal knowledge library. Include subjects, scene, mood, and any visible text."
+    static let defaultDescribePrompt = VisionDescribePrompts.defaultMediaDescribe
 
-    private static let maxNewTokens = 384
+    private static let maxNewTokens = 192
     private static let temperature: Float = 0.2
 
     private let runtime: LlamaCppRuntime
@@ -108,8 +107,13 @@ actor VisionContentAnalyzer {
         let totalDuration = CFAbsoluteTimeGetCurrent() - totalStart
         defer { runtime.unloadModel() }
 
+        let usesCustomPrompt = userPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let description = usesCustomPrompt
+            ? output.text
+            : MediaDescriptionSanitization.clean(output.text)
+
         return VisionDescribeResult(
-            description: output.text,
+            description: description,
             profile: configuration.profile,
             runtimeAttempt: configuration.runtimeAttempt,
             imageMaxDimensionApplied: configuration.imageMaxDimensionPixels,
@@ -158,8 +162,7 @@ struct VisionDescribeResult: Sendable {
 }
 
 actor VisionContentAnalyzer {
-    static let defaultDescribePrompt =
-        "Describe this image in detail for a personal knowledge library. Include subjects, scene, mood, and any visible text."
+    static let defaultDescribePrompt = VisionDescribePrompts.defaultMediaDescribe
 
     init(runtime: LlamaCppRuntime) {
         _ = runtime
