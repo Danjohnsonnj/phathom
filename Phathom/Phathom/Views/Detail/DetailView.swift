@@ -30,6 +30,8 @@ struct DetailView: View {
     @State private var pendingFileCategorySheet = false
     @State private var detailCategoryPickHandled = false
     @State private var isCategoryPickerPresented = false
+    @State private var isMediaPhotoViewerPresented = false
+    @State private var mediaPhotoViewerImage: UIImage?
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -45,10 +47,36 @@ struct DetailView: View {
         item.originalURL
     }
 
+    @ViewBuilder
+    private var mediaPhotoViewerCover: some View {
+        if let mediaPhotoViewerImage {
+            MediaPhotoViewer(
+                image: mediaPhotoViewerImage,
+                accessibilityLabel: mediaPhotoAccessibilityLabel
+            )
+        }
+    }
+
+    private func presentMediaPhotoViewerIfAvailable() {
+        guard let image = ThumbnailImageDecoding.uiImage(from: item.thumbnailData) else { return }
+        mediaPhotoViewerImage = image
+        isMediaPhotoViewerPresented = true
+    }
+
+    private func dismissMediaPhotoViewer() {
+        isMediaPhotoViewerPresented = false
+        mediaPhotoViewerImage = nil
+    }
+
+    private var mediaPhotoAccessibilityLabel: String {
+        let title = item.displayTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty || title == "Photo" ? "Photo" : title
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
-                HeroSection(item: item)
+                HeroSection(item: item, onViewPhoto: presentMediaPhotoViewerIfAvailable)
 
                 VStack(alignment: .leading, spacing: 0) {
                     headerBlock
@@ -100,6 +128,17 @@ struct DetailView: View {
         }
         .onChange(of: item.sourceMarkdown) { _, _ in
             ensureSourceContentHTMLIfNeeded()
+        }
+        .onChange(of: item.id) { _, _ in
+            dismissMediaPhotoViewer()
+        }
+        .onChange(of: item.thumbnailData) { _, _ in
+            dismissMediaPhotoViewer()
+        }
+        .fullScreenCover(isPresented: $isMediaPhotoViewerPresented, onDismiss: {
+            mediaPhotoViewerImage = nil
+        }) {
+            mediaPhotoViewerCover
         }
         .sheet(item: $relatedSheetTag) { tag in
             RelatedItemsSheet(sourceItem: item, tappedTag: tag) { selected in

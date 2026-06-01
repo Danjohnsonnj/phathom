@@ -2,6 +2,16 @@ import PhathomCore
 import SwiftUI
 import UIKit
 
+#if os(iOS)
+enum ThumbnailImageDecoding {
+    /// Single decode entry point for JPEG thumbnail bytes stored on `ContentItem`.
+    static func uiImage(from data: Data?) -> UIImage? {
+        guard let data else { return nil }
+        return UIImage(data: data)
+    }
+}
+#endif
+
 struct ThumbnailView: View {
     let thumbnailData: Data?
     let colorHex: String?
@@ -11,7 +21,7 @@ struct ThumbnailView: View {
 
     var body: some View {
         Group {
-            if let data = thumbnailData, let uiImage = UIImage(data: data) {
+            if let uiImage = ThumbnailImageDecoding.uiImage(from: thumbnailData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)

@@ -4,9 +4,15 @@ import UIKit
 
 struct HeroSection: View {
     let item: ContentItem
+    var onViewPhoto: (() -> Void)? = nil
     @Environment(\.openURL) private var openURL
 
     var body: some View {
+        heroContent(thumbnail: ThumbnailImageDecoding.uiImage(from: item.thumbnailData))
+    }
+
+    @ViewBuilder
+    private func heroContent(thumbnail: UIImage?) -> some View {
         ZStack(alignment: .bottom) {
             // Use Color.clear as the layout anchor so the image overlay never reports a
             // fill-scaled width as its layout size. Without this, a wide OG image (e.g. 3:1
@@ -14,8 +20,8 @@ struct HeroSection: View {
             // centre its content and clip both horizontal edges.
             Color.clear
                 .overlay {
-                    if let data = item.thumbnailData, let uiImage = UIImage(data: data) {
-                        Image(uiImage: uiImage)
+                    if let thumbnail {
+                        Image(uiImage: thumbnail)
                             .resizable()
                             .scaledToFill()
                     } else {
@@ -32,25 +38,32 @@ struct HeroSection: View {
                 .clipped()
 
             if item.kind == .web, item.originalURL != nil {
-                Button {
+                heroCapsuleButton(title: "Visit Site") {
                     if let url = item.originalURL {
                         openURL(url)
                     }
-                } label: {
-                    Text("Visit Site")
-                        .font(.subheadline.weight(.semibold))
-                        .phathomToolbarTextLabel()
-                        .foregroundStyle(AppPalette.floralWhite)
-                        .padding(.horizontal, 28)
-                        .padding(.vertical, 10)
-                        .background(AppPalette.accent)
-                        .clipShape(Capsule())
                 }
-                .padding(.bottom, 16)
-                .buttonStyle(.plain)
+            } else if item.kind == .media, thumbnail != nil, let onViewPhoto {
+                heroCapsuleButton(title: "View Photo", action: onViewPhoto)
+                    .accessibilityHint("Opens full screen photo viewer")
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func heroCapsuleButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .phathomToolbarTextLabel()
+                .foregroundStyle(AppPalette.floralWhite)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 10)
+                .background(AppPalette.accent)
+                .clipShape(Capsule())
+        }
+        .padding(.bottom, 16)
+        .buttonStyle(.plain)
     }
 
     private var iconName: String {
