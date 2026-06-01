@@ -32,6 +32,7 @@ struct DetailView: View {
     @State private var isCategoryPickerPresented = false
     @State private var isMediaPhotoViewerPresented = false
     @State private var mediaPhotoViewerImage: UIImage?
+    @State private var cachedMediaUIImage: UIImage?
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -57,8 +58,16 @@ struct DetailView: View {
         }
     }
 
+    private var itemUUID: UUID {
+        item[keyPath: \ContentItem.id]
+    }
+
+    private var mediaThumbnailCacheKey: String {
+        "\(itemUUID.uuidString)-\(item.thumbnailData?.count ?? 0)"
+    }
+
     private func presentMediaPhotoViewerIfAvailable() {
-        guard let image = ThumbnailImageDecoding.uiImage(from: item.thumbnailData) else { return }
+        guard let image = cachedMediaUIImage else { return }
         mediaPhotoViewerImage = image
         isMediaPhotoViewerPresented = true
     }
@@ -68,15 +77,43 @@ struct DetailView: View {
         mediaPhotoViewerImage = nil
     }
 
+    private func invalidateMediaImageCache() {
+        cachedMediaUIImage = nil
+        dismissMediaPhotoViewer()
+    }
+
+    @MainActor
+    private func loadCachedMediaImageIfNeeded() async {
+        guard item.kind == .media, let data = item.thumbnailData, !data.isEmpty else {
+            cachedMediaUIImage = nil
+            return
+        }
+        cachedMediaUIImage = nil
+        cachedMediaUIImage = await ThumbnailImageDecoding.decodeOffMain(from: data)
+    }
+
     private var mediaPhotoAccessibilityLabel: String {
         let title = item.displayTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         return title.isEmpty || title == "Photo" ? "Photo" : title
     }
 
+    private var heroImageForSection: UIImage? {
+        item.kind == .media ? cachedMediaUIImage : nil
+    }
+
+    private var mediaViewPhotoHandler: (() -> Void)? {
+        guard item.kind == .media else { return nil }
+        return presentMediaPhotoViewerIfAvailable
+    }
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
-                HeroSection(item: item, onViewPhoto: presentMediaPhotoViewerIfAvailable)
+                HeroSection(
+                    item: item,
+                    heroImage: heroImageForSection,
+                    onViewPhoto: mediaViewPhotoHandler
+                )
 
                 VStack(alignment: .leading, spacing: 0) {
                     headerBlock
@@ -109,7 +146,6 @@ struct DetailView: View {
             }
             .padding(.bottom, 32)
         }
-        .id(item.id)
         .background(AppPalette.background)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -129,11 +165,19 @@ struct DetailView: View {
         .onChange(of: item.sourceMarkdown) { _, _ in
             ensureSourceContentHTMLIfNeeded()
         }
-        .onChange(of: item.id) { _, _ in
-            dismissMediaPhotoViewer()
+        .id(itemUUID)
+        .background {
+            Color.clear
+                .task(id: mediaThumbnailCacheKey) {
+                    await loadCachedMediaImageIfNeeded()
+                }
+        }
+        .onChange(of: itemUUID) { _, _ in
+            invalidateMediaImageCache()
         }
         .onChange(of: item.thumbnailData) { _, _ in
-            dismissMediaPhotoViewer()
+            invalidateMediaImageCache()
+            Task { await loadCachedMediaImageIfNeeded() }
         }
         .fullScreenCover(isPresented: $isMediaPhotoViewerPresented, onDismiss: {
             mediaPhotoViewerImage = nil
