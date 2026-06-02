@@ -69,6 +69,14 @@ Before release or after touching filing UI:
 2. **Cancel** / swipe-dismiss the sheet without confirming — item should stay non-Filed until user completes filing (library + Detail consistent).
 3. Rotate device while sheet visible — no orphan pending state; filing completes or dismisses cleanly.
 
+### Detail media (View Photo)
+
+After touching [`MediaPhotoViewer.swift`](Phathom/Phathom/Views/Detail/MediaPhotoViewer.swift), [`DetailView`](Phathom/Phathom/Views/Detail/DetailView.swift) presentation, or media image load helpers:
+
+1. Library → media Detail → **View Photo** — image + **Done** immediately (no app-switcher nudge).
+2. Pinch/double-tap zoom behaves like Photos (fit at min zoom; pan when zoomed in).
+3. Repeat from **Notebook** or **Recently Deleted** Detail (smoke).
+
 ## Read next (on demand)
 
 | Topic | Doc |

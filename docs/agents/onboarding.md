@@ -16,6 +16,7 @@ Do **not** scan all of `Phathom/`. Read the smallest set for the task:
 | UI design refresh (shipped v1) | [`docs/decisions.md`](../decisions.md) + [`Views/`](../../Phathom/Phathom/Views/); historical spec [`docs/archive/ui-design-refresh.md`](../archive/ui-design-refresh.md) |
 | UI evolution (shipped May 2026) | [`docs/decisions.md`](../decisions.md) UI rows + [`Views/`](../../Phathom/Phathom/Views/); [`design-tokens.md`](../design-tokens.md) · archived [`library-ui-evolution.md`](../archive/library-ui-evolution.md) §3 |
 | Notebook tab (shipped) | [`docs/decisions.md`](../decisions.md) + [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift); historical spec [`docs/archive/notebook-tab.md`](../archive/notebook-tab.md) |
+| Detail media hero / View Photo | [`docs/decisions.md`](../decisions.md) **2026-06-01** row + [`MediaDisplayImageLoader.swift`](../../Phathom/Phathom/Helpers/MediaDisplayImageLoader.swift) |
 | Pipeline | [`BackgroundPipeline.swift`](../../Phathom/Phathom/Services/BackgroundPipeline.swift) |
 | Inference | [`SharedLlamaInference.swift`](../../Phathom/Phathom/Services/SharedLlamaInference.swift) |
 | UI shell | [`Views/`](../../Phathom/Phathom/Views/) — recall agentmemory **UI** topic; `MainTabView` → `LibraryTab` → `DetailView` → `AddNewTab`; Settings via Library gear |

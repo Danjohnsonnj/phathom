@@ -65,6 +65,9 @@ Use these terms exactly in issue titles, PRDs, refactor proposals, and test name
 | **phathomDidArchiveItem** | Notification for archive undo; batch payload **`itemIDs`** (`[String]` UUIDs). | [2026-05-12 bulk archive](docs/decisions.md#decision-log) |
 | **LibraryBackupService** | JSON export/import envelope (current **`formatVersion` 3**). | [2026-05-08 backup](docs/decisions.md#decision-log) |
 | **TagRelationService** | Tag adjacency + semantic expansion for related items (primary GGUF only). | [2026-05-22 TagRelation](docs/decisions.md#decision-log) |
+| **MediaDisplayImageLoader** | Detail media hero + View Photo: cache → coalesced fault/decode per item UUID. | [2026-06-01 Detail media](docs/decisions.md#decision-log) |
+| **normalizedJPEGForLibraryStorage** | On-disk `thumbnailData` for new captures: max **1024px** side, **0.72** JPEG quality. | [2026-06-01 Detail media](docs/decisions.md#decision-log) |
+| **MediaImageLoadMetrics** | Opt-in device timing (`-MediaImageProfiling`); subsystem `com.phathom.media`. | [2026-06-01 Detail media](docs/decisions.md#decision-log) |
 
 ---
 
