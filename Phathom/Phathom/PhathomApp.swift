@@ -24,6 +24,9 @@ struct PhathomApp: App {
         SharedLlamaInference.scheduleWarmFromPersistedSelection()
         NetworkReachability.start()
         StoreChangedDarwinNotifier.start()
+        #if os(iOS)
+        MediaImageLoadMetrics.logProfilingEnabledIfNeeded()
+        #endif
     }
 
     var body: some Scene {

@@ -229,17 +229,7 @@ struct LibraryTab: View {
                 }
             }
             .navigationDestination(for: UUID.self) { id in
-                if let item = items.first(where: { $0.id == id }) {
-                    DetailView(item: item) { selectedID in
-                        if !navPath.isEmpty { navPath.removeLast() }
-                        navPath.append(selectedID)
-                    }
-                } else {
-                    Text("This item is not in your library.")
-                        .font(.subheadline)
-                        .foregroundStyle(AppPalette.textSecondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+                libraryDetailDestination(for: id)
             }
             .navigationDestination(isPresented: $isShowingSettings) {
                 SettingsContent()
@@ -896,6 +886,21 @@ struct LibraryTab: View {
         }
         ContentItem.applyFiled(category: nil, to: resolved, modelContext: modelContext)
         selectedItemIDs = []
+    }
+
+    @ViewBuilder
+    private func libraryDetailDestination(for id: UUID) -> some View {
+        if let item = items.first(where: { $0.id == id }) {
+            LibraryDetailRoute(item: item) { selectedID in
+                if !navPath.isEmpty { navPath.removeLast() }
+                navPath.append(selectedID)
+            }
+        } else {
+            Text("This item is not in your library.")
+                .font(.subheadline)
+                .foregroundStyle(AppPalette.textSecondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
 }

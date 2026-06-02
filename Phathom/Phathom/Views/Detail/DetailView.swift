@@ -30,9 +30,10 @@ struct DetailView: View {
     @State private var pendingFileCategorySheet = false
     @State private var detailCategoryPickHandled = false
     @State private var isCategoryPickerPresented = false
-    @State private var isMediaPhotoViewerPresented = false
-    @State private var mediaPhotoViewerImage: UIImage?
+    @State private var mediaPhotoPresentation: MediaPhotoViewerPresentation?
     @State private var cachedMediaUIImage: UIImage?
+    @State private var mediaImageLoadAppearGeneration: Int = 0
+    @State private var loadedMediaThumbnailCacheKey: String?
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -48,16 +49,6 @@ struct DetailView: View {
         item.originalURL
     }
 
-    @ViewBuilder
-    private var mediaPhotoViewerCover: some View {
-        if let mediaPhotoViewerImage {
-            MediaPhotoViewer(
-                image: mediaPhotoViewerImage,
-                accessibilityLabel: mediaPhotoAccessibilityLabel
-            )
-        }
-    }
-
     private var itemUUID: UUID {
         item[keyPath: \ContentItem.id]
     }
@@ -68,28 +59,51 @@ struct DetailView: View {
 
     private func presentMediaPhotoViewerIfAvailable() {
         guard let image = cachedMediaUIImage else { return }
-        mediaPhotoViewerImage = image
-        isMediaPhotoViewerPresented = true
+        mediaPhotoPresentation = MediaPhotoViewerPresentation(
+            presentationID: UUID(),
+            itemID: itemUUID,
+            image: image,
+            accessibilityLabel: mediaPhotoAccessibilityLabel
+        )
     }
 
     private func dismissMediaPhotoViewer() {
-        isMediaPhotoViewerPresented = false
-        mediaPhotoViewerImage = nil
+        mediaPhotoPresentation = nil
     }
 
     private func invalidateMediaImageCache() {
+        MediaDisplayImageCache.shared.remove(itemID: itemUUID)
+        Task { await MediaDisplayImageLoader.invalidateGeneration(for: itemUUID) }
+        loadedMediaThumbnailCacheKey = nil
         cachedMediaUIImage = nil
         dismissMediaPhotoViewer()
     }
 
     @MainActor
     private func loadCachedMediaImageIfNeeded() async {
-        guard item.kind == .media, let data = item.thumbnailData, !data.isEmpty else {
+        guard item.kind == .media else {
             cachedMediaUIImage = nil
+            loadedMediaThumbnailCacheKey = nil
             return
         }
-        cachedMediaUIImage = nil
-        cachedMediaUIImage = await ThumbnailImageDecoding.decodeOffMain(from: data)
+
+        let taskKey = mediaThumbnailCacheKey
+        if cachedMediaUIImage != nil, loadedMediaThumbnailCacheKey == taskKey {
+            return
+        }
+
+        guard let modelContainer = BackgroundPipeline.modelContainerOrNil() else {
+            cachedMediaUIImage = nil
+            loadedMediaThumbnailCacheKey = nil
+            return
+        }
+        let image = await MediaDisplayImageLoader.loadDisplayImage(
+            itemID: itemUUID,
+            modelContainer: modelContainer,
+            appearGeneration: mediaImageLoadAppearGeneration
+        )
+        cachedMediaUIImage = image
+        loadedMediaThumbnailCacheKey = taskKey
     }
 
     private var mediaPhotoAccessibilityLabel: String {
@@ -156,6 +170,7 @@ struct DetailView: View {
             }
         }
         .onAppear {
+            mediaImageLoadAppearGeneration &+= 1
             syncTitleDraftFromItem()
             ensureSourceContentHTMLIfNeeded()
         }
@@ -179,10 +194,13 @@ struct DetailView: View {
             invalidateMediaImageCache()
             Task { await loadCachedMediaImageIfNeeded() }
         }
-        .fullScreenCover(isPresented: $isMediaPhotoViewerPresented, onDismiss: {
-            mediaPhotoViewerImage = nil
-        }) {
-            mediaPhotoViewerCover
+        .fullScreenCover(item: $mediaPhotoPresentation, onDismiss: {
+            mediaPhotoPresentation = nil
+        }) { presentation in
+            MediaPhotoViewer(
+                image: presentation.image,
+                accessibilityLabel: presentation.accessibilityLabel
+            )
         }
         .sheet(item: $relatedSheetTag) { tag in
             RelatedItemsSheet(sourceItem: item, tappedTag: tag) { selected in

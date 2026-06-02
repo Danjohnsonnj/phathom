@@ -3,6 +3,27 @@ import UIKit
 
 /// Downscale and re-encode shared or picked images so on-disk rows stay small.
 public enum MediaImageEncoding {
+    /// Detail cold-open target: smaller on-disk rows + faster ImageIO subsample (see gate doc).
+    public static let libraryStorageMaxDimension: CGFloat = 1024
+    private static let libraryStorageQuality: CGFloat = 0.72
+
+    /// Smaller JPEG for `ContentItem.thumbnailData` on new library captures (Detail hero / vision input).
+    public static func normalizedJPEGForLibraryStorage(from data: Data) -> Data? {
+        normalizedJPEG(
+            from: data,
+            maxDimension: libraryStorageMaxDimension,
+            quality: libraryStorageQuality
+        )
+    }
+
+    public static func normalizedJPEGForLibraryStorage(from image: UIImage) -> Data? {
+        normalizedJPEG(
+            from: image,
+            maxDimension: libraryStorageMaxDimension,
+            quality: libraryStorageQuality
+        )
+    }
+
     public static func normalizedJPEG(from image: UIImage, maxDimension: CGFloat = 1600, quality: CGFloat = 0.82) -> Data? {
         let size = image.size
         guard size.width > 0, size.height > 0 else { return image.jpegData(compressionQuality: quality) }

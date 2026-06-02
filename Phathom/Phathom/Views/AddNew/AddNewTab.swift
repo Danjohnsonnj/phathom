@@ -310,7 +310,7 @@ struct AddNewTab: View {
             pickedImagePreview = nil
             return
         }
-        let jpeg = MediaImageEncoding.normalizedJPEG(from: data) ?? data
+        let jpeg = MediaImageEncoding.normalizedJPEGForLibraryStorage(from: data) ?? data
         pickedImageJPEG = jpeg
         pickedImagePreview = UIImage(data: jpeg)
     }

@@ -5,7 +5,8 @@ import UIKit
 
 #if os(iOS)
 enum ThumbnailImageDecoding {
-  private static let ingestMaxPixelSide: CGFloat = 1600
+  /// Match library storage cap so Detail decode does not subsample above stored JPEG resolution.
+  private static let ingestMaxPixelSide: CGFloat = MediaImageEncoding.libraryStorageMaxDimension
 
   /// Library rows and legacy call sites — full `UIImage(data:)` decode.
   static func uiImage(from data: Data?) -> UIImage? {

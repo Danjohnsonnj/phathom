@@ -10,6 +10,7 @@ import Network
 import PhathomCore
 import SwiftData
 import Testing
+import UIKit
 @testable import Phathom
 
 private actor OrderLog {
@@ -1259,3 +1260,54 @@ struct SharedLlamaInferenceWithSessionTests {
         }
     }
 }
+
+#if os(iOS)
+@Suite("MediaImageEncoding library storage")
+struct MediaImageEncodingLibraryStorageTests {
+    @Test func libraryStorageJPEGSmallerThanDefaultNormalization() throws {
+        let size = CGSize(width: 2400, height: 1800)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.systemTeal.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+        }
+
+        let full = try #require(MediaImageEncoding.normalizedJPEG(from: image))
+        let library = try #require(MediaImageEncoding.normalizedJPEGForLibraryStorage(from: image))
+        #expect(library.count < full.count)
+    }
+}
+
+@Suite("MediaDisplayImageLoader coalesce")
+struct MediaDisplayImageLoaderCoalesceTests {
+    @Test func concurrentLoadsShareSingleThumbnailFetch() async throws {
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let item = ContentItem(contentKind: .media, originalURL: nil)
+        item.thumbnailData = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        context.insert(item)
+        try context.save()
+        let itemID = item.id
+
+        MediaThumbnailDataFetcher.TestSupport.fetchCount = 0
+        MediaThumbnailDataFetcher.TestSupport.artificialDelayNs = 50_000_000
+        defer {
+            MediaThumbnailDataFetcher.TestSupport.artificialDelayNs = 0
+            MediaThumbnailDataFetcher.TestSupport.fetchCount = 0
+        }
+
+        async let first = MediaDisplayImageLoader.loadDisplayImage(
+            itemID: itemID,
+            modelContainer: container
+        )
+        async let second = MediaDisplayImageLoader.loadDisplayImage(
+            itemID: itemID,
+            modelContainer: container
+        )
+        _ = await (first, second)
+
+        #expect(MediaThumbnailDataFetcher.TestSupport.fetchCount == 1)
+    }
+}
+#endif

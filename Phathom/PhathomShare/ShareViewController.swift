@@ -93,12 +93,12 @@ private struct ShareRootView: View {
                     do {
                         let obj = try await provider.loadItem(forTypeIdentifier: UTType.image.identifier)
                         if let img = obj as? UIImage {
-                            imageJPEGData = MediaImageEncoding.normalizedJPEG(from: img)
+                            imageJPEGData = MediaImageEncoding.normalizedJPEGForLibraryStorage(from: img)
                         } else if let url = obj as? URL {
                             let data = try Data(contentsOf: url)
-                            imageJPEGData = MediaImageEncoding.normalizedJPEG(from: data) ?? data
+                            imageJPEGData = MediaImageEncoding.normalizedJPEGForLibraryStorage(from: data) ?? data
                         } else if let data = obj as? Data {
-                            imageJPEGData = MediaImageEncoding.normalizedJPEG(from: data) ?? data
+                            imageJPEGData = MediaImageEncoding.normalizedJPEGForLibraryStorage(from: data) ?? data
                         }
                     } catch {
                         continue
