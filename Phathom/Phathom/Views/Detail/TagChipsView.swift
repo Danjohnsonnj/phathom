@@ -39,7 +39,7 @@ struct TagChipsView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(AppPalette.surfaceNested)
-                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(addActionTitle)

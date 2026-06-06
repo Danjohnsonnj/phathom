@@ -503,6 +503,7 @@ struct DetailView: View {
             Text(categorySectionDisplayName)
                 .font(.system(size: 15))
                 .foregroundStyle(AppPalette.textPrimary)
+            Text("  ")
             Button {
                 isCategoryPickerPresented = true
             } label: {
@@ -886,6 +887,14 @@ struct DetailView: View {
         LibraryContentChangeNotifier.postLibraryContentDidChange()
     }
 
+    private var sourceContentSectionTitle: String {
+        switch item.kind {
+        case .web: "Article"
+        case .note: "Note"
+        case .media: "Summary"
+        }
+    }
+
     private var sourceContentSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
@@ -894,20 +903,29 @@ struct DetailView: View {
                 }
             } label: {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Source Content")
+                    Text(sourceContentSectionTitle)
                         .font(.system(size: 17, weight: .semibold))
                         .tracking(-0.34)
                         .foregroundStyle(AppPalette.textPrimary)
                     Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppPalette.textTertiary)
-                        .rotationEffect(.degrees(sourceExpanded ? 180 : 0))
+                    HStack(spacing: 4) {
+                        Text(sourceExpanded ? "show less" : "show more")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(AppPalette.accent)
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppPalette.accent)
+                            .rotationEffect(.degrees(sourceExpanded ? 180 : 0))
+                    }
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(sourceExpanded ? "Source content, expanded" : "Source content, collapsed preview")
-            .accessibilityHint("Double tap to expand or collapse the full source text.")
+            .accessibilityLabel(
+                sourceExpanded
+                    ? "\(sourceContentSectionTitle), expanded"
+                    : "\(sourceContentSectionTitle), collapsed preview"
+            )
+            .accessibilityHint("Double tap to expand or collapse.")
 
             if item.kind == .note {
                 if let raw = item.rawText, !raw.isEmpty {

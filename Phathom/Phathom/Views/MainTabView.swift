@@ -17,6 +17,8 @@ struct MainTabView: View {
         AppAppearance.configureIfNeeded()
     }
 
+    private static let undoSnackbarFade = Animation.easeInOut(duration: 0.25)
+
     private var undoArchiveSnackbarMessage: String {
         let n = undoArchiveBatch?.count ?? 0
         if n <= 1 {
@@ -117,18 +119,25 @@ struct MainTabView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
-                .padding(.bottom, 24)
+                .padding(.bottom, 52)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
+        .animation(Self.undoSnackbarFade, value: undoArchiveBatch)
+        .animation(Self.undoSnackbarFade, value: selectedTab)
     }
 
     private func startArchiveUndo(for ids: [UUID]) {
-        undoArchiveBatch = ids
+        withAnimation(Self.undoSnackbarFade) {
+            undoArchiveBatch = ids
+        }
         undoArchiveTask?.cancel()
         undoArchiveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
-            undoArchiveBatch = nil
+            withAnimation(Self.undoSnackbarFade) {
+                undoArchiveBatch = nil
+            }
         }
     }
 
@@ -144,7 +153,9 @@ struct MainTabView: View {
         }
         try? modelContext.save()
         LibraryContentChangeNotifier.postLibraryContentDidChange()
-        undoArchiveBatch = nil
+        withAnimation(Self.undoSnackbarFade) {
+            undoArchiveBatch = nil
+        }
     }
 }
 
