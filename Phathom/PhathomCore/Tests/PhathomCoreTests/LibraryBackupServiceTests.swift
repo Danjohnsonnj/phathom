@@ -174,7 +174,7 @@ final class LibraryBackupServiceTests: XCTestCase {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let envelope = try decoder.decode(LibraryBackupService.ExportEnvelope.self, from: data)
-        XCTAssertEqual(envelope.formatVersion, 3)
+        XCTAssertEqual(envelope.formatVersion, 4)
         XCTAssertEqual(envelope.items.count, 1)
         XCTAssertEqual(envelope.items.first?.highlights.count, 1)
 
@@ -297,7 +297,7 @@ final class LibraryBackupServiceTests: XCTestCase {
     func testFutureFormatVersionThrows() throws {
         let json = """
         {
-          "formatVersion": 4,
+          "formatVersion": 5,
           "exportedAt": "2020-05-15T12:00:00.000Z",
           "appBuild": null,
           "items": []
@@ -317,7 +317,131 @@ final class LibraryBackupServiceTests: XCTestCase {
                 XCTFail("expected unsupportedFormatVersion, got \(backupError)")
                 return
             }
-            XCTAssertEqual(v, 4)
+            XCTAssertEqual(v, 5)
+        }
+    }
+
+    func testFocusExportImportRoundTrip() throws {
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+
+        let inFocus = makeItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 200), archived: false)
+        context.insert(inFocus)
+        let addedAt = Date(timeIntervalSince1970: 1_000)
+        let touchedAt = Date(timeIntervalSince1970: 2_000)
+        let entry = FocusEntry(contentItem: inFocus, sortOrder: 2, now: addedAt)
+        entry.lastTouchedAt = touchedAt
+        context.insert(entry)
+
+        let released = makeItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 300), archived: false)
+        context.insert(released)
+        let completedAt = Date(timeIntervalSince1970: 3_000)
+        let revisitAt = Date(timeIntervalSince1970: 4_000)
+        let outcome = FocusOutcome(
+            contentItem: released,
+            kind: .revisit,
+            completedAt: completedAt,
+            scheduledResurfaceAt: revisitAt
+        )
+        context.insert(outcome)
+        try context.save()
+
+        let data = try LibraryBackupService.exportData(from: context, appBuild: "focus-test")
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let envelope = try decoder.decode(LibraryBackupService.ExportEnvelope.self, from: data)
+        XCTAssertEqual(envelope.formatVersion, 4)
+
+        let inFocusRecord = try XCTUnwrap(envelope.items.first { $0.id == inFocus.id })
+        let entryRecord = try XCTUnwrap(inFocusRecord.focusEntry)
+        XCTAssertEqual(entryRecord.sortOrder, 2)
+        XCTAssertEqual(entryRecord.addedAt, addedAt)
+        XCTAssertEqual(entryRecord.lastTouchedAt, touchedAt)
+        XCTAssertTrue(inFocusRecord.focusOutcomes.isEmpty)
+
+        let releasedRecord = try XCTUnwrap(envelope.items.first { $0.id == released.id })
+        XCTAssertNil(releasedRecord.focusEntry)
+        XCTAssertEqual(releasedRecord.focusOutcomes.count, 1)
+        XCTAssertEqual(releasedRecord.focusOutcomes.first?.outcomeKind, FocusOutcomeKind.revisit.rawValue)
+        XCTAssertEqual(releasedRecord.focusOutcomes.first?.scheduledResurfaceAt, revisitAt)
+
+        let importContainer = try makeInMemoryContainer()
+        let importContext = ModelContext(importContainer)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: importContext)
+        XCTAssertEqual(result.importedCount, 2)
+
+        let entries = try importContext.fetch(FetchDescriptor<FocusEntry>())
+        XCTAssertEqual(entries.count, 1)
+        let importedEntry = try XCTUnwrap(entries.first)
+        XCTAssertEqual(importedEntry.contentItem?.id, inFocus.id)
+        XCTAssertEqual(importedEntry.sortOrder, 2)
+        XCTAssertEqual(importedEntry.addedAt, addedAt)
+        XCTAssertEqual(importedEntry.lastTouchedAt, touchedAt)
+
+        let outcomes = try importContext.fetch(FetchDescriptor<FocusOutcome>())
+        XCTAssertEqual(outcomes.count, 1)
+        let importedOutcome = try XCTUnwrap(outcomes.first)
+        XCTAssertEqual(importedOutcome.contentItem?.id, released.id)
+        XCTAssertEqual(importedOutcome.kind, .revisit)
+        XCTAssertEqual(importedOutcome.completedAt, completedAt)
+        XCTAssertEqual(importedOutcome.scheduledResurfaceAt, revisitAt)
+    }
+
+    func testImportRejectsMoreThanSevenActiveFocusEntries() throws {
+        var items: [LibraryBackupService.ItemRecord] = []
+        for index in 0 ..< 8 {
+            items.append(
+                LibraryBackupService.ItemRecord(
+                    id: UUID(),
+                    createdAt: Date(timeIntervalSince1970: Double(index)),
+                    title: "item-\(index)",
+                    titleUserSet: false,
+                    originalURL: URL(string: "https://example.com/\(index)"),
+                    displayHost: "example.com",
+                    contentKind: ContentKind.web.rawValue,
+                    rawText: "body",
+                    sourceMarkdown: nil,
+                    thumbnailData: nil,
+                    thumbnailColorHex: nil,
+                    mediaDescription: nil,
+                    summaryBullets: nil,
+                    extracts: nil,
+                    processingStatus: ProcessingStatus.completed.rawValue,
+                    processingDetail: nil,
+                    lastProcessedChunk: 0,
+                    failureReason: nil,
+                    isArchived: false,
+                    archivedAt: nil,
+                    tags: [],
+                    focusEntry: LibraryBackupService.FocusEntryRecord(
+                        id: UUID(),
+                        addedAt: Date(timeIntervalSince1970: 10),
+                        sortOrder: index,
+                        lastTouchedAt: Date(timeIntervalSince1970: 10)
+                    )
+                )
+            )
+        }
+        let envelope = LibraryBackupService.ExportEnvelope(formatVersion: 4, appBuild: "cap-test", items: items)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(envelope)
+
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+
+        XCTAssertThrowsError(try LibraryBackupService.importData(data, policy: .replace, into: context)) { error in
+            guard let backupError = error as? LibraryBackupService.BackupError else {
+                XCTFail("expected BackupError, got \(error)")
+                return
+            }
+            guard case .focusCapExceeded(let activeCount, let maxAllowed) = backupError else {
+                XCTFail("expected focusCapExceeded, got \(backupError)")
+                return
+            }
+            XCTAssertEqual(activeCount, 8)
+            XCTAssertEqual(maxAllowed, FocusStackConstants.maxActiveEntries)
+            XCTAssertTrue(backupError.diagnosticText.contains("code=focus_cap_exceeded"))
         }
     }
 

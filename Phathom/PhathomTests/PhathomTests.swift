@@ -269,7 +269,7 @@ struct PhathomTests {
 
         await MainActor.run {
             ArchiveRetention.pauseProcessingForArchive(item)
-            ArchiveRetention.archive(item)
+            ArchiveRetention.archive(item, in: ctx)
         }
         try ctx.save()
 

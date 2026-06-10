@@ -36,4 +36,39 @@ final class StoreMigrationSmokeTests: XCTestCase {
         XCTAssertEqual(item.highlights.count, 1)
         XCTAssertEqual(item.highlights.first?.quotedText, "x")
     }
+
+    func testV4StoreMigratesToV5AndAcceptsFocusEntry() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("phathom-migration-v4-v5-\(UUID().uuidString).store")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try autoreleasepool {
+            let v4Schema = Schema(versionedSchema: PhathomSchemaV4.self)
+            let v4Config = ModelConfiguration(schema: v4Schema, url: url)
+            let v4Container = try ModelContainer(for: v4Schema, configurations: [v4Config])
+            let ctx4 = ModelContext(v4Container)
+            let item = ContentItem()
+            ctx4.insert(item)
+            try ctx4.save()
+        }
+
+        let schema = PhathomModelContainer.currentSchema
+        let v5Config = ModelConfiguration(schema: schema, url: url)
+        let v5Container = try ModelContainer(for: schema, configurations: [v5Config])
+        let ctx5 = ModelContext(v5Container)
+        let items = try ctx5.fetch(FetchDescriptor<ContentItem>())
+        XCTAssertEqual(items.count, 1)
+        let item = try XCTUnwrap(items.first)
+        XCTAssertNil(item.focusEntry)
+        XCTAssertTrue(item.focusOutcomes.isEmpty)
+
+        let entry = FocusEntry(contentItem: item, sortOrder: 0)
+        ctx5.insert(entry)
+        item.focusEntry = entry
+        try ctx5.save()
+
+        XCTAssertNotNil(item.focusEntry)
+        XCTAssertEqual(item.focusEntry?.sortOrder, 0)
+        XCTAssertEqual(item.focusEntry?.lastTouchedAt, item.focusEntry?.addedAt)
+    }
 }

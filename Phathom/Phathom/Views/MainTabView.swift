@@ -41,9 +41,9 @@ struct MainTabView: View {
                 }
                 .tag(1)
 
-            ChatTab()
+            FocusTab(selectedTab: $selectedTab)
                 .tabItem {
-                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
+                    Label("Focus", systemImage: "scope")
                 }
                 .tag(2)
 

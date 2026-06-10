@@ -30,6 +30,14 @@ struct DetailView: View {
     @State private var pendingFileCategorySheet = false
     @State private var detailCategoryPickHandled = false
     @State private var isCategoryPickerPresented = false
+    @State private var focusOutcomeItem: ContentItem?
+    @State private var focusTakeawayItem: ContentItem?
+    @State private var focusRevisitItem: ContentItem?
+    @State private var focusReferenceTargetItem: ContentItem?
+    @State private var pendingFocusReferenceCategory = false
+    @State private var focusReferenceCategoryHandled = false
+    @State private var focusOutcomeSkipReleaseOnDismiss = false
+    @State private var isFocusSwapSheetPresented = false
     @State private var mediaPhotoPresentation: MediaPhotoViewerPresentation?
     @State private var cachedMediaUIImage: UIImage?
     @State private var mediaImageLoadAppearGeneration: Int = 0
@@ -138,6 +146,9 @@ struct DetailView: View {
                     readingStatusSection
                         .detailSection(topHairline: true, vertical: .compact)
 
+                    focusSection
+                        .detailSection(topHairline: true, vertical: .compact)
+
                     categorySection
                         .detailSection(topHairline: true, vertical: .compact)
 
@@ -173,6 +184,7 @@ struct DetailView: View {
             mediaImageLoadAppearGeneration &+= 1
             syncTitleDraftFromItem()
             ensureSourceContentHTMLIfNeeded()
+            touchFocusEngagementIfNeeded()
         }
         .onChange(of: item.title) { _, _ in
             if !titleFocused { syncTitleDraftFromItem() }
@@ -242,6 +254,28 @@ struct DetailView: View {
             ) { picked in
                 item.applyCategory(picked, modelContext: modelContext)
             }
+        }
+        .focusOutcomeFlow(
+            outcomeItem: $focusOutcomeItem,
+            takeawayItem: $focusTakeawayItem,
+            revisitItem: $focusRevisitItem,
+            referenceTargetItem: $focusReferenceTargetItem,
+            pendingReferenceCategory: $pendingFocusReferenceCategory,
+            referenceCategoryHandled: $focusReferenceCategoryHandled,
+            skipReleaseOnOutcomeDismiss: $focusOutcomeSkipReleaseOnDismiss
+        )
+        .sheet(isPresented: $isFocusSwapSheetPresented) {
+            FocusSwapSheet(
+                incomingItem: item,
+                entries: focusActiveEntriesForSwap,
+                onSwap: { entry in
+                    performFocusSwap(releasing: entry)
+                    isFocusSwapSheetPresented = false
+                },
+                onCancel: {
+                    isFocusSwapSheetPresented = false
+                }
+            )
         }
     }
 
@@ -486,6 +520,109 @@ struct DetailView: View {
         .accessibilityElement(children: .contain)
     }
 
+    private var focusAtCapacity: Bool {
+        guard !item.isArchived else { return false }
+        guard !FocusStackService.isInFocus(item) else { return false }
+        guard let canAdd = try? FocusStackService.canAddWithoutSwap(in: modelContext) else { return false }
+        return !canAdd
+    }
+
+    private var focusActiveEntriesForSwap: [FocusEntry] {
+        (try? FocusStackService.activeEntries(in: modelContext)) ?? []
+    }
+
+    private var focusSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Text("Focus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .tracking(-0.34)
+                    .foregroundStyle(AppPalette.textPrimary)
+                Spacer(minLength: 8)
+                Toggle("", isOn: focusToggleBinding)
+                    .labelsHidden()
+                    .tint(AppPalette.accent)
+                    .disabled(item.isArchived)
+            }
+            .frame(minHeight: 48, alignment: .center)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Focus")
+            .accessibilityValue(FocusStackService.isInFocus(item) ? "On" : "Off")
+            .accessibilityHint(focusAtCapacity
+                ? "Focus stack is full. Opens swap sheet to release one item before adding this article."
+                : "Adds or removes this article from your Focus stack.")
+
+            if let closureLine = focusClosureLine {
+                Text(closureLine)
+                    .font(.system(size: 15))
+                    .foregroundStyle(AppPalette.textSecondary)
+                    .accessibilityLabel("Last Focus outcome: \(closureLine)")
+            }
+        }
+    }
+
+    private var focusClosureLine: String? {
+        guard !FocusStackService.isInFocus(item) else { return nil }
+        guard let latest = item.focusOutcomes.max(by: { $0.completedAt < $1.completedAt }) else {
+            return nil
+        }
+        return FocusOutcomePresentation.closureLine(for: latest)
+    }
+
+    private var focusToggleBinding: Binding<Bool> {
+        Binding(
+            get: { FocusStackService.isInFocus(item) },
+            set: { wantsFocus in
+                applyFocusToggle(wantsFocus)
+            }
+        )
+    }
+
+    private func applyFocusToggle(_ wantsFocus: Bool) {
+        if wantsFocus {
+            guard !FocusStackService.isInFocus(item) else { return }
+            if focusAtCapacity {
+                isFocusSwapSheetPresented = true
+                return
+            }
+            do {
+                try FocusStackService.addToFocus(item: item, in: modelContext)
+                try modelContext.save()
+                LibraryContentChangeNotifier.postLibraryContentDidChange()
+            } catch FocusStackError.capFull {
+                isFocusSwapSheetPresented = true
+            } catch {
+                return
+            }
+        } else {
+            guard FocusStackService.isInFocus(item) else { return }
+            do {
+                try FocusStackService.removeFromFocus(item: item, in: modelContext)
+                try modelContext.save()
+                LibraryContentChangeNotifier.postLibraryContentDidChange()
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func touchFocusEngagementIfNeeded() {
+        guard FocusStackService.isInFocus(item) else { return }
+        FocusStackService.touchEngagement(item: item, in: modelContext)
+        _ = DetailModelSave.save(modelContext, operation: "touchFocusEngagement")
+    }
+
+    private func performFocusSwap(releasing entry: FocusEntry) {
+        do {
+            try FocusStackService.releaseForSwap(entry: entry, in: modelContext)
+            try FocusStackService.addToFocus(item: item, in: modelContext)
+            try modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
+        } catch {
+            return
+        }
+    }
+
     private var categorySectionDisplayName: String {
         if let cat = item.category {
             return CategoryDisplayFormatter.displayName(cat.name)
@@ -638,6 +775,9 @@ struct DetailView: View {
             if item.isArchived {
                 restoreToLibraryButton
             } else {
+                if FocusStackService.isInFocus(item) {
+                    doneInFocusButton
+                }
                 if summarizeAgainButtonVisible {
                     summarizeAgainButton
                 }
@@ -694,6 +834,20 @@ struct DetailView: View {
         !ProcessingRecovery.canRegenerateTags(item)
     }
 
+    private var doneInFocusButton: some View {
+        Button {
+            focusOutcomeSkipReleaseOnDismiss = false
+            focusOutcomeItem = item
+        } label: {
+            HairlineCapsuleButton(
+                title: "Done in Focus",
+                foreground: AppPalette.accent
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Choose how to complete this item in Focus.")
+    }
+
     private var summarizeAgainButton: some View {
         Button {
             guard ProcessingRecovery.summarizeAgain(item, modelContext: modelContext) else { return }
@@ -747,7 +901,7 @@ struct DetailView: View {
 
     private var archiveButton: some View {
         Button {
-            ArchiveRetention.archive(item)
+            ArchiveRetention.archive(item, in: modelContext)
             DetailModelSave.save(modelContext, operation: "archiveItem")
             ArchiveRetention.notifyProcessingCancelAfterArchiveCommitted(itemIDs: [item.id])
             LibraryContentChangeNotifier.postLibraryContentDidChange()
@@ -857,6 +1011,7 @@ struct DetailView: View {
         )
         modelContext.insert(h)
         item.highlights.append(h)
+        FocusStackService.touchEngagement(item: item, in: modelContext)
         guard DetailModelSave.save(modelContext, operation: "createHighlight") == nil else { return }
         LibraryContentChangeNotifier.postLibraryContentDidChange()
         noteEditHighlight = h

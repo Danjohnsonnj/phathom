@@ -24,8 +24,25 @@ Use these terms exactly in issue titles, PRDs, refactor proposals, and test name
 |------|---------------------|--------|
 | **ContentKind** | Capture type: `web`, `media`, or `note`. | [`Enums.swift`](Phathom/PhathomCore/Sources/PhathomCore/Enums.swift) |
 | **ProcessingStatus** | Pipeline state: `pending` → scrape/embed → summarize/tag/extract → `completed` or `failed`. | [`Enums.swift`](Phathom/PhathomCore/Sources/PhathomCore/Enums.swift) · [granular sub-states](docs/decisions.md#decision-log) |
-| **ReadStatus** | User triage on library rows: `new`, `read`, or `filed` (distinct from **`ProcessingStatus`**). | [`Enums.swift`](Phathom/PhathomCore/Sources/PhathomCore/Enums.swift) · [2026-05-08](docs/decisions.md#decision-log) |
+| **ReadStatus** | User triage on library rows: `new`, `read`, or `filed` (distinct from **`ProcessingStatus`**). Orthogonal to **Focus Stack** — `filed` = on the shelf, not cognitive closure. | [`Enums.swift`](Phathom/PhathomCore/Sources/PhathomCore/Enums.swift) · [2026-05-08](docs/decisions.md#decision-log) |
 | **ProcessingStatusPresentation** | Maps **`ProcessingStatus`** (+ optional **`processingDetail`**) to user-facing chip copy. | [2026-05-02 status labels](docs/decisions.md#decision-log) |
+
+---
+
+## Focus Stack (shipped v1)
+
+| Term | One-line definition | Anchor |
+|------|---------------------|--------|
+| **Focus Stack** | Capped workbench (**max 7**) of articles user explicitly committed to engage with *now*; **Focus tab** surface (warehouse = Library). Tab bar: **Library · Notebook · Focus · Add New**. | [`FocusTab.swift`](Phathom/Phathom/Views/Focus/FocusTab.swift) · [`focus-stack.md`](docs/handoff/focus-stack.md) · [2026-06-09](docs/decisions.md#decision-log) |
+| **Focus commitment** | Active membership of a **`ContentItem`** in **Focus Stack** (`FocusEntry`); distinct from **`ReadStatus`**. | [`FocusEntry.swift`](Phathom/PhathomCore/Sources/PhathomCore/FocusEntry.swift) |
+| **Focus outcome** | Resolution when leaving Focus: **Reference** · **Takeaway** · **Revisit** · **Release** (+ **Connect** v2); stored in append-only **`FocusOutcome`** log. | [`FocusOutcome.swift`](Phathom/PhathomCore/Sources/PhathomCore/FocusOutcome.swift) |
+| **FocusEntry** | Active Focus membership — `addedAt`, `sortOrder`, `lastTouchedAt` (engagement **since add** only; **re-add resets**). Max **7** rows globally. | [`FocusEntry.swift`](Phathom/PhathomCore/Sources/PhathomCore/FocusEntry.swift) |
+| **FocusOutcome** | Append-only closure log — `outcomeKind`, `takeawayText`, `linkedHighlightID`, `scheduledResurfaceAt` (Revisit). | [`FocusOutcome.swift`](Phathom/PhathomCore/Sources/PhathomCore/FocusOutcome.swift) |
+| **Due for revisit** | Item left Focus via **Revisit** with `scheduledResurfaceAt` ≤ now; **Library trailing clock icon** only (user re-adds manually). | [`FocusStackService.dueForRevisit`](Phathom/PhathomCore/Sources/PhathomCore/FocusStackService.swift) |
+| **Focus row** | Detail hairline row for add/remove Focus — label **Focus** + **Toggle** (Category parity); primary entry point. | [`DetailView.swift`](Phathom/Phathom/Views/Detail/DetailView.swift) |
+| **Focus closure indicator** | Detail read-only subline under Focus row when **not** in Focus — latest **`FocusOutcome`** by `completedAt`. No processed-focus gallery v1. | [`DetailView.swift`](Phathom/Phathom/Views/Detail/DetailView.swift) |
+| **Stale nudge** | Focus tab banner at ≥7d untouched — Keep / Complete / Remove. Pairs with progressive row tint. | [`FocusStaleNudgeSheet.swift`](Phathom/Phathom/Views/Focus/FocusStaleNudgeSheet.swift) |
+| **Thread** | v2 **Connect** container — named ongoing inquiry linking member articles, highlights, takeaways. | [`focus-stack.md`](docs/handoff/focus-stack.md) · [`ChatThread.swift`](Phathom/PhathomCore/Sources/PhathomCore/ChatThread.swift) (evolution TBD) |
 
 ---
 
@@ -63,7 +80,7 @@ Use these terms exactly in issue titles, PRDs, refactor proposals, and test name
 | **filterCategory** | Category filter in library (All / Uncategorized / structural **`Category`**). | [decisions index](docs/decisions.md#active-invariants-index) |
 | **Archive** | Soft-delete: **`isArchived`** + **`archivedAt`**; 48h retention; Spotlight de-index. | [Archive decision](docs/decisions.md#decision-log) |
 | **phathomDidArchiveItem** | Notification for archive undo; batch payload **`itemIDs`** (`[String]` UUIDs). | [2026-05-12 bulk archive](docs/decisions.md#decision-log) |
-| **LibraryBackupService** | JSON export/import envelope (current **`formatVersion` 3**). | [2026-05-08 backup](docs/decisions.md#decision-log) |
+| **LibraryBackupService** | JSON export/import envelope (current **`formatVersion` 4**; includes **`focusEntry`** + **`focusOutcomes[]`**). | [2026-06-09 backup v4](docs/decisions.md#decision-log) |
 | **TagRelationService** | Tag adjacency + semantic expansion for related items (primary GGUF only). | [2026-05-22 TagRelation](docs/decisions.md#decision-log) |
 | **MediaDisplayImageLoader** | Detail media hero + View Photo: cache → coalesced fault/decode per item UUID. | [2026-06-01 Detail media](docs/decisions.md#decision-log) |
 | **normalizedJPEGForLibraryStorage** | On-disk `thumbnailData` for new captures: max **1024px** side, **0.72** JPEG quality. | [2026-06-01 Detail media](docs/decisions.md#decision-log) |
@@ -76,7 +93,8 @@ Use these terms exactly in issue titles, PRDs, refactor proposals, and test name
 | Term | Meaning |
 |------|---------|
 | **CloudKit / sync** | Local-only forever — no cloud sync. |
-| **Embedding persistence** | Phase 2: **`embedding`** is pipeline state only; RAG vectors deferred to Phase 3. |
+| **Embedding persistence** | Phase 2: **`embedding`** is pipeline state only; RAG vectors deferred (see [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md)). |
+| **Standalone Chat / RAG tab** | **Removed** — Focus tab replaced Chat placeholder; open RAG **deferred**; may re-scope to thread-scoped assist. |
 | **Apple FoundationModels** | Not used; **Llama.cpp** is sole AI engine. |
 
 ---

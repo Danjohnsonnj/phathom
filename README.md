@@ -4,28 +4,35 @@
   <img src="docs/assets/phathom-icon.png" alt="Phathom" width="128" />
 </p>
 
-**Phathom** is a **local-first iOS “personal brain”**: capture links, notes, and media into your own library, run **on-device** analysis with **Llama.cpp**, and (roadmap) chat over what you saved—without sending your content to the cloud.
+**Phathom** is a **local-first iOS “personal brain”**: capture links, notes, and media into your own library, run **on-device** analysis with **Llama.cpp**, and manage a capped **Focus Stack** for what you’re committed to read now—without sending your content to the cloud.
 
 **For agents:** start at **[`AGENTS.md`](AGENTS.md)** (build, verify, invariants). Domain glossary: **[`CONTEXT.md`](CONTEXT.md)**.
+
+## Tab bar
+
+**Library · Notebook · Focus · Add New** — the **Focus** tab replaced the former Chat placeholder (see [Roadmap](#roadmap)).
 
 ## Product features
 
 - **Capture**: Add items from the in-app **Add New** flow and the **PhathomShare** share extension (URLs, text, images). Web captures can be saved offline-first and finish when the network is back.
 - **Library & detail**: Browse saved content with filters (**type**, **read status**, **category**), clear **processing status** (queued → fetch → summarize → tags, and related states), and open a **detail** view with summaries, tags, category (optional edit separate from filing), extracts, and **source** text or markdown where available.
+- **Focus Stack**: A capped workbench (**7 items max**) for articles you’ve committed to engage with now. Add or remove from **Detail**; complete with outcomes (**Reference**, **Takeaway**, **Revisit**, **Release**). **Focus** tab lists active commitments (reorder, stale nudge, weekly check-in). Library rows show a trailing **scope** icon when in Focus or a **clock** when a **Revisit** is due.
 - **Highlights & notes**: In detail **source**, select text to create a **highlight**; optional **per-highlight note**.
 - **On-device LLM**: After ingest, the pipeline runs **summarization**, **auto-tagging**, and **structured extracts** using a **primary GGUF** you choose in Settings. You can optionally pick a **second GGUF** used only for tagging (ingest + **Regenerate tags**); if it is missing or fails to load, tagging uses the primary model.
 - **Privacy**: All data stays on device; no CloudKit or sync in the current design.
-- **Library backup / restore**: Settings exports non-archived items as versioned JSON for recovery after reinstall or device migration.
+- **Library backup / restore**: Settings exports non-archived items as versioned JSON (**format v4**, including Focus membership and outcome history) for recovery after reinstall or device migration.
 - **Archive & recovery**: **Archive** behaves like delete in the library, with **undo** and **Recently Deleted** under Settings (time-limited retention).
 - **System integration**: **Spotlight** search and an **Open in Phathom** App Intent surface library items system-wide.
 
-## Roadmap (coming soon)
+## Roadmap
 
-| Track              | Doc                                                                    |
-| ------------------ | ---------------------------------------------------------------------- |
-| **RAG / Chat tab** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) |
+| Track | Doc | Status |
+| ----- | --- | ------ |
+| **Focus Stack v1** | [`docs/handoff/focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md) · [brief](docs/handoff/focus-stack.md) | **Shipped** (Phases A + B) — Focus tab, outcomes, cap/swap, stale treatment, revisit clock, weekly prompt |
+| **Focus — follow-ups** | [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md) | **A+** Library long-press add/remove (post Detail QA) · **Phase C** Connect / Thread (v2) |
+| **RAG / Chat** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) | **Deferred** — standalone Chat tab removed; no open RAG until explicitly re-scoped (likely thread-scoped assist, not a tab) |
 
-The **Chat** tab for RAG-grounded conversations is not shipped yet. See the hand-off above for scope and design.
+**History:** Product priority shifted from a **Chat / RAG** tab to **Focus Stack** (2026-06). `ChatThread` / `ChatMessage` models remain in schema for a possible future assist path; there is no Chat surface in the app today.
 
 ## Requirements
 

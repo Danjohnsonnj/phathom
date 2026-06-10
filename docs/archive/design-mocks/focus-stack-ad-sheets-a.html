@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phathom Focus Stack — Sheets A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    a { text-decoration: none; color: inherit; }
+
+    :root {
+      --bg: #252422;
+      --surface: #403d39;
+      --surface-nested: #353330;
+      --accent: #eb5e28;
+      --destructive: #ff453a;
+      --text-primary: #fffcf2;
+      --text-secondary: #ccc5b9;
+      --hairline: rgba(255, 252, 242, 0.12);
+      --rhythm: 22px;
+      --phone-w: 393px;
+      --phone-h: 852px;
+      --radius-phone: 55px;
+      --radius-thumb: 6px;
+      --radius-sheet: 14px;
+      --font: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1918;
+      font-family: var(--font);
+      padding: 72px 24px 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page-label {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.35);
+    }
+
+    .mock-legend {
+      width: min(1280px, 100%);
+      margin-bottom: 36px;
+      padding: 14px 18px;
+      border: 1px solid rgba(255, 252, 242, 0.1);
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.55;
+      color: rgba(255, 252, 242, 0.48);
+      text-align: center;
+    }
+
+    .mock-legend strong {
+      color: rgba(255, 252, 242, 0.72);
+      font-weight: 600;
+    }
+
+    .frames-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 40px 48px;
+      max-width: 100%;
+    }
+
+    .frame-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .frame-caption {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: rgba(255, 252, 242, 0.5);
+      text-align: center;
+      max-width: 340px;
+    }
+
+    @media (max-width: 900px) {
+      .frames-row { flex-direction: column; align-items: center; }
+    }
+
+    .phone-shell {
+      position: relative;
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      background: linear-gradient(145deg, #3a3835 0%, #2a2826 50%, #1f1e1c 100%);
+      border-radius: calc(var(--radius-phone) + 12px);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 40px 80px rgba(0, 0, 0, 0.55),
+        0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .phone-shell::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 126px;
+      height: 37px;
+      background: #0d0d0c;
+      border-radius: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: var(--bg);
+      border-radius: var(--radius-phone);
+      overflow: clip;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .status-bar {
+      flex-shrink: 0;
+      height: 54px;
+      padding: 14px var(--rhythm) 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      position: relative;
+      z-index: 2;
+    }
+
+    .status-icons { display: flex; align-items: center; gap: 6px; }
+    .status-icons svg { display: block; }
+
+    .phone-backdrop {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .scrim {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.48);
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    .screen-scroll {
+      flex: 1;
+      overflow: hidden;
+      opacity: 0.42;
+      filter: saturate(0.85);
+    }
+
+    .editorial { padding: 8px var(--rhythm) 0; }
+
+    .screen-title {
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1.1;
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+
+    .focus-subline {
+      font-size: 15px;
+      color: var(--text-secondary);
+      margin-bottom: 22px;
+    }
+
+    .focus-row-mini {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 19px var(--rhythm);
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .thumb {
+      flex-shrink: 0;
+      width: 64px;
+      height: 64px;
+      border-radius: var(--radius-thumb);
+      background: linear-gradient(135deg, #4a4743 0%, #353330 55%, #2a2826 100%);
+    }
+
+    .row-body { flex: 1; min-width: 0; padding-top: 2px; }
+
+    .row-title {
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.35;
+      color: var(--text-primary);
+      margin-bottom: 5px;
+    }
+
+    .row-source {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* Sheet panel — content-fit detent feel */
+    .sheet-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      background: var(--bg);
+      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      max-height: 78%;
+    }
+
+    .sheet-panel--compact { max-height: 42%; }
+
+    .sheet-grabber {
+      flex-shrink: 0;
+      width: 36px;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 252, 242, 0.22);
+      margin: 8px auto 4px;
+    }
+
+    .sheet-nav {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 4px var(--rhythm) 8px;
+      position: relative;
+    }
+
+    .sheet-cancel {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: var(--font);
+      font-size: 17px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      padding: 8px 0;
+      cursor: default;
+      white-space: nowrap;
+    }
+
+    .sheet-nav-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      max-width: 55%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sheet-body {
+      padding: 0 var(--rhythm) 28px;
+      overflow-y: auto;
+    }
+
+    .sheet-subtitle {
+      font-size: 15px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .sheet-copy {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .sheet-copy strong {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .sheet-group {
+      background: var(--surface);
+      border-radius: var(--radius-sheet);
+      overflow: hidden;
+    }
+
+    .sheet-row {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--hairline);
+      padding: 14px 16px;
+      font-family: var(--font);
+      cursor: default;
+    }
+
+    .sheet-row:last-child { border-bottom: none; }
+
+    .sheet-row-label {
+      display: block;
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      margin-bottom: 3px;
+    }
+
+    .sheet-row-hint {
+      display: block;
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
+    .sheet-row--destructive .sheet-row-label {
+      color: var(--destructive);
+    }
+
+    .sheet-row--destructive .sheet-row-hint {
+      color: rgba(255, 69, 58, 0.72);
+    }
+
+    /* Swap list rows */
+    .swap-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--hairline);
+      padding: 12px 16px;
+      font-family: var(--font);
+      cursor: default;
+    }
+
+    .swap-row:last-child { border-bottom: none; }
+
+    .swap-row--selected {
+      background: rgba(235, 94, 40, 0.12);
+    }
+
+    .swap-thumb {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 5px;
+      background: var(--surface-nested);
+    }
+
+    .swap-body { flex: 1; min-width: 0; }
+
+    .swap-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+
+    .swap-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: rgba(204, 197, 185, 0.72);
+    }
+
+    .unread-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .swap-release {
+      flex-shrink: 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent);
+      padding: 6px 0 6px 8px;
+      white-space: nowrap;
+    }
+
+    /* Stale nudge — compact inline banner on row */
+    .nudge-banner {
+      margin: 0 var(--rhythm) 12px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid var(--hairline);
+    }
+
+    .nudge-copy {
+      font-size: 15px;
+      line-height: 1.4;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .nudge-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nudge-action {
+      background: none;
+      border: none;
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--accent);
+      cursor: default;
+      padding: 0;
+    }
+
+    .nudge-action--secondary {
+      color: var(--text-secondary);
+    }
+
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(255, 252, 242, 0.22);
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 40;
+    }
+  </style>
+</head>
+<body>
+  <p class="page-label">Phathom Focus Stack — Sheets A</p>
+
+  <p class="mock-legend">
+    Three sheet families over dimmed Focus/Library context: <strong>outcome picker</strong> (Complete → four outcomes, not guilt modal),
+    <strong>swap sheet</strong> at 7/7 (Release-only; selected row shows confirm),
+    <strong>stale nudge</strong> (Phase B preview — neutral copy).
+    List picker pattern: flat <strong>Cancel</strong> toolbar (full label, no truncation), grouped <strong>#403d39</strong> surface, hairline rows, content-fit detent — not full screen unless tall. Visual reference only.
+  </p>
+
+  <div class="frames-row">
+
+    <!-- Outcome sheet -->
+    <div class="frame-unit">
+      <p class="frame-caption">Outcome sheet</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+
+          <div class="phone-backdrop">
+            <div class="scrim" aria-hidden="true"></div>
+            <div class="screen-scroll">
+              <section class="editorial">
+                <h1 class="screen-title">Focus</h1>
+                <p class="focus-subline">6 of 7 · 1 open</p>
+              </section>
+              <div class="focus-row-mini">
+                <div class="thumb"></div>
+                <div class="row-body">
+                  <p class="row-title">The case for local-first software</p>
+                  <p class="row-source">localfirst.fm</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="sheet-panel" role="dialog" aria-label="Complete in Focus">
+              <div class="sheet-grabber" aria-hidden="true"></div>
+              <div class="sheet-nav">
+                <button type="button" class="sheet-cancel">Cancel</button>
+                <span class="sheet-nav-title">Complete in Focus</span>
+              </div>
+              <div class="sheet-body">
+                <p class="sheet-subtitle">The case for local-first software</p>
+                <div class="sheet-group">
+                  <button type="button" class="sheet-row">
+                    <span class="sheet-row-label">Reference</span>
+                    <span class="sheet-row-hint">Shelve as reference</span>
+                  </button>
+                  <button type="button" class="sheet-row">
+                    <span class="sheet-row-label">Takeaway</span>
+                    <span class="sheet-row-hint">Capture what I learned</span>
+                  </button>
+                  <button type="button" class="sheet-row">
+                    <span class="sheet-row-label">Revisit</span>
+                    <span class="sheet-row-hint">Come back later</span>
+                  </button>
+                  <button type="button" class="sheet-row sheet-row--destructive">
+                    <span class="sheet-row-label">Release</span>
+                    <span class="sheet-row-hint">No longer matters</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Swap sheet -->
+    <div class="frame-unit">
+      <p class="frame-caption">Swap sheet (7/7)</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+
+          <div class="phone-backdrop">
+            <div class="scrim" aria-hidden="true"></div>
+            <div class="screen-scroll">
+              <section class="editorial">
+                <h1 class="screen-title">Library</h1>
+              </section>
+              <div class="focus-row-mini">
+                <div class="thumb"></div>
+                <div class="row-body">
+                  <p class="row-title">Gemma 4 Challenge</p>
+                  <p class="row-source">dev.to</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="sheet-panel" role="dialog" aria-label="Stack is full">
+              <div class="sheet-grabber" aria-hidden="true"></div>
+              <div class="sheet-nav">
+                <button type="button" class="sheet-cancel">Cancel</button>
+                <span class="sheet-nav-title">Stack is full</span>
+              </div>
+              <div class="sheet-body">
+                <p class="sheet-copy">Release one item to add <strong>Gemma 4 Challenge</strong></p>
+                <div class="sheet-group">
+                  <button type="button" class="swap-row">
+                    <div class="swap-thumb"></div>
+                    <div class="swap-body">
+                      <span class="swap-title">When everyone has AI and the company still learns nothing</span>
+                      <span class="swap-meta"><span>11 days in focus</span><span>·</span><span class="unread-dot"></span></span>
+                    </div>
+                  </button>
+                  <button type="button" class="swap-row">
+                    <div class="swap-thumb"></div>
+                    <div class="swap-body">
+                      <span class="swap-title">The case for local-first software</span>
+                      <span class="swap-meta"><span>9 days in focus</span><span>·</span><span>Read</span></span>
+                    </div>
+                  </button>
+                  <button type="button" class="swap-row swap-row--selected">
+                    <div class="swap-thumb"></div>
+                    <div class="swap-body">
+                      <span class="swap-title">The bottleneck was never the code</span>
+                      <span class="swap-meta"><span>12 days in focus</span><span>·</span><span>Filed</span></span>
+                    </div>
+                    <span class="swap-release">Release</span>
+                  </button>
+                  <button type="button" class="swap-row">
+                    <div class="swap-thumb"></div>
+                    <div class="swap-body">
+                      <span class="swap-title">agents need control flow, not more prompts</span>
+                      <span class="swap-meta"><span>3 days in focus</span><span>·</span><span class="unread-dot"></span></span>
+                    </div>
+                  </button>
+                  <button type="button" class="swap-row">
+                    <div class="swap-thumb"></div>
+                    <div class="swap-body">
+                      <span class="swap-title">How Google made their Gemma LLM 3x faster</span>
+                      <span class="swap-meta"><span>5 days in focus</span><span>·</span><span>Read</span></span>
+                    </div>
+                  </button>
+                  <button type="button" class="swap-row">
+                    <div class="swap-thumb"></div>
+                    <div class="swap-body">
+                      <span class="swap-title">Research sprint ideas</span>
+                      <span class="swap-meta"><span>7 days in focus</span><span>·</span><span>Read</span></span>
+                    </div>
+                  </button>
+                  <button type="button" class="swap-row">
+                    <div class="swap-thumb"></div>
+                    <div class="swap-body">
+                      <span class="swap-title">Current — A River of Reading</span>
+                      <span class="swap-meta"><span>2 days in focus</span><span>·</span><span class="unread-dot"></span></span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stale nudge -->
+    <div class="frame-unit">
+      <p class="frame-caption">Stale nudge (Phase B preview)</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+
+          <div class="phone-backdrop">
+            <div class="screen-scroll" style="opacity: 1; filter: none;">
+              <section class="editorial">
+                <h1 class="screen-title">Focus</h1>
+                <p class="focus-subline">6 of 7 · 1 open</p>
+              </section>
+
+              <div class="nudge-banner">
+                <p class="nudge-copy">8 days untouched in Focus — still committed?</p>
+                <div class="nudge-actions">
+                  <button type="button" class="nudge-action">Keep</button>
+                  <button type="button" class="nudge-action">Complete</button>
+                  <button type="button" class="nudge-action nudge-action--secondary">Remove</button>
+                </div>
+              </div>
+
+              <div class="focus-row-mini">
+                <div class="thumb"></div>
+                <div class="row-body">
+                  <p class="row-title">The bottleneck was never the code</p>
+                  <p class="row-source">www.thetypicalset.com · 12 days in focus</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

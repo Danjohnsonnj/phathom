@@ -31,6 +31,8 @@ public final class ContentItem {
     @Relationship(deleteRule: .nullify) public var tags: [Tag] = []
     @Relationship(deleteRule: .nullify) public var category: Category? = nil
     @Relationship(deleteRule: .cascade) public var highlights: [Highlight] = []
+    @Relationship(deleteRule: .cascade) public var focusEntry: FocusEntry?
+    @Relationship(deleteRule: .cascade) public var focusOutcomes: [FocusOutcome] = []
 
     /// Themed HTML for WKWebView source display; generated at ingest by `SourceContentIndexer`.
     public var sourceContentHTML: String?

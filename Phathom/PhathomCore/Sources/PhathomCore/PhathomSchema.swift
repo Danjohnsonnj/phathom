@@ -29,7 +29,7 @@ public enum PhathomSchemaV3: VersionedSchema {
     }
 }
 
-/// Current shipped schema (includes **`Category`** for structural grouping).
+/// Legacy schema snapshot (includes **`Category`**; no Focus Stack models).
 public enum PhathomSchemaV4: VersionedSchema {
     public static var versionIdentifier: Schema.Version { Schema.Version(4, 0, 0) }
 
@@ -41,6 +41,24 @@ public enum PhathomSchemaV4: VersionedSchema {
             ChatThread.self,
             ChatMessage.self,
             Highlight.self,
+        ]
+    }
+}
+
+/// Current shipped schema (adds **`FocusEntry`** + **`FocusOutcome`**).
+public enum PhathomSchemaV5: VersionedSchema {
+    public static var versionIdentifier: Schema.Version { Schema.Version(5, 0, 0) }
+
+    public static var models: [any PersistentModel.Type] {
+        [
+            ContentItem.self,
+            Tag.self,
+            Category.self,
+            ChatThread.self,
+            ChatMessage.self,
+            Highlight.self,
+            FocusEntry.self,
+            FocusOutcome.self,
         ]
     }
 }

@@ -48,8 +48,9 @@ enum ArchiveRetention {
     }
 
     @MainActor
-    static func archive(_ item: ContentItem) {
+    static func archive(_ item: ContentItem, in context: ModelContext) {
         pauseProcessingForArchive(item)
+        FocusStackService.dropFocusEntryOnArchive(item: item, in: context)
         item.isArchived = true
         item.archivedAt = Date()
         item.removeFromSpotlight()

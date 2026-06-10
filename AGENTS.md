@@ -18,7 +18,7 @@ Read **minimal files per task:**
 | 2 | **[`CONTEXT.md`](CONTEXT.md)** | Domain glossary (names); links to decisions |
 | 3 | **[`docs/decisions.md`](docs/decisions.md)** | Invariants and rationale |
 | 4 | **[`docs/design-tokens.md`](docs/design-tokens.md)** | Cross-surface spacing, palette, material, button matrix |
-| 5 | **Active hand-offs** | [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG Chat roadmap — not shipped) |
+| 5 | **Active hand-offs** | [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md) (**read first** on cold start) · [`focus-stack.md`](docs/handoff/focus-stack.md) (product brief) · [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG — **deferred**) |
 | — | **UI evolution reference (archived, opt-in)** | [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) (locked §3) · [`ui-evolution-implementation-plan.md`](docs/archive/ui-evolution-implementation-plan.md) · [`design-mocks/`](docs/archive/design-mocks/) — Phases **0–4b shipped**; invariants in [`decisions.md`](docs/decisions.md) UI rows |
 | 6 | **[`README.md`](README.md)** | Human orientation |
 
@@ -30,7 +30,7 @@ Read **minimal files per task:**
 
 - **`SharedLlamaInference.withSession`** — serialized inference; **no parallel Llama calls**
 - **KV reuse** — maintain `llama_memory_seq_cp` summarize → tags → extracts path in pipeline refactors
-- **Scope** — do **not** implement RAG / expand Chat tab unless explicitly directed
+- **Scope** — **Focus Stack v1 shipped** (Phases A + B). Do **not** implement open **RAG / Chat tab** unless explicitly directed. Optional follow-ups: **A+** (Library long-press), **Phase C** (Connect / Thread) — gates in [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md); **wrap-up** = update delivery doc + next-session prompt
 - **Response style** — see [`.cursor/rules/caveman.mdc`](.cursor/rules/caveman.mdc) (always applied)
 
 ## Agent skills

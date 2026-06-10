@@ -22,8 +22,12 @@ Static Safari mocks probed layout, spacing, and material language before SwiftUI
 | `notebook-ad-hairline-feed-a.html` | Notebook — Empty + Populated + Filter empty (shared Library filters) |
 | `chat-ad-placeholder-a.html` | Chat placeholder — coming-soon shell |
 | `settings-ad-grouped-a.html` | Settings — Configured · Primary unset · Missing file |
+| `focus-stack-ad-tab-a.html` | Focus tab — Empty · Low fill · Stale ramp · Populated |
+| `focus-stack-ad-detail-a.html` | Detail — Not in Focus · In Focus (Focus row toggle + Done in Focus) |
+| `focus-stack-ad-sheets-a.html` | Focus — Outcome · Swap at cap · Stale nudge |
+| `focus-stack-ad-library-chrome-a.html` | Library — At rest · Context menu · In Focus icon · Revisit icon |
 
-Discovery HTML **complete** — [rollout complete](../ui-evolution-implementation-plan.md#15-cold-start--rollout-complete).
+Discovery HTML **complete** for UI evolution — [rollout complete](../ui-evolution-implementation-plan.md#15-cold-start--rollout-complete). **Focus Stack** mocks are **canonical locked** (Phase 3 Done — 2026-06-09); see [`focus-stack.md`](../handoff/focus-stack.md) UX §.
 
 Open locally in Safari (`open docs/archive/design-mocks/<file>.html` from repo root).
 

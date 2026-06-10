@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phathom Focus Stack — Detail A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    a { text-decoration: none; color: inherit; }
+
+    :root {
+      --bg: #252422;
+      --surface: #403d39;
+      --accent: #eb5e28;
+      --text-primary: #fffcf2;
+      --text-secondary: #ccc5b9;
+      --chip-bg: #401F12;
+      --hairline: rgba(255, 252, 242, 0.12);
+      --rhythm: 22px;
+      --phone-w: 393px;
+      --phone-h: 852px;
+      --radius-phone: 55px;
+      --radius-capsule: 100px;
+      --font: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1918;
+      font-family: var(--font);
+      padding: 72px 24px 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page-label {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.35);
+    }
+
+    .mock-legend {
+      width: min(960px, 100%);
+      margin-bottom: 36px;
+      padding: 14px 18px;
+      border: 1px solid rgba(255, 252, 242, 0.1);
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: rgba(255, 252, 242, 0.48);
+      text-align: center;
+    }
+
+    .mock-legend strong { color: rgba(255, 252, 242, 0.72); font-weight: 600; }
+
+    .frames-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 40px 48px;
+    }
+
+    .frame-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .frame-caption {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 252, 242, 0.5);
+      text-align: center;
+      max-width: 340px;
+      line-height: 1.4;
+    }
+
+    .phone-shell {
+      position: relative;
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      background: linear-gradient(145deg, #3a3835 0%, #2a2826 50%, #1f1e1c 100%);
+      border-radius: calc(var(--radius-phone) + 12px);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 80px rgba(0, 0, 0, 0.55);
+    }
+
+    .phone-shell::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 126px;
+      height: 37px;
+      background: #0d0d0c;
+      border-radius: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: var(--bg);
+      border-radius: var(--radius-phone);
+      overflow: clip;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .status-bar {
+      flex-shrink: 0;
+      height: 54px;
+      padding: 14px var(--rhythm) 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .status-icons { display: flex; gap: 6px; }
+    .status-icons svg { display: block; }
+
+    .detail-nav {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px var(--rhythm) 8px;
+      min-height: 44px;
+    }
+
+    .detail-nav-back {
+      display: flex;
+      align-items: center;
+      background: none;
+      border: none;
+      color: var(--accent);
+      padding: 8px 0;
+    }
+
+    .detail-nav-back svg {
+      width: 13px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .detail-nav-share {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .detail-nav-share svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .screen-scroll {
+      flex: 1;
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding-bottom: 104px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .screen-scroll::-webkit-scrollbar { display: none; }
+
+    .detail-content { display: flex; flex-direction: column; }
+
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .hero-image {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(145deg, #4a4540 0%, #353230 45%, #2a2826 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-image span {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.2);
+    }
+
+    .hero-visit {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius-capsule);
+      padding: 10px 28px;
+      white-space: nowrap;
+    }
+
+    .detail-section {
+      padding: 0 var(--rhythm);
+      border-top: 1px solid var(--hairline);
+    }
+
+    .detail-section--spaced { padding-top: 20px; padding-bottom: 20px; }
+    .detail-section--compact-top { padding-top: 20px; }
+    .detail-section--compact-bottom { padding-bottom: 20px; }
+
+    .detail-header {
+      border-top: none;
+      padding-top: 20px;
+      padding-bottom: 20px;
+    }
+
+    .detail-host {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+
+    .detail-title {
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+    }
+
+    .detail-timestamp {
+      font-size: 15px;
+      color: rgba(204, 197, 185, 0.65);
+      letter-spacing: -0.01em;
+    }
+
+    /* Shipped: "Article" + accent show more (DetailView sourceContentSection) */
+    .article-toggle {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      width: 100%;
+      background: none;
+      border: none;
+      font-family: var(--font);
+      padding: 0;
+      text-align: left;
+    }
+
+    .article-toggle-label {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .article-toggle-more {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+      flex-shrink: 0;
+    }
+
+    .article-toggle-more svg {
+      width: 11px;
+      height: 11px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .article-preview {
+      margin-top: 12px;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      font-style: italic;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .segmented {
+      display: flex;
+      border-radius: 9px;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    .segment {
+      flex: 1;
+      padding: 8px 0;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      text-align: center;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--hairline);
+    }
+
+    .segment:last-child { border-right: none; }
+
+    .segment--active {
+      color: var(--text-primary);
+      background: rgba(255, 252, 242, 0.06);
+    }
+
+    .hairline-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 48px;
+    }
+
+    .hairline-row-label {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      flex-shrink: 0;
+    }
+
+    .hairline-row-spacer { flex: 1; }
+
+    .hairline-row-value {
+      font-size: 15px;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .hairline-row-value--muted { color: var(--text-secondary); }
+
+    .hairline-row-action {
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent);
+      background: none;
+      border: none;
+      padding: 8px 0 8px 12px;
+      letter-spacing: -0.01em;
+    }
+
+    .focus-toggle {
+      position: relative;
+      flex-shrink: 0;
+      width: 51px;
+      height: 31px;
+      border-radius: 16px;
+      border: none;
+      padding: 0;
+      background: rgba(120, 120, 128, 0.32);
+    }
+
+    .focus-toggle--on { background: var(--accent); }
+
+    .focus-toggle-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 27px;
+      height: 27px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16);
+    }
+
+    .focus-toggle--on .focus-toggle-knob { transform: translateX(20px); }
+
+    .section-header {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 14px;
+    }
+
+    .highlight-list { display: flex; flex-direction: column; }
+
+    .highlight-item {
+      position: relative;
+      padding: 16px 0 16px 14px;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .highlight-item:last-child { border-bottom: none; }
+
+    .highlight-item::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 16px;
+      bottom: 16px;
+      width: 4px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+
+    .highlight-quote {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+
+    .highlight-note-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(204, 197, 185, 0.55);
+      margin-bottom: 4px;
+    }
+
+    .highlight-note {
+      font-size: 15px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    .highlights-empty {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+
+    .ai-zone { padding-top: 20px; padding-bottom: 20px; }
+
+    .ai-zone-parent-header {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 22px;
+    }
+
+    .ai-subsection-header {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+      margin-bottom: 12px;
+    }
+
+    .tags-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .tags-header-row .ai-subsection-header { margin-bottom: 0; }
+
+    .tags-edit {
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent);
+      background: none;
+      border: none;
+      padding: 4px 0;
+    }
+
+    .ai-subsection + .ai-subsection {
+      margin-top: 22px;
+      padding-top: 22px;
+      border-top: 1px solid var(--hairline);
+    }
+
+    .tag-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .tag-chip {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      background: var(--chip-bg);
+      border-radius: var(--radius-capsule);
+      padding: 6px 12px;
+    }
+
+    .summary-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .summary-list li {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-primary);
+    }
+
+    .summary-list li::before {
+      content: "•";
+      margin-right: 8px;
+      color: var(--text-secondary);
+    }
+
+    .extracts-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .extracts-list li {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-primary);
+    }
+
+    .extracts-list .extract-label { font-weight: 500; }
+    .extracts-list .extract-mid { color: var(--text-secondary); }
+
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 20px var(--rhythm) 24px;
+      border-top: 1px solid var(--hairline);
+    }
+
+    .btn-hairline-accent,
+    .btn-hairline-neutral {
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      background: transparent;
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-capsule);
+      padding: 12px 16px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .btn-hairline-accent { color: var(--accent); }
+    .btn-hairline-neutral { color: var(--text-primary); }
+
+    .tab-bar-dock {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 30;
+      padding: 0 8px 26px;
+      pointer-events: none;
+    }
+
+    .tab-bar {
+      position: relative;
+      pointer-events: auto;
+      height: 66px;
+      border-radius: 33px;
+      display: flex;
+      overflow: hidden;
+      box-shadow: 0 0 0 0.5px rgba(255, 252, 242, 0.2), 0 10px 28px rgba(0, 0, 0, 0.38);
+    }
+
+    .tab-bar-glass {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: rgba(22, 21, 20, 0.58);
+      backdrop-filter: blur(50px) saturate(1.85);
+      border: 0.5px solid rgba(255, 252, 242, 0.22);
+    }
+
+    .tab-bar-items {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      padding: 5px;
+      gap: 2px;
+    }
+
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      color: var(--text-primary);
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .tab-item--active { color: var(--accent); }
+    .tab-item svg { width: 25px; height: 25px; fill: currentColor; }
+
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(255, 252, 242, 0.22);
+      border-radius: 3px;
+      z-index: 40;
+    }
+  </style>
+</head>
+<body>
+  <p class="page-label">Phathom Focus Stack — Detail A</p>
+
+  <p class="mock-legend">
+    Full Detail hairline body from shipped app + <strong>detail-ad-full-hairline-a</strong>.
+    <strong>Article</strong> section (not Source Content). <strong>Focus</strong> hairline row + toggle after Read status, before Category.
+    Only delta vs shipped today: Focus row + (when on) Done in Focus action.
+  </p>
+
+  <div class="frames-row">
+
+    <!-- Not in Focus -->
+    <div class="frame-unit">
+      <p class="frame-caption">Not in Focus — toggle off</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/></svg>
+            </div>
+          </header>
+
+          <nav class="detail-nav" aria-label="Detail navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20" aria-hidden="true"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+            <button type="button" class="detail-nav-share" aria-label="Share">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+            </button>
+          </nav>
+
+          <div class="screen-scroll">
+            <div class="detail-content">
+
+              <section class="hero" aria-label="Article hero">
+                <div class="hero-image"><span>OG Image</span></div>
+                <button type="button" class="hero-visit">Visit Site</button>
+              </section>
+
+              <section class="detail-section detail-header">
+                <p class="detail-host">addyosmani.com</p>
+                <h1 class="detail-title">The Intent Debt</h1>
+                <time class="detail-timestamp" datetime="2026-06-08T23:12:00">Jun 8, 2026 at 11:12 PM</time>
+              </section>
+
+              <section class="detail-section detail-section--spaced">
+                <button type="button" class="article-toggle" aria-expanded="false">
+                  <span class="article-toggle-label">Article</span>
+                  <span class="article-toggle-more">show more<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>
+                </button>
+                <p class="article-preview">Technical debt lives in your code. Cognitive debt lives in your head. After years of building things myself and watching other builders, I've started noticing a new third layer: intent debt, the pile of things you meant to do properly "just not yet", which compounds quietly until every shortcut becomes the default.</p>
+              </section>
+
+              <section class="detail-section detail-section--compact-top detail-section--compact-bottom" aria-label="Reading status">
+                <div class="segmented" role="group">
+                  <button type="button" class="segment segment--active">New</button>
+                  <button type="button" class="segment">Read</button>
+                  <button type="button" class="segment">Filed</button>
+                </div>
+              </section>
+
+              <section class="detail-section detail-section--compact-top detail-section--compact-bottom" aria-label="Focus">
+                <div class="hairline-row">
+                  <span class="hairline-row-label">Focus</span>
+                  <span class="hairline-row-spacer"></span>
+                  <button type="button" class="focus-toggle" aria-label="Add to Focus" aria-pressed="false">
+                    <span class="focus-toggle-knob"></span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="detail-section detail-section--compact-top detail-section--compact-bottom" aria-label="Category">
+                <div class="hairline-row">
+                  <span class="hairline-row-label">Category</span>
+                  <span class="hairline-row-spacer"></span>
+                  <span class="hairline-row-value hairline-row-value--muted">Uncategorized</span>
+                  <button type="button" class="hairline-row-action">Edit</button>
+                </div>
+              </section>
+
+              <section class="detail-section detail-section--spaced">
+                <h2 class="section-header">Highlights &amp; Notes</h2>
+                <p class="highlights-empty">No highlights yet. Select text in Article to add one.</p>
+              </section>
+
+              <section class="detail-section ai-zone" aria-labelledby="ai-zone-heading">
+                <h2 class="ai-zone-parent-header" id="ai-zone-heading">AI analysis</h2>
+                <div class="ai-subsection">
+                  <div class="tags-header-row">
+                    <h3 class="ai-subsection-header">Tags</h3>
+                    <button type="button" class="tags-edit">Edit</button>
+                  </div>
+                  <div class="tag-chips">
+                    <span class="tag-chip">productivity</span>
+                    <span class="tag-chip">software-engineering</span>
+                    <span class="tag-chip">intent</span>
+                  </div>
+                </div>
+                <div class="ai-subsection">
+                  <h3 class="ai-subsection-header">Summary</h3>
+                  <ul class="summary-list">
+                    <li>Intent debt is the gap between what you meant to build properly and what you shipped as a shortcut.</li>
+                    <li>Unlike technical debt, it lives in team habits and deferred decisions rather than the codebase alone.</li>
+                    <li>Closing loops requires naming intent debt and designing rituals that force re-decision.</li>
+                  </ul>
+                </div>
+                <div class="ai-subsection">
+                  <h3 class="ai-subsection-header">Key Figures</h3>
+                  <ul class="extracts-list">
+                    <li><span class="extract-label">Author</span><span class="extract-mid"> · </span>Addy Osmani</li>
+                  </ul>
+                </div>
+              </section>
+
+              <section class="detail-section action-buttons">
+                <button type="button" class="btn-hairline-accent">Summarize again</button>
+                <button type="button" class="btn-hairline-neutral">Archive</button>
+              </section>
+
+            </div>
+          </div>
+
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item tab-item--active"><svg viewBox="0 0 24 24"><path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/></svg><span>Library</span></div>
+                <div class="tab-item"><svg viewBox="0 0 24 24"><path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/></svg><span>Notebook</span></div>
+                <div class="tab-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.65" opacity="0.45"/><circle cx="12" cy="12" r="2.8"/><path d="M12 4v2.2M12 17.8V20M4 12h2.2M17.8 12H20" fill="none" stroke="currentColor" stroke-width="1.65"/></svg><span>Focus</span></div>
+                <div class="tab-item"><svg viewBox="0 0 24 24"><path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/></svg><span>Add new</span></div>
+              </div>
+            </nav>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- In Focus -->
+    <div class="frame-unit">
+      <p class="frame-caption">In Focus — toggle on; Done in Focus action</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+            </div>
+          </header>
+
+          <nav class="detail-nav" aria-label="Detail navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20" aria-hidden="true"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+            <button type="button" class="detail-nav-share" aria-label="Share">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+            </button>
+          </nav>
+
+          <div class="screen-scroll">
+            <div class="detail-content">
+
+              <section class="hero" aria-label="Article hero">
+                <div class="hero-image"><span>OG Image</span></div>
+                <button type="button" class="hero-visit">Visit Site</button>
+              </section>
+
+              <section class="detail-section detail-header">
+                <p class="detail-host">addyosmani.com</p>
+                <h1 class="detail-title">The Intent Debt</h1>
+                <time class="detail-timestamp" datetime="2026-06-08T23:12:00">Jun 8, 2026 at 11:12 PM</time>
+              </section>
+
+              <section class="detail-section detail-section--spaced">
+                <button type="button" class="article-toggle" aria-expanded="false">
+                  <span class="article-toggle-label">Article</span>
+                  <span class="article-toggle-more">show more<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>
+                </button>
+                <p class="article-preview">Technical debt lives in your code. Cognitive debt lives in your head. After years of building things myself and watching other builders, I've started noticing a new third layer: intent debt, the pile of things you meant to do properly "just not yet", which compounds quietly until every shortcut becomes the default.</p>
+              </section>
+
+              <section class="detail-section detail-section--compact-top detail-section--compact-bottom" aria-label="Reading status">
+                <div class="segmented" role="group">
+                  <button type="button" class="segment segment--active">New</button>
+                  <button type="button" class="segment">Read</button>
+                  <button type="button" class="segment">Filed</button>
+                </div>
+              </section>
+
+              <section class="detail-section detail-section--compact-top detail-section--compact-bottom" aria-label="Focus">
+                <div class="hairline-row">
+                  <span class="hairline-row-label">Focus</span>
+                  <span class="hairline-row-spacer"></span>
+                  <button type="button" class="focus-toggle focus-toggle--on" aria-label="Remove from Focus" aria-pressed="true">
+                    <span class="focus-toggle-knob"></span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="detail-section detail-section--compact-top detail-section--compact-bottom" aria-label="Category">
+                <div class="hairline-row">
+                  <span class="hairline-row-label">Category</span>
+                  <span class="hairline-row-spacer"></span>
+                  <span class="hairline-row-value hairline-row-value--muted">Uncategorized</span>
+                  <button type="button" class="hairline-row-action">Edit</button>
+                </div>
+              </section>
+
+              <section class="detail-section detail-section--spaced">
+                <h2 class="section-header">Highlights &amp; Notes</h2>
+                <p class="highlights-empty">No highlights yet. Select text in Article to add one.</p>
+              </section>
+
+              <section class="detail-section ai-zone" aria-labelledby="ai-zone-heading-2">
+                <h2 class="ai-zone-parent-header" id="ai-zone-heading-2">AI analysis</h2>
+                <div class="ai-subsection">
+                  <div class="tags-header-row">
+                    <h3 class="ai-subsection-header">Tags</h3>
+                    <button type="button" class="tags-edit">Edit</button>
+                  </div>
+                  <div class="tag-chips">
+                    <span class="tag-chip">productivity</span>
+                    <span class="tag-chip">software-engineering</span>
+                    <span class="tag-chip">intent</span>
+                  </div>
+                </div>
+                <div class="ai-subsection">
+                  <h3 class="ai-subsection-header">Summary</h3>
+                  <ul class="summary-list">
+                    <li>Intent debt is the gap between what you meant to build properly and what you shipped as a shortcut.</li>
+                    <li>Unlike technical debt, it lives in team habits and deferred decisions rather than the codebase alone.</li>
+                    <li>Closing loops requires naming intent debt and designing rituals that force re-decision.</li>
+                  </ul>
+                </div>
+                <div class="ai-subsection">
+                  <h3 class="ai-subsection-header">Key Figures</h3>
+                  <ul class="extracts-list">
+                    <li><span class="extract-label">Author</span><span class="extract-mid"> · </span>Addy Osmani</li>
+                  </ul>
+                </div>
+              </section>
+
+              <section class="detail-section action-buttons">
+                <button type="button" class="btn-hairline-accent">Done in Focus</button>
+                <button type="button" class="btn-hairline-accent">Summarize again</button>
+                <button type="button" class="btn-hairline-neutral">Archive</button>
+              </section>
+
+            </div>
+          </div>
+
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item tab-item--active"><svg viewBox="0 0 24 24"><path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/></svg><span>Library</span></div>
+                <div class="tab-item"><svg viewBox="0 0 24 24"><path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/></svg><span>Notebook</span></div>
+                <div class="tab-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.65" opacity="0.45"/><circle cx="12" cy="12" r="2.8"/><path d="M12 4v2.2M12 17.8V20M4 12h2.2M17.8 12H20" fill="none" stroke="currentColor" stroke-width="1.65"/></svg><span>Focus</span></div>
+                <div class="tab-item"><svg viewBox="0 0 24 24"><path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/></svg><span>Add new</span></div>
+              </div>
+            </nav>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

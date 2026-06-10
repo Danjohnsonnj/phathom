@@ -692,7 +692,7 @@ struct LibraryTab: View {
         guard !toArchive.isEmpty else { return }
         let ids = toArchive.map(\.id)
         for item in toArchive {
-            ArchiveRetention.archive(item)
+            ArchiveRetention.archive(item, in: modelContext)
         }
         try? modelContext.save()
         LibraryContentChangeNotifier.postLibraryContentDidChange()

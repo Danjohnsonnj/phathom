@@ -1,12 +1,14 @@
-# Phase 3 Hand-off: RAG Chat + Conversational Discovery (Skeleton — Finalize Before Implementation)
+# Phase 3 Hand-off: RAG Chat + Conversational Discovery (Skeleton — Deferred)
 
-> **RAG embeddings / persistent vector store:** **TBD** — log the chosen approach in [`docs/decisions.md`](../decisions.md) before shipping Phase 3. Do **not** infer embedding stack from archived `technical-brief` prose.
+> **⚠️ Priority / status (2026-06-09, updated):** **Focus Stack v1 shipped** (Phases A + B). The standalone **Chat tab is removed** — tab bar is **Library · Notebook · Focus · Add New**. This RAG / Chat track remains **deferred**. **Do not implement** open RAG or restore a Chat tab unless explicitly directed. RAG may **re-scope** to **thread-scoped assist** on Focus / **Connect** threads (Phase C). See [`focus-stack-delivery.md`](focus-stack-delivery.md).
 
-> **Status**: Skeleton spec. Sections marked `[TBD after Phase 2]` assumed Phase 2 was in flight — **Phase 2 is shipped.** Use **source code + [What Exists After Phase 2](#what-exists-after-phase-2)** as the factual baseline before coding.
+> **RAG embeddings / persistent vector store:** **TBD** — log the chosen approach in [`docs/decisions.md`](../decisions.md) before any RAG ship. Do **not** infer embedding stack from archived `technical-brief` prose.
+
+> **Status**: Skeleton spec — **not scheduled for implementation.** Sections marked `[TBD after Phase 2]` assumed Phase 2 was in flight — **Phase 2 is shipped.** Use **source code + [What Exists After Phase 2](#what-exists-after-phase-2)** as the factual baseline if this doc is revived.
 
 ## Project Snapshot
 
-**Phathom** is a local-only iOS personal brain app. Phase 1 built the UI shell (TabView, library, detail). Phase 2 added real background AI processing (scraping, summarization, tagging, extraction) and Spotlight integration. Phase 3 activates the Chat tab as a fully functional RAG-powered conversational interface.
+**Phathom** is a local-only iOS personal brain app. Phase 1 built the UI shell (TabView, library, detail). Phase 2 added real background AI processing (scraping, summarization, tagging, extraction) and Spotlight integration. Phase 3 originally targeted a Chat tab as a RAG-powered conversational interface. **That tab was replaced by Focus Stack (2026-06).** This document remains a skeleton if RAG is revived in a different shape.
 
 - **Platform**: iOS 18+, Swift 5, SwiftUI, SwiftData
 - **Storage**: Local-only — no CloudKit

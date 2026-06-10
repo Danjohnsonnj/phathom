@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 public enum LibraryBackupService {
-    public static let currentFormatVersion = 3
+    public static let currentFormatVersion = 4
 
     public enum ImportPolicy: Sendable {
         case replace
@@ -25,6 +25,45 @@ public enum LibraryBackupService {
             self.exportedAt = exportedAt
             self.appBuild = appBuild
             self.items = items
+        }
+    }
+
+    public struct FocusEntryRecord: Codable, Sendable {
+        public var id: UUID
+        public var addedAt: Date
+        public var sortOrder: Int
+        public var lastTouchedAt: Date
+
+        public init(id: UUID, addedAt: Date, sortOrder: Int, lastTouchedAt: Date) {
+            self.id = id
+            self.addedAt = addedAt
+            self.sortOrder = sortOrder
+            self.lastTouchedAt = lastTouchedAt
+        }
+    }
+
+    public struct FocusOutcomeRecord: Codable, Sendable {
+        public var id: UUID
+        public var completedAt: Date
+        public var outcomeKind: String
+        public var takeawayText: String?
+        public var linkedHighlightID: UUID?
+        public var scheduledResurfaceAt: Date?
+
+        public init(
+            id: UUID,
+            completedAt: Date,
+            outcomeKind: String,
+            takeawayText: String? = nil,
+            linkedHighlightID: UUID? = nil,
+            scheduledResurfaceAt: Date? = nil
+        ) {
+            self.id = id
+            self.completedAt = completedAt
+            self.outcomeKind = outcomeKind
+            self.takeawayText = takeawayText
+            self.linkedHighlightID = linkedHighlightID
+            self.scheduledResurfaceAt = scheduledResurfaceAt
         }
     }
 
@@ -80,6 +119,8 @@ public enum LibraryBackupService {
         public var tags: [String]
         public var highlights: [HighlightRecord]
         public var categoryName: String?
+        public var focusEntry: FocusEntryRecord?
+        public var focusOutcomes: [FocusOutcomeRecord]
 
         private enum CodingKeys: String, CodingKey {
             case id
@@ -105,6 +146,8 @@ public enum LibraryBackupService {
             case tags
             case highlights
             case categoryName
+            case focusEntry
+            case focusOutcomes
         }
 
         public init(
@@ -130,7 +173,9 @@ public enum LibraryBackupService {
             archivedAt: Date?,
             tags: [String],
             highlights: [HighlightRecord] = [],
-            categoryName: String? = nil
+            categoryName: String? = nil,
+            focusEntry: FocusEntryRecord? = nil,
+            focusOutcomes: [FocusOutcomeRecord] = []
         ) {
             self.id = id
             self.createdAt = createdAt
@@ -155,6 +200,8 @@ public enum LibraryBackupService {
             self.tags = tags
             self.highlights = highlights
             self.categoryName = categoryName
+            self.focusEntry = focusEntry
+            self.focusOutcomes = focusOutcomes
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -182,6 +229,8 @@ public enum LibraryBackupService {
             try container.encode(tags, forKey: .tags)
             try container.encode(highlights, forKey: .highlights)
             try container.encodeIfPresent(categoryName, forKey: .categoryName)
+            try container.encodeIfPresent(focusEntry, forKey: .focusEntry)
+            try container.encode(focusOutcomes, forKey: .focusOutcomes)
         }
 
         public init(from decoder: Decoder) throws {
@@ -209,6 +258,8 @@ public enum LibraryBackupService {
             tags = try container.decode([String].self, forKey: .tags)
             highlights = try container.decodeIfPresent([HighlightRecord].self, forKey: .highlights) ?? []
             categoryName = try container.decodeIfPresent(String.self, forKey: .categoryName)
+            focusEntry = try container.decodeIfPresent(FocusEntryRecord.self, forKey: .focusEntry)
+            focusOutcomes = try container.decodeIfPresent([FocusOutcomeRecord].self, forKey: .focusOutcomes) ?? []
         }
     }
 
@@ -239,6 +290,7 @@ public enum LibraryBackupService {
         case unsupportedFormatVersion(Int)
         case invalidItem(index: Int, reason: String)
         case duplicateItemIDs(UUID)
+        case focusCapExceeded(activeCount: Int, maxAllowed: Int)
         case decodeFailure(String)
         case encodeFailure(String)
 
@@ -252,6 +304,8 @@ public enum LibraryBackupService {
                 return "Invalid item at index \(index): \(reason)"
             case .duplicateItemIDs(let id):
                 return "Backup contains duplicate item id: \(id.uuidString)"
+            case .focusCapExceeded(let activeCount, let maxAllowed):
+                return "Backup would exceed Focus stack cap: \(activeCount) active entries (max \(maxAllowed))."
             case .decodeFailure(let details):
                 return "Failed to decode backup file: \(details)"
             case .encodeFailure(let details):
@@ -269,6 +323,8 @@ public enum LibraryBackupService {
                 return "code=invalid_item index=\(index) reason=\(reason)"
             case .duplicateItemIDs(let id):
                 return "code=duplicate_item_id id=\(id.uuidString)"
+            case .focusCapExceeded(let activeCount, let maxAllowed):
+                return "code=focus_cap_exceeded activeCount=\(activeCount) maxAllowed=\(maxAllowed)"
             case .decodeFailure(let details):
                 return "code=decode_failure details=\(details)"
             case .encodeFailure(let details):
@@ -297,6 +353,24 @@ public enum LibraryBackupService {
                     sourceMarkdownSegmentsJSON: h.sourceMarkdownSegmentsJSON
                 )
             }
+            let focusEntryRecord: FocusEntryRecord? = item.focusEntry.map { entry in
+                FocusEntryRecord(
+                    id: entry.id,
+                    addedAt: entry.addedAt,
+                    sortOrder: entry.sortOrder,
+                    lastTouchedAt: entry.lastTouchedAt
+                )
+            }
+            let outcomeRecords = item.focusOutcomes.map { outcome in
+                FocusOutcomeRecord(
+                    id: outcome.id,
+                    completedAt: outcome.completedAt,
+                    outcomeKind: outcome.outcomeKind,
+                    takeawayText: outcome.takeawayText,
+                    linkedHighlightID: outcome.linkedHighlightID,
+                    scheduledResurfaceAt: outcome.scheduledResurfaceAt
+                )
+            }
             return ItemRecord(
                 id: item.id,
                 createdAt: item.createdAt,
@@ -320,7 +394,9 @@ public enum LibraryBackupService {
                 archivedAt: item.archivedAt,
                 tags: item.tags.map(\.name),
                 highlights: hlRecords,
-                categoryName: item.category?.name
+                categoryName: item.category?.name,
+                focusEntry: focusEntryRecord,
+                focusOutcomes: outcomeRecords
             )
         }
 
@@ -378,6 +454,12 @@ public enum LibraryBackupService {
         var existingByID = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
         var tagsByName = try existingTagsByName(from: modelContext)
         var categoriesByName = try existingCategoriesByName(from: modelContext)
+
+        try validateFocusCap(
+            envelope: envelope,
+            policy: policy,
+            existingItems: existingItems
+        )
 
         for record in envelope.items {
             if policy == .merge, existingByID[record.id] != nil {
@@ -438,9 +520,42 @@ public enum LibraryBackupService {
             if !seen.insert(item.id).inserted {
                 throw BackupError.duplicateItemIDs(item.id)
             }
+            for (outcomeIndex, outcome) in item.focusOutcomes.enumerated() {
+                if FocusOutcomeKind(rawValue: outcome.outcomeKind) == nil {
+                    throw BackupError.invalidItem(
+                        index: index,
+                        reason: "focusOutcomes[\(outcomeIndex)].outcomeKind '\(outcome.outcomeKind)' is not supported"
+                    )
+                }
+            }
         }
 
         return envelope
+    }
+
+    private static func validateFocusCap(
+        envelope: ExportEnvelope,
+        policy: ImportPolicy,
+        existingItems: [ContentItem]
+    ) throws {
+        let maxAllowed = FocusStackConstants.maxActiveEntries
+        let projected: Int
+        switch policy {
+        case .replace:
+            projected = envelope.items.filter { $0.focusEntry != nil && !$0.isArchived }.count
+        case .merge:
+            let existingIDs = Set(existingItems.map(\.id))
+            let retainedActive = existingItems.filter { $0.focusEntry != nil && !$0.isArchived }.count
+            let incomingActive = envelope.items.filter { record in
+                record.focusEntry != nil
+                    && !record.isArchived
+                    && !existingIDs.contains(record.id)
+            }.count
+            projected = retainedActive + incomingActive
+        }
+        guard projected <= maxAllowed else {
+            throw BackupError.focusCapExceeded(activeCount: projected, maxAllowed: maxAllowed)
+        }
     }
 
     private static func existingTagsByName(from modelContext: ModelContext) throws -> [String: Tag] {
@@ -544,6 +659,27 @@ public enum LibraryBackupService {
             highlight.createdAt = hr.createdAt
             highlight.item = item
             modelContext.insert(highlight)
+        }
+
+        for foRecord in record.focusOutcomes {
+            guard let kind = FocusOutcomeKind(rawValue: foRecord.outcomeKind) else { continue }
+            let outcome = FocusOutcome(
+                contentItem: item,
+                kind: kind,
+                completedAt: foRecord.completedAt,
+                takeawayText: foRecord.takeawayText,
+                linkedHighlightID: foRecord.linkedHighlightID,
+                scheduledResurfaceAt: foRecord.scheduledResurfaceAt
+            )
+            outcome.id = foRecord.id
+            modelContext.insert(outcome)
+        }
+
+        if let feRecord = record.focusEntry, !record.isArchived {
+            let entry = FocusEntry(contentItem: item, sortOrder: feRecord.sortOrder, now: feRecord.addedAt)
+            entry.id = feRecord.id
+            entry.lastTouchedAt = feRecord.lastTouchedAt
+            modelContext.insert(entry)
         }
 
         return item

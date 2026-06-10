@@ -10,6 +10,8 @@ struct GalleryListRow: View {
     @Environment(\.modelContext) private var modelContext
 
     private static let thumbSize: CGFloat = 64
+    private static let trailingSignalSize: CGFloat = 22
+    private static let trailingSignalTextGap: CGFloat = 6
 
     private static let dateFormat = Date.FormatStyle()
         .month(.abbreviated)
@@ -59,15 +61,58 @@ struct GalleryListRow: View {
                     metaRow
                 }
                 .padding(.top, 2)
+                .padding(
+                    .trailing,
+                    trailingSignal != nil ? Self.trailingSignalSize + Self.trailingSignalTextGap : 0
+                )
             }
             .padding(.vertical, AppSpacing.galleryRowVertical)
             .padding(.horizontal, AppSpacing.screenHorizontal)
+            .overlay(alignment: .trailing) {
+                if let trailingSignal {
+                    trailingSignalIcon(trailingSignal)
+                        .padding(.trailing, AppSpacing.screenHorizontal)
+                }
+            }
 
             if showsBottomHairline {
                 Rectangle()
                     .fill(AppPalette.hairline)
                     .frame(height: 1)
             }
+        }
+    }
+
+    private enum TrailingSignal {
+        case inFocus
+        case revisitDue
+    }
+
+    private var trailingSignal: TrailingSignal? {
+        if FocusStackService.isInFocus(item) {
+            return .inFocus
+        }
+        if FocusStackService.dueForRevisit(item, in: modelContext) {
+            return .revisitDue
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private func trailingSignalIcon(_ signal: TrailingSignal) -> some View {
+        switch signal {
+        case .inFocus:
+            Image(systemName: "scope")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(AppPalette.accent)
+                .frame(width: Self.trailingSignalSize, height: Self.trailingSignalSize)
+                .accessibilityLabel("In Focus")
+        case .revisitDue:
+            Image(systemName: "clock")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(AppPalette.textSecondary.opacity(0.85))
+                .frame(width: Self.trailingSignalSize, height: Self.trailingSignalSize)
+                .accessibilityLabel("Revisit due")
         }
     }
 

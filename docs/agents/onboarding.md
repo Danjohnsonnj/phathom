@@ -12,14 +12,17 @@ Do **not** scan all of `Phathom/`. Read the smallest set for the task:
 |------|------------|
 | Decisions / invariants | [`docs/decisions.md`](../decisions.md) — index + matching rows |
 | Domain terms | [`CONTEXT.md`](../../CONTEXT.md) — glossary only |
-| RAG Chat roadmap | [`docs/handoff/phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md) |
+| Focus Stack — resume / status | [`docs/handoff/focus-stack-delivery.md`](../handoff/focus-stack-delivery.md) (**read first**) |
+| Focus Stack — product brief | [`docs/handoff/focus-stack.md`](../handoff/focus-stack.md) |
+| Focus tab (shipped) | [`FocusTab.swift`](../../Phathom/Phathom/Views/Focus/FocusTab.swift) · [`FocusStackService.swift`](../../Phathom/PhathomCore/Sources/PhathomCore/FocusStackService.swift) |
+| RAG / Chat (deferred) | [`docs/handoff/phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md) — **no Chat tab**; do not implement unless directed |
 | UI design refresh (shipped v1) | [`docs/decisions.md`](../decisions.md) + [`Views/`](../../Phathom/Phathom/Views/); historical spec [`docs/archive/ui-design-refresh.md`](../archive/ui-design-refresh.md) |
 | UI evolution (shipped May 2026) | [`docs/decisions.md`](../decisions.md) UI rows + [`Views/`](../../Phathom/Phathom/Views/); [`design-tokens.md`](../design-tokens.md) · archived [`library-ui-evolution.md`](../archive/library-ui-evolution.md) §3 |
 | Notebook tab (shipped) | [`docs/decisions.md`](../decisions.md) + [`NotebookTab.swift`](../../Phathom/Phathom/Views/Notebook/NotebookTab.swift); historical spec [`docs/archive/notebook-tab.md`](../archive/notebook-tab.md) |
 | Detail media hero / View Photo | [`docs/decisions.md`](../decisions.md) **2026-06-01** row + [`MediaDisplayImageLoader.swift`](../../Phathom/Phathom/Helpers/MediaDisplayImageLoader.swift) |
 | Pipeline | [`BackgroundPipeline.swift`](../../Phathom/Phathom/Services/BackgroundPipeline.swift) |
 | Inference | [`SharedLlamaInference.swift`](../../Phathom/Phathom/Services/SharedLlamaInference.swift) |
-| UI shell | [`Views/`](../../Phathom/Phathom/Views/) — recall agentmemory **UI** topic; `MainTabView` → `LibraryTab` → `DetailView` → `AddNewTab`; Settings via Library gear |
+| UI shell | [`Views/`](../../Phathom/Phathom/Views/) — `MainTabView` → **Library · Notebook · Focus · Add New**; `DetailView` for item detail; Settings via Library gear |
 | Historical specs | [`docs/archive/`](../archive/) — **opt-in only** |
 
 Structural categories: **`PhathomCore.Category`**, **`LibraryCategoryFilterStorage`**, **`CategoryDisplayFormatter`**. UI binds SwiftData; schedules work via **`BackgroundPipeline`** and **`ProcessingRecovery`** — never calls Llama directly.
@@ -50,7 +53,7 @@ Structural categories: **`PhathomCore.Category`**, **`LibraryCategoryFilterStora
 
 ## Active scope
 
-Pipeline + ingest **shipped**. Roadmap: **RAG Chat** ([`phase-3-rag-chat.md`](../handoff/phase-3-rag-chat.md)). **Do not** implement RAG or expand Chat unless explicitly directed.
+Pipeline + ingest **shipped**. Roadmap: **Focus Stack** — [`focus-stack-delivery.md`](../handoff/focus-stack-delivery.md) (phases + handoff) · [`focus-stack.md`](../handoff/focus-stack.md) (brief). Phases **0–2 done**; **design probe** next. **RAG Chat** frozen until Focus Phase A. **Do not** implement Swift until phase gate allows. **Session wrap-up:** update delivery doc session log + next-session prompt (see delivery playbook closeout).
 
 ---
 

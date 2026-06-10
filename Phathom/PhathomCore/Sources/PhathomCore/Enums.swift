@@ -24,3 +24,11 @@ public enum ReadStatus: String, Codable, CaseIterable, Sendable {
     case read
     case filed
 }
+
+/// Resolution when leaving Focus Stack (append-only log via `FocusOutcome`).
+public enum FocusOutcomeKind: String, Codable, CaseIterable, Sendable {
+    case reference
+    case takeaway
+    case revisit
+    case release
+}
