@@ -5,7 +5,7 @@ import Foundation
 /// are implemented in ``TagRelationService``.
 ///
 /// **Stage 1 (sync, fast)**:
-///   - `matching`: substring filter across title, raw text, host, URL, media description, and tags
+///   - `matching`: substring filter across title, raw text, host, URL, media description, tags, and highlight user notes
 ///     (preserves the previous `LibraryTab.filteredItems` behavior so we don't regress discovery).
 ///   - `adjacent`: only when the trimmed query equals a known tag name (case-insensitive). Returns
 ///     items that do NOT contain the resolved tag but share at least one tag with any **anchor** item:
@@ -65,7 +65,13 @@ enum LibrarySearchService {
             let urlMatch = (item.originalURL?.absoluteString ?? "").lowercased().contains(normalized)
             let mediaMatch = (item.mediaDescription ?? "").lowercased().contains(normalized)
             let tagsMatch = item.tagNames.joined(separator: " ").lowercased().contains(normalized)
-            return titleMatch || rawTextMatch || hostMatch || urlMatch || mediaMatch || tagsMatch
+            let highlightNoteMatch = item.highlights.contains { highlight in
+                guard let note = highlight.userNote?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                    !note.isEmpty else { return false }
+                return note.lowercased().contains(normalized)
+            }
+            return titleMatch || rawTextMatch || hostMatch || urlMatch || mediaMatch || tagsMatch || highlightNoteMatch
         }
 
         let resolvedTagName: String? = tagIndex[normalized] != nil ? normalized : nil

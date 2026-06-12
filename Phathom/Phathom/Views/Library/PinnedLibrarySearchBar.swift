@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Pinned Library search bar shell — accent field + Cancel (§3.2 Search B). Overlay placement in Phase 2.
+/// Pinned Library search bar shell — accent field + Close (§3.2 Search B). Overlay placement in Phase 2.
 struct PinnedLibrarySearchBar: View {
     @Binding var text: String
-    var onCancel: () -> Void
+    var onClose: () -> Void
     var isFieldFocused: FocusState<Bool>.Binding
 
     private static let fieldHeight: CGFloat = 40
@@ -16,14 +16,28 @@ struct PinnedLibrarySearchBar: View {
                     .foregroundStyle(AppPalette.accent)
                     .padding(.leading, 12)
 
-                TextField("Search title, tags, source text", text: $text)
+                TextField("Search title, tags, source, highlights", text: $text)
                     .font(.system(size: 16))
                     .foregroundStyle(AppPalette.textPrimary)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused(isFieldFocused)
                     .padding(.leading, 8)
-                    .padding(.trailing, 14)
+                    .padding(.trailing, text.isEmpty ? 14 : 4)
+
+                if !text.isEmpty {
+                    Button {
+                        text = ""
+                        isFieldFocused.wrappedValue = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 17))
+                            .foregroundStyle(AppPalette.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 10)
+                    .accessibilityLabel("Clear search text")
+                }
             }
             .frame(height: Self.fieldHeight)
             .frame(maxWidth: .infinity)
@@ -33,18 +47,17 @@ struct PinnedLibrarySearchBar: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(AppPalette.accent.opacity(0.55), lineWidth: 1.5)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Search title, tags, source text")
 
-            Button(action: onCancel) {
-                Text("Cancel")
+            Button(action: onClose) {
+                Text("Close")
                     .font(.system(size: 17))
                     .phathomToolbarTextLabel()
             }
             .foregroundStyle(AppPalette.accent)
             .buttonStyle(.plain)
-                .padding(.leading, 4)
-                .accessibilityHint("Exit search")
+            .padding(.leading, 4)
+            .accessibilityLabel("Close")
+            .accessibilityHint("Close search field and keep current search")
         }
         .padding(.horizontal, AppSpacing.screenHorizontal)
         .padding(.vertical, 8)
@@ -67,13 +80,13 @@ struct PinnedLibrarySearchBar: View {
 }
 
 private struct PinnedLibrarySearchBarPreview: View {
-    @State private var text = ""
+    @State private var text = "sample"
     @FocusState private var isFocused: Bool
 
     var body: some View {
         PinnedLibrarySearchBar(
             text: $text,
-            onCancel: { text = "" },
+            onClose: { isFocused = false },
             isFieldFocused: $isFocused
         )
         .background(AppPalette.background)

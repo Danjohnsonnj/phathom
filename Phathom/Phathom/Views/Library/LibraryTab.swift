@@ -102,6 +102,10 @@ struct LibraryTab: View {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var isSearchFilteredAtRest: Bool {
+        !trimmedQuery.isEmpty && !isSearchActive
+    }
+
     private var filtersActive: Bool {
         filterKind != nil || filterStatus != nil || !filterCategoryRaw.isEmpty
     }
@@ -223,7 +227,7 @@ struct LibraryTab: View {
                 if isSearchActive {
                     PinnedLibrarySearchBar(
                         text: $searchText,
-                        onCancel: cancelSearch,
+                        onClose: cancelSearch,
                         isFieldFocused: $isSearchFieldFocused
                     )
                 }
@@ -456,11 +460,12 @@ struct LibraryTab: View {
                 } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 22, weight: .regular))
-                        .foregroundStyle(AppPalette.textSecondary)
+                        .foregroundStyle(isSearchFilteredAtRest ? AppPalette.accent : AppPalette.textSecondary)
                         .frame(width: 38, height: 38)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Search")
+                .accessibilityValue(isSearchFilteredAtRest ? "Search filter active" : "")
 
                 Button {
                     isShowingSettings = true

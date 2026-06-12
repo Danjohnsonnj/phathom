@@ -315,6 +315,50 @@ struct PhathomTests {
         #expect(textSearch.matching.contains(where: { $0.id == note.id }))
     }
 
+    @Test func librarySearch_matchesHighlightUserNoteOnly() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let probe = "xyzzyplugh"
+
+        let withNote = ContentItem(contentKind: .web, originalURL: URL(string: "https://highlight-note-search.test/with")!)
+        withNote.title = "Article"
+        let withNoteHighlight = Highlight(
+            sourceMarkdownOffset: 0,
+            sourceMarkdownLength: 10,
+            quotedText: "some quote",
+            userNote: probe
+        )
+        ctx.insert(withNote)
+        ctx.insert(withNoteHighlight)
+        withNote.highlights.append(withNoteHighlight)
+
+        let withoutNote = ContentItem(contentKind: .web, originalURL: URL(string: "https://highlight-note-search.test/without")!)
+        withoutNote.title = "Other"
+        let withoutNoteHighlight = Highlight(
+            sourceMarkdownOffset: 0,
+            sourceMarkdownLength: 10,
+            quotedText: "other quote"
+        )
+        ctx.insert(withoutNote)
+        ctx.insert(withoutNoteHighlight)
+        withoutNote.highlights.append(withoutNoteHighlight)
+
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let sections = LibrarySearchService.bucket(
+            query: probe,
+            items: all,
+            filterKind: nil,
+            filterStatus: nil,
+            filterCategory: nil
+        )
+        #expect(sections.matching.contains(where: { $0.id == withNote.id }))
+        #expect(!sections.matching.contains(where: { $0.id == withoutNote.id }))
+        #expect(sections.adjacent.isEmpty)
+        #expect(sections.resolvedTagName == nil)
+    }
+
     @Test func notebookHighlightsQuery_groups_appliesKindAndStatusFilters() throws {
         let container = try makeInMemoryContainer()
         let ctx = ModelContext(container)
