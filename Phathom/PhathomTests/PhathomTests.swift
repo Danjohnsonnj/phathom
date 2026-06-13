@@ -302,17 +302,123 @@ struct PhathomTests {
         try ctx.save()
 
         let all = try ctx.fetch(FetchDescriptor<ContentItem>())
-        let browseAll = LibrarySearchService.bucket(query: "", items: all, filterKind: nil, filterStatus: nil, filterCategory: nil)
+        let browseAll = LibrarySearchService.bucket(query: "", items: all)
         #expect(browseAll.matching.count == 3)
         #expect(browseAll.adjacent.isEmpty)
         #expect(browseAll.resolvedTagName == nil)
 
-        let webReadOnly = LibrarySearchService.bucket(query: "", items: all, filterKind: .web, filterStatus: .read, filterCategory: nil)
+        let webReadOnly = LibrarySearchService.bucket(
+            query: "",
+            items: all,
+            filterKinds: [.web],
+            filterStatuses: [.read]
+        )
         #expect(webReadOnly.matching.count == 1)
         #expect(webReadOnly.matching.first?.id == webRead.id)
 
-        let textSearch = LibrarySearchService.bucket(query: "hello", items: all, filterKind: nil, filterStatus: nil, filterCategory: nil)
+        let textSearch = LibrarySearchService.bucket(query: "hello", items: all)
         #expect(textSearch.matching.contains(where: { $0.id == note.id }))
+    }
+
+    @Test func libraryFilterCodec_migrationAndCapsuleLabels() {
+        #expect(LibraryFilterCodec.decodeKinds("") == nil)
+        #expect(LibraryFilterCodec.decodeKinds("web") == Set([.web]))
+        #expect(LibraryFilterCodec.decodeKinds("bogus,web") == Set([.web]))
+        #expect(LibraryFilterCodec.decodeStatuses("") == nil)
+        #expect(LibraryFilterCodec.decodeStatuses("read") == Set([.read]))
+        #expect(LibraryFilterCodec.decodeStatuses("bogus,read") == Set([.read]))
+
+        #expect(LibraryFilterCodec.kindCapsuleLabel(raw: "") == "All")
+        #expect(LibraryFilterCodec.kindCapsuleLabel(raw: "web") == "Web")
+        #expect(LibraryFilterCodec.kindCapsuleLabel(raw: "web,note") == "Web +1")
+        #expect(LibraryFilterCodec.statusCapsuleLabel(raw: "new,read") == "New +1")
+
+        let fullKinds = LibraryFilterCodec.encodeKinds([.web, .media, .note])
+        #expect(fullKinds == "")
+        let fullStatuses = LibraryFilterCodec.encodeStatuses([.new, .read, .filed])
+        #expect(fullStatuses == "")
+    }
+
+    @Test func libraryFilterCodec_categorySanitizeAndToggle() {
+        let valid = ["work", "travel"]
+        #expect(LibraryFilterCodec.sanitizeCategoryRaw("work,deleted", validNames: valid) == "work")
+        #expect(LibraryFilterCodec.sanitizeCategoryRaw("deleted", validNames: valid) == "")
+
+        let universe = LibraryFilterCodec.categoryUniverse(categoryNames: valid)
+        #expect(LibraryFilterCodec.toggleCategory("work", in: "work", universe: universe) == nil)
+        let widened = LibraryFilterCodec.toggleCategory("travel", in: "work", universe: universe)
+        #expect(widened == "travel,work")
+        let full = LibraryFilterCodec.toggleCategory(LibraryCategoryFilterStorage.uncategorizedRaw, in: "travel,work", universe: universe)
+        #expect(full == "")
+    }
+
+    @Test func itemsFilteredByKindStatusAndCategory_orWithinAndAcross() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+
+        let webNew = ContentItem(contentKind: .web, originalURL: URL(string: "https://or.test/a")!)
+        webNew.readStatus = ReadStatus.new.rawValue
+        let webRead = ContentItem(contentKind: .web, originalURL: URL(string: "https://or.test/b")!)
+        webRead.readStatus = ReadStatus.read.rawValue
+        let noteFiled = ContentItem(contentKind: .note)
+        noteFiled.readStatus = ReadStatus.filed.rawValue
+
+        let work = PhathomCore.Category(name: "work")
+        ctx.insert(work)
+        webNew.category = work
+
+        ctx.insert(webNew)
+        ctx.insert(webRead)
+        ctx.insert(noteFiled)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+
+        let newOrRead = TagRelationService.itemsFilteredByKindStatusAndCategory(
+            items: all,
+            filterStatuses: [.new, .read]
+        )
+        #expect(newOrRead.count == 2)
+        #expect(newOrRead.contains(where: { $0.id == webNew.id }))
+        #expect(newOrRead.contains(where: { $0.id == webRead.id }))
+
+        let webAndNew = TagRelationService.itemsFilteredByKindStatusAndCategory(
+            items: all,
+            filterKinds: [.web],
+            filterStatuses: [.new]
+        )
+        #expect(webAndNew.count == 1)
+        #expect(webAndNew.first?.id == webNew.id)
+
+        let uncategorizedOnly = TagRelationService.itemsFilteredByKindStatusAndCategory(
+            items: all,
+            filterCategories: [LibraryCategoryFilterStorage.uncategorizedRaw]
+        )
+        #expect(uncategorizedOnly.count == 2)
+        #expect(!uncategorizedOnly.contains(where: { $0.id == webNew.id }))
+    }
+
+    @Test func librarySearchBucket_multiselectOrWithinStatus() throws {
+        let container = try makeInMemoryContainer()
+        let ctx = ModelContext(container)
+        let webNew = ContentItem(contentKind: .web, originalURL: URL(string: "https://ms.test/a")!)
+        webNew.readStatus = ReadStatus.new.rawValue
+        let webRead = ContentItem(contentKind: .web, originalURL: URL(string: "https://ms.test/b")!)
+        webRead.readStatus = ReadStatus.read.rawValue
+        let noteFiled = ContentItem(contentKind: .note)
+        noteFiled.readStatus = ReadStatus.filed.rawValue
+        ctx.insert(webNew)
+        ctx.insert(webRead)
+        ctx.insert(noteFiled)
+        try ctx.save()
+
+        let all = try ctx.fetch(FetchDescriptor<ContentItem>())
+        let newOrRead = LibrarySearchService.bucket(
+            query: "",
+            items: all,
+            filterStatuses: [.new, .read]
+        )
+        #expect(newOrRead.matching.count == 2)
     }
 
     @Test func librarySearch_matchesHighlightUserNoteOnly() throws {
@@ -346,13 +452,7 @@ struct PhathomTests {
         try ctx.save()
 
         let all = try ctx.fetch(FetchDescriptor<ContentItem>())
-        let sections = LibrarySearchService.bucket(
-            query: probe,
-            items: all,
-            filterKind: nil,
-            filterStatus: nil,
-            filterCategory: nil
-        )
+        let sections = LibrarySearchService.bucket(query: probe, items: all)
         #expect(sections.matching.contains(where: { $0.id == withNote.id }))
         #expect(!sections.matching.contains(where: { $0.id == withoutNote.id }))
         #expect(sections.adjacent.isEmpty)
@@ -382,11 +482,11 @@ struct PhathomTests {
         let unfiltered = NotebookHighlightsQuery.groups(from: allHighlights)
         #expect(unfiltered.count == 2)
 
-        let webOnly = NotebookHighlightsQuery.groups(from: allHighlights, filterKind: .web, filterStatus: nil, filterCategory: nil)
+        let webOnly = NotebookHighlightsQuery.groups(from: allHighlights, filterKinds: [.web])
         #expect(webOnly.count == 1)
         #expect(webOnly.first?.item.id == web.id)
 
-        let readOnly = NotebookHighlightsQuery.groups(from: allHighlights, filterKind: nil, filterStatus: .read, filterCategory: nil)
+        let readOnly = NotebookHighlightsQuery.groups(from: allHighlights, filterStatuses: [.read])
         #expect(readOnly.count == 1)
         #expect(readOnly.first?.item.id == web.id)
     }
@@ -965,13 +1065,7 @@ struct LibrarySearchMediaTests {
         try ctx.save()
 
         let all = try ctx.fetch(FetchDescriptor<ContentItem>())
-        let sections = LibrarySearchService.bucket(
-            query: "retriever",
-            items: all,
-            filterKind: nil,
-            filterStatus: nil,
-            filterCategory: nil
-        )
+        let sections = LibrarySearchService.bucket(query: "retriever", items: all)
         #expect(sections.matching.count == 1)
         #expect(sections.matching.first?.id == media.id)
     }
@@ -989,7 +1083,7 @@ struct LibrarySearchMediaTests {
         try ctx.save()
 
         let all = try ctx.fetch(FetchDescriptor<ContentItem>())
-        let sections = LibrarySearchService.bucket(query: "landscape", items: all, filterKind: nil, filterStatus: nil, filterCategory: nil)
+        let sections = LibrarySearchService.bucket(query: "landscape", items: all)
         #expect(sections.matching.contains { $0.id == media.id })
     }
 }

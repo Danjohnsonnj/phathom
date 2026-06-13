@@ -19,12 +19,12 @@ enum NotebookHighlightsQuery {
     /// Groups qualifying highlights by parent item; items ordered by latest highlight `createdAt` desc;
     /// highlights within each item follow `ContentItem.highlightsSortedByOffset`.
     ///
-    /// `filterCategory`: `nil` = All; otherwise kebab name or ``LibraryCategoryFilterStorage/uncategorizedRaw``.
+    /// Filter sets: `nil` per dimension = pass-through (all values). Category tokens include ``LibraryCategoryFilterStorage/uncategorizedRaw``.
     static func groups(
         from allHighlights: [Highlight],
-        filterKind: ContentKind? = nil,
-        filterStatus: ReadStatus? = nil,
-        filterCategory: String? = nil
+        filterKinds: Set<ContentKind>? = nil,
+        filterStatuses: Set<ReadStatus>? = nil,
+        filterCategories: Set<String>? = nil
     ) -> [ItemGroup] {
         var seenItemIDs = Set<UUID>()
         var items: [ContentItem] = []
@@ -36,14 +36,12 @@ enum NotebookHighlightsQuery {
             }
         }
 
-        if filterKind != nil || filterStatus != nil || filterCategory != nil {
-            items = TagRelationService.itemsFilteredByKindStatusAndCategory(
-                items: items,
-                filterKind: filterKind,
-                filterStatus: filterStatus,
-                filterCategory: filterCategory
-            )
-        }
+        items = TagRelationService.itemsFilteredByKindStatusAndCategory(
+            items: items,
+            filterKinds: filterKinds,
+            filterStatuses: filterStatuses,
+            filterCategories: filterCategories
+        )
 
         return items
             .map { item in

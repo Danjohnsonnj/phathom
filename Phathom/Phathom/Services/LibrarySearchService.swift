@@ -34,26 +34,26 @@ enum LibrarySearchService {
     static func bucket(
         query: String,
         items: [ContentItem],
-        filterKind: ContentKind?,
-        filterStatus: ReadStatus? = nil,
-        filterCategory: String? = nil
+        filterKinds: Set<ContentKind>? = nil,
+        filterStatuses: Set<ReadStatus>? = nil,
+        filterCategories: Set<String>? = nil
     ) -> Sections {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else {
             let pool = TagRelationService.itemsFilteredByKindStatusAndCategory(
                 items: items,
-                filterKind: filterKind,
-                filterStatus: filterStatus,
-                filterCategory: filterCategory
+                filterKinds: filterKinds,
+                filterStatuses: filterStatuses,
+                filterCategories: filterCategories
             )
             return Sections(matching: pool, adjacent: [], resolvedTagName: nil)
         }
 
         let tagIndexWrapped = TagRelationService.buildTagIndex(
             items: items,
-            filterKind: filterKind,
-            filterStatus: filterStatus,
-            filterCategory: filterCategory
+            filterKinds: filterKinds,
+            filterStatuses: filterStatuses,
+            filterCategories: filterCategories
         )
         let kindFiltered = tagIndexWrapped.filteredItems
         let tagIndex = tagIndexWrapped.inverted
@@ -109,18 +109,18 @@ enum LibrarySearchService {
         query: String,
         sections: Sections,
         allItems: [ContentItem],
-        filterKind: ContentKind?,
-        filterStatus: ReadStatus? = nil,
-        filterCategory: String? = nil
+        filterKinds: Set<ContentKind>? = nil,
+        filterStatuses: Set<ReadStatus>? = nil,
+        filterCategories: Set<String>? = nil
     ) async -> [ContentItem] {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else { return sections.adjacent }
 
         let tagIndexWrapped = TagRelationService.buildTagIndex(
             items: allItems,
-            filterKind: filterKind,
-            filterStatus: filterStatus,
-            filterCategory: filterCategory
+            filterKinds: filterKinds,
+            filterStatuses: filterStatuses,
+            filterCategories: filterCategories
         )
         guard !tagIndexWrapped.vocabulary.isEmpty else { return sections.adjacent }
 

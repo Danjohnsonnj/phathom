@@ -33,22 +33,21 @@ enum TagRelationService {
 
     static func itemsFilteredByKindStatusAndCategory(
         items: [ContentItem],
-        filterKind: ContentKind?,
-        filterStatus: ReadStatus?,
-        filterCategory: String?
+        filterKinds: Set<ContentKind>? = nil,
+        filterStatuses: Set<ReadStatus>? = nil,
+        filterCategories: Set<String>? = nil
     ) -> [ContentItem] {
         var pool = items
-        if let filterKind {
-            pool = pool.filter { $0.kind == filterKind }
+        if let filterKinds {
+            pool = pool.filter { filterKinds.contains($0.kind) }
         }
-        if let filterStatus {
-            pool = pool.filter { $0.readState == filterStatus }
+        if let filterStatuses {
+            pool = pool.filter { filterStatuses.contains($0.readState) }
         }
-        if let filterCategory {
-            if filterCategory == LibraryCategoryFilterStorage.uncategorizedRaw {
-                pool = pool.filter { $0.category == nil }
-            } else {
-                pool = pool.filter { $0.category?.name == filterCategory }
+        if let filterCategories {
+            pool = pool.filter { item in
+                let bucket = item.category?.name ?? LibraryCategoryFilterStorage.uncategorizedRaw
+                return filterCategories.contains(bucket)
             }
         }
         return pool
@@ -57,15 +56,15 @@ enum TagRelationService {
     /// Build inverted index over the filtered library pool (kind / status / category).
     static func buildTagIndex(
         items: [ContentItem],
-        filterKind: ContentKind?,
-        filterStatus: ReadStatus? = nil,
-        filterCategory: String? = nil
+        filterKinds: Set<ContentKind>? = nil,
+        filterStatuses: Set<ReadStatus>? = nil,
+        filterCategories: Set<String>? = nil
     ) -> TagIndex {
         let filtered = itemsFilteredByKindStatusAndCategory(
             items: items,
-            filterKind: filterKind,
-            filterStatus: filterStatus,
-            filterCategory: filterCategory
+            filterKinds: filterKinds,
+            filterStatuses: filterStatuses,
+            filterCategories: filterCategories
         )
         var inverted: [String: [ContentItem]] = [:]
         for item in filtered {

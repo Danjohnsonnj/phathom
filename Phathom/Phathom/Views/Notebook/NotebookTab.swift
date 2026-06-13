@@ -26,25 +26,14 @@ struct NotebookTab: View {
     @State private var noteEditHighlight: Highlight?
     @State private var contentRevision = 0
 
-    private var filterKind: ContentKind? { ContentKind(rawValue: filterKindRaw) }
-    private var filterStatus: ReadStatus? { ReadStatus(rawValue: filterStatusRaw) }
-
-    private var filterKindBinding: Binding<ContentKind?> {
-        Binding(get: { filterKind }, set: { filterKindRaw = $0?.rawValue ?? "" })
-    }
-
-    private var filterStatusBinding: Binding<ReadStatus?> {
-        Binding(get: { filterStatus }, set: { filterStatusRaw = $0?.rawValue ?? "" })
-    }
-
-    private var filterCategoryBinding: Binding<String> {
-        Binding(get: { filterCategoryRaw }, set: { filterCategoryRaw = $0 })
-    }
-
-    /// `nil` means no category filter (All capsule).
-    private var filterCategoryForSearch: String? {
-        guard !filterCategoryRaw.isEmpty else { return nil }
-        return filterCategoryRaw
+    private var sortedCategoryNames: [String] {
+        categories
+            .sorted {
+                CategoryDisplayFormatter.displayName($0.name).localizedCaseInsensitiveCompare(
+                    CategoryDisplayFormatter.displayName($1.name)
+                ) == .orderedAscending
+            }
+            .map(\.name)
     }
 
     private var unfilteredGroups: [NotebookHighlightsQuery.ItemGroup] {
@@ -56,9 +45,9 @@ struct NotebookTab: View {
         _ = contentRevision
         return NotebookHighlightsQuery.groups(
             from: highlights,
-            filterKind: filterKind,
-            filterStatus: filterStatus,
-            filterCategory: filterCategoryForSearch
+            filterKinds: LibraryFilterCodec.decodeKinds(filterKindRaw),
+            filterStatuses: LibraryFilterCodec.decodeStatuses(filterStatusRaw),
+            filterCategories: LibraryFilterCodec.decodeCategories(filterCategoryRaw)
         )
     }
 
@@ -107,6 +96,12 @@ struct NotebookTab: View {
             }
             .toolbar(.hidden, for: .navigationBar)
         }
+        .onAppear {
+            sanitizeCategoryFilterIfNeeded()
+        }
+        .onChange(of: sortedCategoryNames) { _, _ in
+            sanitizeCategoryFilterIfNeeded()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .phathomLibraryContentDidChange)) { _ in
             contentRevision &+= 1
         }
@@ -119,13 +114,20 @@ struct NotebookTab: View {
         }
     }
 
+    private func sanitizeCategoryFilterIfNeeded() {
+        let sanitized = LibraryFilterCodec.sanitizeCategoryRaw(filterCategoryRaw, validNames: sortedCategoryNames)
+        if sanitized != filterCategoryRaw {
+            filterCategoryRaw = sanitized
+        }
+    }
+
     private var notebookScrollChrome: some View {
         VStack(alignment: .leading, spacing: 0) {
             EditorialScreenTitle(title: "Notebook")
             LibraryFilterBar(
-                selectedKind: filterKindBinding,
-                selectedStatus: filterStatusBinding,
-                filterCategoryRaw: filterCategoryBinding,
+                filterKindRaw: $filterKindRaw,
+                filterStatusRaw: $filterStatusRaw,
+                filterCategoryRaw: $filterCategoryRaw,
                 categories: categories
             )
             .padding(.bottom, AppSpacing.filterBarBottom)

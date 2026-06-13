@@ -7,9 +7,9 @@ import SwiftUI
 ///
 /// Column widths: **27.5% / 27.5% / 45%** of row width minus the two **`HStack` spacings** (10 pt each).
 struct LibraryFilterBar: View {
-    @Binding var selectedKind: ContentKind?
-    @Binding var selectedStatus: ReadStatus?
-    /// Matches `@AppStorage` raw: `""` = All; ``LibraryCategoryFilterStorage/uncategorizedRaw`` = Uncategorized only; otherwise kebab stored name.
+    @Binding var filterKindRaw: String
+    @Binding var filterStatusRaw: String
+    /// Matches `@AppStorage` raw: `""` = pass-through; partial = comma-separated tokens including ``LibraryCategoryFilterStorage/uncategorizedRaw``.
     @Binding var filterCategoryRaw: String
 
     var categories: [PhathomCore.Category]
@@ -63,7 +63,7 @@ struct LibraryFilterBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Filter by type")
-        .accessibilityValue(kindLabel)
+        .accessibilityValue(kindAccessibilityValue)
         .popover(isPresented: $showKindPicker, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
             kindPickerPanel
                 .presentationCompactAdaptation(.popover)
@@ -81,7 +81,7 @@ struct LibraryFilterBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Filter by status")
-        .accessibilityValue(statusLabel)
+        .accessibilityValue(statusAccessibilityValue)
         .popover(isPresented: $showStatusPicker, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
             statusPickerPanel
                 .presentationCompactAdaptation(.popover)
@@ -99,7 +99,7 @@ struct LibraryFilterBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Filter by category")
-        .accessibilityValue(categoryLabel)
+        .accessibilityValue(categoryAccessibilityValue)
         .popover(isPresented: $showCategoryPicker, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
             categoryPickerPanel
                 .presentationCompactAdaptation(.popover)
@@ -108,21 +108,15 @@ struct LibraryFilterBar: View {
 
     private var kindPickerPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            filterPopoverRow(title: "All", selected: selectedKind == nil) {
-                selectedKind = nil
-                showKindPicker = false
-            }
-            filterPopoverRow(title: "Web", selected: selectedKind == .web) {
-                selectedKind = .web
-                showKindPicker = false
-            }
-            filterPopoverRow(title: "Media", selected: selectedKind == .media) {
-                selectedKind = .media
-                showKindPicker = false
-            }
-            filterPopoverRow(title: "Notes", selected: selectedKind == .note) {
-                selectedKind = .note
-                showKindPicker = false
+            ForEach(LibraryFilterCodec.kindDisplayOrder, id: \.self) { kind in
+                filterPopoverRow(
+                    title: kindPickerTitle(kind),
+                    selected: LibraryFilterCodec.isKindSelected(kind, raw: filterKindRaw),
+                    disabled: LibraryFilterCodec.isKindToggleDisabled(kind, raw: filterKindRaw)
+                ) {
+                    guard let updated = LibraryFilterCodec.toggleKind(kind, in: filterKindRaw) else { return }
+                    filterKindRaw = updated
+                }
             }
         }
         .frame(minWidth: 200)
@@ -131,50 +125,66 @@ struct LibraryFilterBar: View {
 
     private var statusPickerPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            filterPopoverRow(title: "All", selected: selectedStatus == nil) {
-                selectedStatus = nil
-                showStatusPicker = false
-            }
-            filterPopoverRow(title: "New", selected: selectedStatus == .new) {
-                selectedStatus = .new
-                showStatusPicker = false
-            }
-            filterPopoverRow(title: "Read", selected: selectedStatus == .read) {
-                selectedStatus = .read
-                showStatusPicker = false
-            }
-            filterPopoverRow(title: "Filed", selected: selectedStatus == .filed) {
-                selectedStatus = .filed
-                showStatusPicker = false
+            ForEach(LibraryFilterCodec.statusDisplayOrder, id: \.self) { status in
+                filterPopoverRow(
+                    title: ReadStatusPresentation.label(for: status),
+                    selected: LibraryFilterCodec.isStatusSelected(status, raw: filterStatusRaw),
+                    disabled: LibraryFilterCodec.isStatusToggleDisabled(status, raw: filterStatusRaw)
+                ) {
+                    guard let updated = LibraryFilterCodec.toggleStatus(status, in: filterStatusRaw) else { return }
+                    filterStatusRaw = updated
+                }
             }
         }
         .frame(minWidth: 200)
         .padding(.vertical, 6)
     }
 
-    private var sortedCategoriesAlphabetically: [PhathomCore.Category] {
-        categories.sorted {
-            CategoryDisplayFormatter.displayName($0.name).localizedCaseInsensitiveCompare(
-                CategoryDisplayFormatter.displayName($1.name)
-            ) == .orderedAscending
-        }
+    private var sortedCategoryNamesAlphabetically: [String] {
+        categories
+            .sorted {
+                CategoryDisplayFormatter.displayName($0.name).localizedCaseInsensitiveCompare(
+                    CategoryDisplayFormatter.displayName($1.name)
+                ) == .orderedAscending
+            }
+            .map(\.name)
+    }
+
+    private var categoryUniverse: Set<String> {
+        LibraryFilterCodec.categoryUniverse(categoryNames: sortedCategoryNamesAlphabetically)
     }
 
     private var categoryPickerPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            filterPopoverRow(title: "All", selected: filterCategoryRaw.isEmpty) {
-                filterCategoryRaw = ""
-                showCategoryPicker = false
+            filterPopoverRow(
+                title: "Uncategorized",
+                selected: LibraryFilterCodec.isCategorySelected(
+                    LibraryCategoryFilterStorage.uncategorizedRaw,
+                    raw: filterCategoryRaw,
+                    universe: categoryUniverse
+                ),
+                disabled: LibraryFilterCodec.isCategoryToggleDisabled(
+                    LibraryCategoryFilterStorage.uncategorizedRaw,
+                    raw: filterCategoryRaw,
+                    universe: categoryUniverse
+                )
+            ) {
+                guard let updated = LibraryFilterCodec.toggleCategory(
+                    LibraryCategoryFilterStorage.uncategorizedRaw,
+                    in: filterCategoryRaw,
+                    universe: categoryUniverse
+                ) else { return }
+                filterCategoryRaw = updated
             }
-            filterPopoverRow(title: "Uncategorized", selected: filterCategoryRaw == LibraryCategoryFilterStorage.uncategorizedRaw) {
-                filterCategoryRaw = LibraryCategoryFilterStorage.uncategorizedRaw
-                showCategoryPicker = false
-            }
-            ForEach(sortedCategoriesAlphabetically, id: \.name) { cat in
-                let label = CategoryDisplayFormatter.displayName(cat.name)
-                filterPopoverRow(title: label, selected: filterCategoryRaw == cat.name) {
-                    filterCategoryRaw = cat.name
-                    showCategoryPicker = false
+            ForEach(sortedCategoryNamesAlphabetically, id: \.self) { name in
+                let label = CategoryDisplayFormatter.displayName(name)
+                filterPopoverRow(
+                    title: label,
+                    selected: LibraryFilterCodec.isCategorySelected(name, raw: filterCategoryRaw, universe: categoryUniverse),
+                    disabled: LibraryFilterCodec.isCategoryToggleDisabled(name, raw: filterCategoryRaw, universe: categoryUniverse)
+                ) {
+                    guard let updated = LibraryFilterCodec.toggleCategory(name, in: filterCategoryRaw, universe: categoryUniverse) else { return }
+                    filterCategoryRaw = updated
                 }
             }
         }
@@ -182,12 +192,17 @@ struct LibraryFilterBar: View {
         .padding(.vertical, 6)
     }
 
-    private func filterPopoverRow(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func filterPopoverRow(
+        title: String,
+        selected: Bool,
+        disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             HStack {
                 Text(title)
                     .font(.body)
-                    .foregroundStyle(AppPalette.textPrimary)
+                    .foregroundStyle(disabled ? AppPalette.textSecondary : AppPalette.textPrimary)
                 Spacer(minLength: 12)
                 if selected {
                     Image(systemName: "checkmark")
@@ -200,30 +215,41 @@ struct LibraryFilterBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.5 : 1)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private var kindLabel: String {
-        switch selectedKind {
-        case .none: return "All"
+        LibraryFilterCodec.kindCapsuleLabel(raw: filterKindRaw)
+    }
+
+    private var statusLabel: String {
+        LibraryFilterCodec.statusCapsuleLabel(raw: filterStatusRaw)
+    }
+
+    private var categoryLabel: String {
+        LibraryFilterCodec.categoryCapsuleLabel(raw: filterCategoryRaw, sortedCategoryNames: sortedCategoryNamesAlphabetically)
+    }
+
+    private var kindAccessibilityValue: String {
+        LibraryFilterCodec.kindAccessibilityValue(raw: filterKindRaw)
+    }
+
+    private var statusAccessibilityValue: String {
+        LibraryFilterCodec.statusAccessibilityValue(raw: filterStatusRaw)
+    }
+
+    private var categoryAccessibilityValue: String {
+        LibraryFilterCodec.categoryAccessibilityValue(raw: filterCategoryRaw, sortedCategoryNames: sortedCategoryNamesAlphabetically)
+    }
+
+    private func kindPickerTitle(_ kind: ContentKind) -> String {
+        switch kind {
         case .web: return "Web"
         case .media: return "Media"
         case .note: return "Notes"
         }
-    }
-
-    private var statusLabel: String {
-        switch selectedStatus {
-        case .none: return "All"
-        case .new: return "New"
-        case .read: return "Read"
-        case .filed: return "Filed"
-        }
-    }
-
-    private var categoryLabel: String {
-        if filterCategoryRaw.isEmpty { return "All" }
-        if filterCategoryRaw == LibraryCategoryFilterStorage.uncategorizedRaw { return "Uncategorized" }
-        return CategoryDisplayFormatter.displayName(filterCategoryRaw)
     }
 }
 
@@ -253,14 +279,14 @@ private struct FilterValueCapsule: View {
 
 #Preview("Default width") {
     struct Binder: View {
-        @State private var kind: ContentKind?
-        @State private var status: ReadStatus?
+        @State private var kindRaw = ""
+        @State private var statusRaw = ""
         @State private var categoryRaw = ""
 
         var body: some View {
             LibraryFilterBar(
-                selectedKind: $kind,
-                selectedStatus: $status,
+                filterKindRaw: $kindRaw,
+                filterStatusRaw: $statusRaw,
                 filterCategoryRaw: $categoryRaw,
                 categories: []
             )
@@ -273,14 +299,14 @@ private struct FilterValueCapsule: View {
 
 #Preview("Narrow (~SE)") {
     struct Binder: View {
-        @State private var kind: ContentKind?
-        @State private var status: ReadStatus?
+        @State private var kindRaw = ""
+        @State private var statusRaw = ""
         @State private var categoryRaw = ""
 
         var body: some View {
             LibraryFilterBar(
-                selectedKind: $kind,
-                selectedStatus: $status,
+                filterKindRaw: $kindRaw,
+                filterStatusRaw: $statusRaw,
                 filterCategoryRaw: $categoryRaw,
                 categories: []
             )

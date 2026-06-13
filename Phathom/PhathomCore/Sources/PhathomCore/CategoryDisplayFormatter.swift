@@ -15,7 +15,7 @@ public enum CategoryDisplayFormatter {
     }
 }
 
-/// `@AppStorage` tri-state for category filter: **`""`** (All), ``uncategorizedRaw`` (Uncategorized only), or kebab-case stored name.
+/// Category filter tokens: sentinel `""` (all buckets), ``uncategorizedRaw``, or kebab-case stored names (comma-separated when partial).
 public enum LibraryCategoryFilterStorage {
     public static let uncategorizedRaw = "__uncategorized__"
 }

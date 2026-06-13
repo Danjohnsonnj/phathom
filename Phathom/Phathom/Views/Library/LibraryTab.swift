@@ -25,25 +25,26 @@ struct LibraryTab: View {
     @AppStorage(LibraryFilterStorage.statusKey) private var filterStatusRaw: String = ""
     @AppStorage(LibraryFilterStorage.categoryKey) private var filterCategoryRaw: String = ""
 
-    private var filterKind: ContentKind? { ContentKind(rawValue: filterKindRaw) }
-    private var filterStatus: ReadStatus? { ReadStatus(rawValue: filterStatusRaw) }
-
-    private var filterKindBinding: Binding<ContentKind?> {
-        Binding(get: { filterKind }, set: { filterKindRaw = $0?.rawValue ?? "" })
+    private var sortedCategoryNames: [String] {
+        categories
+            .sorted {
+                CategoryDisplayFormatter.displayName($0.name).localizedCaseInsensitiveCompare(
+                    CategoryDisplayFormatter.displayName($1.name)
+                ) == .orderedAscending
+            }
+            .map(\.name)
     }
 
-    private var filterStatusBinding: Binding<ReadStatus?> {
-        Binding(get: { filterStatus }, set: { filterStatusRaw = $0?.rawValue ?? "" })
+    private var decodedFilterKinds: Set<ContentKind>? {
+        LibraryFilterCodec.decodeKinds(filterKindRaw)
     }
 
-    private var filterCategoryBinding: Binding<String> {
-        Binding(get: { filterCategoryRaw }, set: { filterCategoryRaw = $0 })
+    private var decodedFilterStatuses: Set<ReadStatus>? {
+        LibraryFilterCodec.decodeStatuses(filterStatusRaw)
     }
 
-    /// `nil` means no category filter (All capsule).
-    private var filterCategoryForSearch: String? {
-        guard !filterCategoryRaw.isEmpty else { return nil }
-        return filterCategoryRaw
+    private var decodedFilterCategories: Set<String>? {
+        LibraryFilterCodec.decodeCategories(filterCategoryRaw)
     }
 
     private var swipeFileSheetPresented: Binding<Bool> {
@@ -107,17 +108,21 @@ struct LibraryTab: View {
     }
 
     private var filtersActive: Bool {
-        filterKind != nil || filterStatus != nil || !filterCategoryRaw.isEmpty
+        !LibraryFilterCodec.isKindPassThrough(filterKindRaw)
+            || !LibraryFilterCodec.isStatusPassThrough(filterStatusRaw)
+            || !LibraryFilterCodec.isCategoryPassThrough(filterCategoryRaw)
     }
 
     /// Non-archived library pool with no kind/status/category filters (for filter-empty vs true-empty).
     private var unfilteredLibraryCount: Int {
-        TagRelationService.itemsFilteredByKindStatusAndCategory(
-            items: items,
-            filterKind: nil,
-            filterStatus: nil,
-            filterCategory: nil
-        ).count
+        TagRelationService.itemsFilteredByKindStatusAndCategory(items: items).count
+    }
+
+    private func sanitizeCategoryFilterIfNeeded() {
+        let sanitized = LibraryFilterCodec.sanitizeCategoryRaw(filterCategoryRaw, validNames: sortedCategoryNames)
+        if sanitized != filterCategoryRaw {
+            filterCategoryRaw = sanitized
+        }
     }
 
     /// Adjacent rows shown in the "Related by tags" section: deep-ranked when available, otherwise
@@ -242,9 +247,9 @@ struct LibraryTab: View {
         }
         .task(id: SearchSignature(
             query: searchText,
-            kind: filterKind,
-            status: filterStatus,
-            category: filterCategoryForSearch,
+            kindRaw: filterKindRaw,
+            statusRaw: filterStatusRaw,
+            categoryRaw: filterCategoryRaw,
             contentRevision: libraryContentRevision
         )) {
             await recomputeSections()
@@ -252,10 +257,10 @@ struct LibraryTab: View {
         .onChange(of: searchText) { _, _ in
             deepRankedAdjacent = nil
         }
-        .onChange(of: filterKind) { _, _ in
+        .onChange(of: filterKindRaw) { _, _ in
             deepRankedAdjacent = nil
         }
-        .onChange(of: filterStatus) { _, _ in
+        .onChange(of: filterStatusRaw) { _, _ in
             deepRankedAdjacent = nil
         }
         .onChange(of: filterCategoryRaw) { _, _ in
@@ -279,6 +284,10 @@ struct LibraryTab: View {
         .onAppear {
             refreshModelIndicator()
             refreshPipelineControlState()
+            sanitizeCategoryFilterIfNeeded()
+        }
+        .onChange(of: sortedCategoryNames) { _, _ in
+            sanitizeCategoryFilterIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: .phathomModelAvailabilityDidChange)) { _ in
             refreshModelIndicator()
@@ -397,9 +406,9 @@ struct LibraryTab: View {
             VStack(alignment: .leading, spacing: 0) {
                 EditorialScreenTitle(title: "Library")
                 LibraryFilterBar(
-                    selectedKind: filterKindBinding,
-                    selectedStatus: filterStatusBinding,
-                    filterCategoryRaw: filterCategoryBinding,
+                    filterKindRaw: $filterKindRaw,
+                    filterStatusRaw: $filterStatusRaw,
+                    filterCategoryRaw: $filterCategoryRaw,
                     categories: categories
                 )
             }
@@ -646,15 +655,12 @@ struct LibraryTab: View {
         }
         let snapshot = items
         let query = searchText
-        let kind = filterKind
-        let status = filterStatus
-        let cat = filterCategoryForSearch
         let computed = LibrarySearchService.bucket(
             query: query,
             items: snapshot,
-            filterKind: kind,
-            filterStatus: status,
-            filterCategory: cat
+            filterKinds: decodedFilterKinds,
+            filterStatuses: decodedFilterStatuses,
+            filterCategories: decodedFilterCategories
         )
         if Task.isCancelled { return }
         sections = computed
@@ -664,9 +670,9 @@ struct LibraryTab: View {
     private func runDiveDeeper() async {
         guard ModelManager.hasReadableSelection else { return }
         let querySnapshot = searchText
-        let kindSnapshot = filterKind
-        let statusSnapshot = filterStatus
-        let categorySnapshot = filterCategoryForSearch
+        let kindRawSnapshot = filterKindRaw
+        let statusRawSnapshot = filterStatusRaw
+        let categoryRawSnapshot = filterCategoryRaw
         let sectionsSnapshot = sections
         let allItemsSnapshot = items
 
@@ -675,16 +681,16 @@ struct LibraryTab: View {
             query: querySnapshot,
             sections: sectionsSnapshot,
             allItems: allItemsSnapshot,
-            filterKind: kindSnapshot,
-            filterStatus: statusSnapshot,
-            filterCategory: categorySnapshot
+            filterKinds: LibraryFilterCodec.decodeKinds(kindRawSnapshot),
+            filterStatuses: LibraryFilterCodec.decodeStatuses(statusRawSnapshot),
+            filterCategories: LibraryFilterCodec.decodeCategories(categoryRawSnapshot)
         )
         // If the user changed the query or any filter while ranking, drop the result rather than
         // apply it to a different section.
         guard searchText == querySnapshot,
-              filterKind == kindSnapshot,
-              filterStatus == statusSnapshot,
-              filterCategoryForSearch == categorySnapshot
+              filterKindRaw == kindRawSnapshot,
+              filterStatusRaw == statusRawSnapshot,
+              filterCategoryRaw == categoryRawSnapshot
         else {
             isDeepRanking = false
             return
@@ -914,9 +920,9 @@ struct LibraryTab: View {
 /// (bumped via `LibraryContentChangeNotifier` and `items.count` so edits refresh without hashing the library on every body eval).
 private struct SearchSignature: Equatable {
     let query: String
-    let kind: ContentKind?
-    let status: ReadStatus?
-    let category: String?
+    let kindRaw: String
+    let statusRaw: String
+    let categoryRaw: String
     let contentRevision: Int
 }
 

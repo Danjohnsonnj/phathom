@@ -23,12 +23,7 @@ enum RelatedItemsService {
         in allItems: [ContentItem]
     ) -> Buckets {
         let tappedName = tappedTag.name.lowercased()
-        let vocabIndex = TagRelationService.buildTagIndex(
-            items: allItems,
-            filterKind: nil,
-            filterStatus: nil,
-            filterCategory: nil
-        )
+        let vocabIndex = TagRelationService.buildTagIndex(items: allItems)
 
         let exact = TagRelationService.exactMatchesOtherThanSource(
             tappedTagName: tappedName,
@@ -61,12 +56,7 @@ enum RelatedItemsService {
         stage1Adjacent: [ContentItem]
     ) async -> [ContentItem] {
         let tappedName = tappedTag.name.lowercased()
-        let tagIndex = TagRelationService.buildTagIndex(
-            items: allItems,
-            filterKind: nil,
-            filterStatus: nil,
-            filterCategory: nil
-        )
+        let tagIndex = TagRelationService.buildTagIndex(items: allItems)
 
         let prefixResolved = TagRelationService.prefixResolvedTags(
             query: tappedName,
