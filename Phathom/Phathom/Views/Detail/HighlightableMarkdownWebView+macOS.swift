@@ -47,6 +47,11 @@ private final class IntrinsicHeightWebView: WKWebView {
         let fallback = sender.representedObject as? HighlightableMarkdownWebView.Coordinator.SelectionPayload
         highlightCoordinator?.commitHighlightFromLiveSelection(fallback: fallback)
     }
+
+    /// Content is sized to full document height; parent `ScrollView` owns vertical scroll.
+    override func scrollWheel(with event: NSEvent) {
+        nextResponder?.scrollWheel(with: event)
+    }
 }
 
 struct HighlightableMarkdownWebView: NSViewRepresentable {
@@ -140,7 +145,7 @@ struct HighlightableMarkdownWebView: NSViewRepresentable {
         coordinator.highlightOverlayGeneration += 1
     }
 
-    private static func disableScrolling(in webView: WKWebView) {
+    static func disableScrolling(in webView: WKWebView) {
         if let scrollView = webView.enclosingScrollView {
             scrollView.hasVerticalScroller = false
             scrollView.hasHorizontalScroller = false
@@ -355,6 +360,7 @@ struct HighlightableMarkdownWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            HighlightableMarkdownWebView.disableScrolling(in: webView)
             let key = Self.highlightKey(for: highlights)
             applyHighlightOverlay(webView: webView, highlightKey: key)
         }

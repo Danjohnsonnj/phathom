@@ -45,6 +45,8 @@ struct NotebookItemGroup: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
                 .accessibilityHint("Opens item detail")
                 .padding(.top, AppSpacing.notebookGroupHeaderTop)
                 .padding(.bottom, 14)

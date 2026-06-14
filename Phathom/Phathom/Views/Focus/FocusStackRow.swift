@@ -97,6 +97,8 @@ struct FocusStackRow: View {
                         .frame(height: 1)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
     }
 
