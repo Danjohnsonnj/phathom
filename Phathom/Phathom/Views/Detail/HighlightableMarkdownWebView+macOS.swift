@@ -22,25 +22,53 @@ private final class IntrinsicHeightWebView: WKWebView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = super.menu(for: event) ?? NSMenu()
-        guard let coord = highlightCoordinator,
-              coord.selectionActive.wrappedValue
-        else {
-            return menu
-        }
-        let fallback = coord.lastSelectionPayload
+        guard let menu = super.menu(for: event) else { return nil }
+        appendHighlightMenuItem(to: menu)
+        return menu
+    }
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        appendHighlightMenuItem(to: menu)
+    }
+
+    private func appendHighlightMenuItem(to menu: NSMenu) {
+        guard highlightCoordinator != nil else { return }
+        guard Self.menuSupportsTextHighlight(menu) else { return }
+        guard !menu.items.contains(where: { $0.title == Self.highlightMenuItemTitle }) else { return }
+
+        let fallback = highlightCoordinator?.lastSelectionPayload
         let highlightItem = NSMenuItem(
-            title: "Highlight",
+            title: Self.highlightMenuItemTitle,
             action: #selector(highlightSelectedText(_:)),
             keyEquivalent: ""
         )
         highlightItem.target = self
         highlightItem.representedObject = fallback
-        if !menu.items.isEmpty {
+
+        if let copyIndex = menu.items.firstIndex(where: { Self.isCopyMenuItem($0) }) {
+            menu.insertItem(.separator(), at: copyIndex + 1)
+            menu.insertItem(highlightItem, at: copyIndex + 2)
+        } else if !menu.items.isEmpty {
             menu.addItem(.separator())
+            menu.addItem(highlightItem)
+        } else {
+            menu.addItem(highlightItem)
         }
-        menu.addItem(highlightItem)
-        return menu
+    }
+
+    private static let highlightMenuItemTitle = "Highlight"
+
+    private static func isCopyMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.title == "Copy" { return true }
+        if item.action == Selector(("copy:")) { return true }
+        if let id = item.identifier?.rawValue, id.localizedCaseInsensitiveContains("copy") { return true }
+        return false
+    }
+
+    /// WebKit text-selection menus include Copy; link/image menus do not.
+    private static func menuSupportsTextHighlight(_ menu: NSMenu) -> Bool {
+        menu.items.contains(where: isCopyMenuItem)
     }
 
     @objc private func highlightSelectedText(_ sender: NSMenuItem) {

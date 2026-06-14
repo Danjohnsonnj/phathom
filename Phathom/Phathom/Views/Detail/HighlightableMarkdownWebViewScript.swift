@@ -140,6 +140,12 @@ enum HighlightableMarkdownWebViewScript {
       } catch (_) {}
     });
 
+    document.addEventListener('contextmenu', () => {
+      try {
+        phathomPostSelectionMessage();
+      } catch (_) {}
+    });
+
     document.addEventListener('click', (ev) => {
       const mark = ev.target.closest && ev.target.closest('mark.phathom-highlight');
       if (!mark) return;
