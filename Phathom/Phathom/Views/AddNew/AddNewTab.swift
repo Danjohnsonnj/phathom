@@ -1,8 +1,13 @@
 import PhathomCore
-import PhotosUI
 import SwiftData
 import SwiftUI
+#if os(iOS)
+import PhotosUI
 import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
+import UniformTypeIdentifiers
 
 struct AddNewTab: View {
     private enum Layout {
@@ -16,15 +21,20 @@ struct AddNewTab: View {
     }
 
     @Environment(\.modelContext) private var modelContext
-    @Binding var selectedTab: Int
+    var onNavigateToLibrary: () -> Void
 
     @State private var captureMode: CaptureMode = .web
     @State private var title = ""
     @State private var urlString = ""
     @State private var noteMarkdown = ""
+    #if os(iOS)
     @State private var photoPickerItem: PhotosPickerItem?
-    @State private var pickedImageJPEG: Data?
     @State private var pickedImagePreview: UIImage?
+    #else
+    @State private var showImageImporter = false
+    @State private var pickedImagePreview: NSImage?
+    #endif
+    @State private var pickedImageJPEG: Data?
     @State private var saveError: String?
 
     enum CaptureMode: String, CaseIterable, Identifiable {
@@ -103,9 +113,11 @@ struct AddNewTab: View {
                     .padding(.bottom, Layout.modeBarInnerInset)
             }
             .tint(AppPalette.accent)
-            .toolbar(.hidden, for: .navigationBar)
+            .phathomHideNavigationBar()
             .onChange(of: captureMode) { _, _ in
+                #if os(iOS)
                 photoPickerItem = nil
+                #endif
                 pickedImageJPEG = nil
                 pickedImagePreview = nil
             }
@@ -163,8 +175,8 @@ struct AddNewTab: View {
             .font(.body)
             .foregroundStyle(AppPalette.textPrimary)
             .textContentType(.URL)
-            .keyboardType(.URL)
-            .textInputAutocapitalization(.never)
+            .phathomURLKeyboard()
+            .phathomAutocapitalizationNever()
             .autocorrectionDisabled()
             .padding(Layout.insetWellPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -197,46 +209,122 @@ struct AddNewTab: View {
 
     private var photoInsetWell: some View {
         VStack(alignment: .leading, spacing: 12) {
+            #if os(iOS)
             PhotosPicker(selection: $photoPickerItem, matching: .images, photoLibrary: .shared()) {
-                HStack {
-                    Label {
-                        Text(pickedImagePreview == nil ? "Choose photo" : "Replace photo")
-                            .foregroundStyle(
-                                pickedImagePreview == nil
-                                    ? AppPalette.textSecondary.opacity(0.38)
-                                    : AppPalette.textPrimary
-                            )
-                    } icon: {
-                        Image(systemName: "photo")
-                            .foregroundStyle(AppPalette.textSecondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppPalette.textTertiary)
-                }
-                .padding(Layout.insetWellPadding)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+                photoPickerLabel
             }
             .buttonStyle(.plain)
             .onChange(of: photoPickerItem) { _, newItem in
                 Task { await loadPickedPhoto(newItem) }
             }
+            #else
+            Button {
+                showImageImporter = true
+            } label: {
+                photoPickerLabel
+            }
+            .buttonStyle(.plain)
+            .fileImporter(
+                isPresented: $showImageImporter,
+                allowedContentTypes: [.jpeg, .png, .heic, .image],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    Task { await loadPickedPhotoFromURL(url) }
+                case .failure:
+                    pickedImageJPEG = nil
+                    pickedImagePreview = nil
+                }
+            }
+            #endif
 
             if let preview = pickedImagePreview {
+                #if os(iOS)
                 Image(uiImage: preview)
                     .resizable()
                     .scaledToFit()
                     .frame(maxHeight: Layout.photoPreviewMaxHeight)
                     .clipShape(RoundedRectangle(cornerRadius: Layout.photoPreviewCornerRadius, style: .continuous))
                     .frame(maxWidth: .infinity)
+                #else
+                Image(nsImage: preview)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: Layout.photoPreviewMaxHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: Layout.photoPreviewCornerRadius, style: .continuous))
+                    .frame(maxWidth: .infinity)
+                #endif
             }
         }
         .padding(Layout.insetWellPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppPalette.surfaceNested)
         .clipShape(RoundedRectangle(cornerRadius: Layout.insetWellCornerRadius, style: .continuous))
+    }
+
+    private var photoPickerLabel: some View {
+        HStack {
+            Label {
+                Text(pickedImagePreview == nil ? "Choose photo" : "Replace photo")
+                    .foregroundStyle(
+                        pickedImagePreview == nil
+                            ? AppPalette.textSecondary.opacity(0.38)
+                            : AppPalette.textPrimary
+                    )
+            } icon: {
+                Image(systemName: "photo")
+                    .foregroundStyle(AppPalette.textSecondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppPalette.textTertiary)
+        }
+        .padding(Layout.insetWellPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    #if os(iOS)
+    @MainActor
+    private func loadPickedPhoto(_ item: PhotosPickerItem?) async {
+        guard let item else {
+            pickedImageJPEG = nil
+            pickedImagePreview = nil
+            return
+        }
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            pickedImageJPEG = nil
+            pickedImagePreview = nil
+            return
+        }
+        applyPickedImageData(data)
+    }
+    #else
+    @MainActor
+    private func loadPickedPhotoFromURL(_ url: URL) async {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else {
+            pickedImageJPEG = nil
+            pickedImagePreview = nil
+            return
+        }
+        applyPickedImageData(data)
+    }
+    #endif
+
+    @MainActor
+    private func applyPickedImageData(_ data: Data) {
+        let jpeg = MediaImageEncoding.normalizedJPEGForLibraryStorage(from: data) ?? data
+        pickedImageJPEG = jpeg
+        #if os(iOS)
+        pickedImagePreview = UIImage(data: jpeg)
+        #else
+        pickedImagePreview = NSImage(data: jpeg)
+        #endif
     }
 
     private var saveToLibraryButton: some View {
@@ -298,29 +386,14 @@ struct AddNewTab: View {
         .clipShape(RoundedRectangle(cornerRadius: AppSpacing.modePillOuterRadius, style: .continuous))
     }
 
-    @MainActor
-    private func loadPickedPhoto(_ item: PhotosPickerItem?) async {
-        guard let item else {
-            pickedImageJPEG = nil
-            pickedImagePreview = nil
-            return
-        }
-        guard let data = try? await item.loadTransferable(type: Data.self) else {
-            pickedImageJPEG = nil
-            pickedImagePreview = nil
-            return
-        }
-        let jpeg = MediaImageEncoding.normalizedJPEGForLibraryStorage(from: data) ?? data
-        pickedImageJPEG = jpeg
-        pickedImagePreview = UIImage(data: jpeg)
-    }
-
     private func resetFormAfterSave() {
         captureMode = .web
         title = ""
         urlString = ""
         noteMarkdown = ""
+        #if os(iOS)
         photoPickerItem = nil
+        #endif
         pickedImageJPEG = nil
         pickedImagePreview = nil
         saveError = nil
@@ -382,7 +455,7 @@ struct AddNewTab: View {
                 BackgroundPipeline.scheduleAll()
                 BackgroundPipeline.scheduleForegroundDrain()
                 resetFormAfterSave()
-                selectedTab = 0
+                onNavigateToLibrary()
                 return
             } catch {
                 saveError = error.localizedDescription
@@ -396,7 +469,7 @@ struct AddNewTab: View {
             BackgroundPipeline.scheduleAll()
             BackgroundPipeline.scheduleForegroundDrain()
             resetFormAfterSave()
-            selectedTab = 0
+            onNavigateToLibrary()
         } catch {
             saveError = error.localizedDescription
         }
@@ -404,6 +477,6 @@ struct AddNewTab: View {
 }
 
 #Preview {
-    AddNewTab(selectedTab: .constant(3))
+    AddNewTab(onNavigateToLibrary: {})
         .modelContainer(PreviewModel.makeContainer())
 }

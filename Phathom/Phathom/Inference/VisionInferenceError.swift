@@ -1,6 +1,6 @@
 import Foundation
 
-enum VisionInferenceError: LocalizedError, Sendable {
+public enum VisionInferenceError: LocalizedError, Sendable {
     case modelLoadFailed(String)
     case visionInitFailed(String)
     case imageDecodeFailed
@@ -10,7 +10,7 @@ enum VisionInferenceError: LocalizedError, Sendable {
     case visionNotSupported
     case frameworkMissing
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .modelLoadFailed(let s):
             "Model load failed: \(s)"

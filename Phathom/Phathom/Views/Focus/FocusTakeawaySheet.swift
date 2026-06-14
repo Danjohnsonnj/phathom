@@ -68,7 +68,7 @@ struct FocusTakeawaySheet: View {
             }
             .background(AppPalette.background)
             .navigationTitle("Takeaway")
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Cancel",

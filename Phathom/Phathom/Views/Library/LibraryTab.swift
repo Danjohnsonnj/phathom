@@ -1,4 +1,5 @@
 import PhathomCore
+import PhathomInference
 import SwiftData
 import SwiftUI
 
@@ -73,7 +74,7 @@ struct LibraryTab: View {
     /// Bumped when library content may affect search bucketing (`LibraryContentChangeNotifier` + `items.count`).
     /// Avoids hashing every item on every SwiftUI body evaluation (see `SearchSignature`).
     @State private var libraryContentRevision: Int = 0
-    @State private var editMode: EditMode = .inactive
+    @State private var editMode: PhathomEditMode = .inactive
     @State private var selectedItemIDs = Set<UUID>()
 
     @State private var pendingSwipeItemID: UUID?
@@ -213,7 +214,7 @@ struct LibraryTab: View {
                             }
                         }
                     }
-                    .environment(\.editMode, $editMode)
+                    .phathomEditMode($editMode)
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .scrollDismissesKeyboard(.interactively)
@@ -240,10 +241,12 @@ struct LibraryTab: View {
             .navigationDestination(for: UUID.self) { id in
                 libraryDetailDestination(for: id)
             }
+            #if os(iOS)
             .navigationDestination(isPresented: $isShowingSettings) {
                 SettingsContent()
             }
-            .toolbar(.hidden, for: .navigationBar)
+            #endif
+            .phathomHideNavigationBar()
         }
         .task(id: SearchSignature(
             query: searchText,
@@ -476,6 +479,7 @@ struct LibraryTab: View {
                 .accessibilityLabel("Search")
                 .accessibilityValue(isSearchFilteredAtRest ? "Search filter active" : "")
 
+                #if os(iOS)
                 Button {
                     isShowingSettings = true
                 } label: {
@@ -487,6 +491,7 @@ struct LibraryTab: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Settings")
                 .accessibilityValue(isModelHealthyForIndicator ? "AI model ready" : "AI model needs attention")
+                #endif
             }
             .offset(x: -8)
         }

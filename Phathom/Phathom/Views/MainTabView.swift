@@ -4,27 +4,11 @@ import SwiftData
 import SwiftUI
 
 struct MainTabView: View {
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.modelContext) private var modelContext
-
     @State private var selectedTab = 0
     @State private var libraryDeepLinkID: UUID?
 
-    @State private var undoArchiveBatch: [UUID]?
-    @State private var undoArchiveTask: Task<Void, Never>?
-
     init() {
         AppAppearance.configureIfNeeded()
-    }
-
-    private static let undoSnackbarFade = Animation.easeInOut(duration: 0.25)
-
-    private var undoArchiveSnackbarMessage: String {
-        let n = undoArchiveBatch?.count ?? 0
-        if n <= 1 {
-            return "Archived. You can restore it from Recently Deleted within 2 days."
-        }
-        return "Archived \(n) items. You can restore them from Recently Deleted within 2 days."
     }
 
     var body: some View {
@@ -41,13 +25,13 @@ struct MainTabView: View {
                 }
                 .tag(1)
 
-            FocusTab(selectedTab: $selectedTab)
+            FocusTab(onNavigateToLibrary: { selectedTab = 0 })
                 .tabItem {
                     Label("Focus", systemImage: "scope")
                 }
                 .tag(2)
 
-            AddNewTab(selectedTab: $selectedTab)
+            AddNewTab(onNavigateToLibrary: { selectedTab = 0 })
                 .tabItem {
                     Label("Add new", systemImage: "plus")
                 }
@@ -55,21 +39,6 @@ struct MainTabView: View {
         }
         .tint(AppPalette.accent)
         .preferredColorScheme(.dark)
-        .onAppear {
-            ArchiveRetention.purgeExpired(in: modelContext)
-            ModelManager.validateSelection()
-            ModelManager.validateTaggingSelection()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                ArchiveRetention.purgeExpired(in: modelContext)
-                ModelManager.validateSelection()
-                ModelManager.validateTaggingSelection()
-                BackgroundPipeline.scheduleForegroundDrain()
-            } else if phase == .background || phase == .inactive {
-                BackgroundPipeline.scheduleAll()
-            }
-        }
         .onReceive(NotificationCenter.default.publisher(for: .openPhathomItem)) { note in
             guard let raw = note.userInfo?["itemID"] as? String,
                   let id = UUID(uuidString: raw) else { return }
@@ -83,78 +52,8 @@ struct MainTabView: View {
                 selectedTab = 0
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .phathomDidArchiveItem)) { note in
-            guard let ids = PhathomArchiveNotification.itemIDs(from: note.userInfo), !ids.isEmpty else { return }
-            // Undo snackbar is inset only on Library (`selectedTab == 0`). Today only Library / detail-back archive posts this; `switchToLibrary` gates future non-Library posters.
-            let switchToLibrary = note.userInfo?[PhathomArchiveNotification.switchToLibraryKey] as? Bool ?? true
-            if switchToLibrary, selectedTab != 0 {
-                selectedTab = 0
-            }
-            startArchiveUndo(for: ids)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if selectedTab == 0, let batch = undoArchiveBatch, !batch.isEmpty {
-                HStack(alignment: .center, spacing: 12) {
-                    Text(undoArchiveSnackbarMessage)
-                        .font(.footnote)
-                        .foregroundStyle(AppPalette.textPrimary)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 8)
-                    Button {
-                        performUndoArchive()
-                    } label: {
-                        Text("Undo")
-                            .font(.footnote.weight(.semibold))
-                            .phathomToolbarTextLabel()
-                    }
-                    .foregroundStyle(AppPalette.accent)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(AppPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(AppPalette.textTertiary.opacity(0.35), lineWidth: 1)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
-                .padding(.bottom, 52)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-        }
-        .animation(Self.undoSnackbarFade, value: undoArchiveBatch)
-        .animation(Self.undoSnackbarFade, value: selectedTab)
-    }
-
-    private func startArchiveUndo(for ids: [UUID]) {
-        withAnimation(Self.undoSnackbarFade) {
-            undoArchiveBatch = ids
-        }
-        undoArchiveTask?.cancel()
-        undoArchiveTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(3))
-            guard !Task.isCancelled else { return }
-            withAnimation(Self.undoSnackbarFade) {
-                undoArchiveBatch = nil
-            }
-        }
-    }
-
-    private func performUndoArchive() {
-        undoArchiveTask?.cancel()
-        guard let batch = undoArchiveBatch, !batch.isEmpty else { return }
-        for id in batch {
-            let rowID = id
-            let fd = FetchDescriptor<ContentItem>(predicate: #Predicate<ContentItem> { $0.id == rowID })
-            if let item = try? modelContext.fetch(fd).first {
-                ArchiveRetention.restore(item)
-            }
-        }
-        try? modelContext.save()
-        LibraryContentChangeNotifier.postLibraryContentDidChange()
-        withAnimation(Self.undoSnackbarFade) {
-            undoArchiveBatch = nil
+        .archiveUndoSnackbar(isVisible: selectedTab == 0) {
+            selectedTab = 0
         }
     }
 }

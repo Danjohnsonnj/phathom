@@ -22,7 +22,9 @@ alwaysApply: false
 
 Do **not** commit `.xcodebuildmcp/config.yaml` unless the team adopts it globally. Prefer per-session tooling:
 
-`session_set_defaults`: `projectPath` → `<repo>/Phathom/Phathom.xcodeproj`, `scheme` → `Phathom`, `simulatorName` → `iPhone 17 Pro` or `iPhone 16 Pro` per install, **`suppressWarnings: true`** trims MCP payloads (warnings remain in **`fullLogPath`**), **`preferXcodebuild: false`**.
+`session_set_defaults`: `projectPath` → `<repo>/Phathom/Phathom.xcodeproj`, `scheme` → `Phathom`, `simulatorName` → **`iPhone 17 Pro`** (iOS **26.4** default per `scripts/phathom-xcode-common.sh`; override only when user says otherwise), **`suppressWarnings: true`** trims MCP payloads (warnings remain in **`fullLogPath`**), **`preferXcodebuild: false`**.
+
+**Sim-clone / missing runtime:** set `PHATHOM_SIMULATOR_NAME` and/or `PHATHOM_SIMULATOR_OS_PREFIX` before `build-phathom.sh sim` or `test-phathom.sh` (see `scripts/phathom-xcode-common.sh` header).
 
 Then **`build_sim`** (compile-only). On failure read **errors-only** excerpt.
 

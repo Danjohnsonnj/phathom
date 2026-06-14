@@ -41,7 +41,7 @@ struct TagEditSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                 TextField("Tag", text: $text)
                     .textFieldStyle(.plain)
-                    .textInputAutocapitalization(.never)
+                    .phathomAutocapitalizationNever()
                     .autocorrectionDisabled()
                     .foregroundStyle(AppPalette.textPrimary)
                     .padding(10)
@@ -96,7 +96,7 @@ struct TagEditSheet: View {
             }
             .background(AppPalette.background)
             .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Close",

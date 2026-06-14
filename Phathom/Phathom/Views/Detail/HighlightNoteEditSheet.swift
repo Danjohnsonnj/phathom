@@ -104,7 +104,7 @@ struct HighlightNoteEditSheet: View {
             }
             .background(AppPalette.background)
             .navigationTitle("Highlight")
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Close",

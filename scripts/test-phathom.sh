@@ -88,7 +88,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 sim_name=""
+sim_dest=""
 sim_name="$(pick_simulator_name)"
+sim_dest="$(pick_simulator_destination)"
 
 if [[ "${RUN_WIDE}" -eq 1 ]]; then
   ONLY_TEST_ARGS=( "-only-testing:PhathomTests" )
@@ -99,11 +101,12 @@ XB=(
   -project "${PROJECT}"
   -scheme "${SCHEME}"
   -configuration "${CONFIGURATION}"
-  -destination "platform=iOS Simulator,name=${sim_name}"
+  -destination "${sim_dest}"
 )
 
 XB+=( "${ONLY_TEST_ARGS[@]}" )
 XB+=( "-skip-testing:PhathomUITests" )
+XB+=( "-parallel-testing-enabled" "NO" )
 XB+=( "${QUIET_XC[@]}" )
 
 set +e

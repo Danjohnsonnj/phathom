@@ -85,12 +85,12 @@ struct RecentlyDeletedView: View {
             }
         }
         .navigationTitle("Recently Deleted")
-        .navigationBarTitleDisplayMode(.inline)
+        .phathomInlineNavigationTitle()
         .foregroundStyle(AppPalette.textPrimary)
         .toolbar {
             FlatToolbarTextItem(
                 title: "Delete All",
-                placement: .topBarTrailing,
+                placement: PhathomToolbarPlacement.trailing,
                 foreground: archivedItems.isEmpty ? AppPalette.textTertiary : .red,
                 disabled: archivedItems.isEmpty
             ) {

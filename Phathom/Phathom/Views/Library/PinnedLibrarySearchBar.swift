@@ -19,7 +19,7 @@ struct PinnedLibrarySearchBar: View {
                 TextField("Search title, tags, source, highlights", text: $text)
                     .font(.system(size: 16))
                     .foregroundStyle(AppPalette.textPrimary)
-                    .textInputAutocapitalization(.never)
+                    .phathomAutocapitalizationNever()
                     .autocorrectionDisabled()
                     .focused(isFieldFocused)
                     .padding(.leading, 8)

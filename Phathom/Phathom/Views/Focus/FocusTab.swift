@@ -3,7 +3,7 @@ import SwiftData
 import SwiftUI
 
 struct FocusTab: View {
-    @Binding var selectedTab: Int
+    var onNavigateToLibrary: () -> Void
 
     @Environment(\.modelContext) private var modelContext
 
@@ -18,7 +18,7 @@ struct FocusTab: View {
     private var activeItems: [ContentItem]
 
     @State private var navPath = NavigationPath()
-    @State private var editMode: EditMode = .inactive
+    @State private var editMode: PhathomEditMode = .inactive
     @State private var focusOutcomeItem: ContentItem?
     @State private var focusTakeawayItem: ContentItem?
     @State private var focusRevisitItem: ContentItem?
@@ -74,7 +74,7 @@ struct FocusTab: View {
                     .onMove(perform: moveEntries)
                 }
             }
-            .environment(\.editMode, $editMode)
+            .phathomEditMode($editMode)
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .contentMargins(.bottom, AppSpacing.tabBarScrollInset, for: .scrollContent)
@@ -82,7 +82,7 @@ struct FocusTab: View {
             .navigationDestination(for: UUID.self) { id in
                 focusDetailDestination(for: id)
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .phathomHideNavigationBar()
             .focusOutcomeFlow(
                 outcomeItem: $focusOutcomeItem,
                 takeawayItem: $focusTakeawayItem,
@@ -130,7 +130,7 @@ struct FocusTab: View {
             activeCount: activeEntries.count,
             onGoToLibrary: {
                 dismissWeeklyResetPrompt()
-                selectedTab = 0
+                onNavigateToLibrary()
             },
             onDismiss: dismissWeeklyResetPrompt
         )
@@ -251,6 +251,6 @@ struct FocusTab: View {
 }
 
 #Preview {
-    FocusTab(selectedTab: .constant(2))
+    FocusTab(onNavigateToLibrary: {})
         .modelContainer(PreviewModel.makeContainer())
 }

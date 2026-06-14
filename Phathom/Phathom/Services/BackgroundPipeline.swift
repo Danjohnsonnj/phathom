@@ -1,5 +1,9 @@
 import PhathomCore
+import PhathomCoreMarkdown
+import PhathomInference
+#if os(iOS)
 import BackgroundTasks
+#endif
 import Foundation
 import SwiftData
 
@@ -195,6 +199,7 @@ enum BackgroundPipeline: Sendable {
     nonisolated static func register(modelContainer: ModelContainer) {
         containerRef = modelContainer
 
+        #if os(iOS)
         BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.phathom.ingest", using: nil) { task in
             handleIngest(task: task as! BGAppRefreshTask)
         }
@@ -202,6 +207,7 @@ enum BackgroundPipeline: Sendable {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.phathom.analyze", using: nil) { task in
             handleAnalyze(task: task as! BGProcessingTask)
         }
+        #endif
     }
 
     nonisolated static func modelContainerOrNil() -> ModelContainer? {
@@ -248,27 +254,39 @@ enum BackgroundPipeline: Sendable {
 
     nonisolated static func scheduleIngest() {
         guard !shouldBlockNewPipelineWork() else { return }
+        #if os(iOS)
         Task { @MainActor in
             let request = BGAppRefreshTaskRequest(identifier: "com.phathom.ingest")
             request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
             try? BGTaskScheduler.shared.submit(request)
         }
+        #else
+        scheduleForegroundDrain()
+        #endif
     }
 
     nonisolated static func scheduleAnalyze() {
         guard !shouldBlockNewPipelineWork() else { return }
+        #if os(iOS)
         Task { @MainActor in
             let request = BGProcessingTaskRequest(identifier: "com.phathom.analyze")
             request.requiresExternalPower = false
             request.requiresNetworkConnectivity = false
             try? BGTaskScheduler.shared.submit(request)
         }
+        #else
+        scheduleForegroundDrain()
+        #endif
     }
 
     nonisolated static func scheduleAll() {
         guard !shouldBlockNewPipelineWork() else { return }
+        #if os(iOS)
         scheduleIngest()
         scheduleAnalyze()
+        #else
+        scheduleForegroundDrain()
+        #endif
     }
 
     /// Library Pause: persist pause, cooperative cancel, all-kinds rewind; does **not** `schedule*`.
@@ -465,6 +483,7 @@ enum BackgroundPipeline: Sendable {
         }
     }
 
+    #if os(iOS)
     nonisolated private static func handleIngest(task: BGAppRefreshTask) {
         guard let container = containerRef else {
             task.setTaskCompleted(success: false)
@@ -554,6 +573,7 @@ enum BackgroundPipeline: Sendable {
             }
         }
     }
+    #endif
 
     fileprivate nonisolated static func processNextPendingWebItem(
         modelContainer: ModelContainer,
@@ -782,6 +802,35 @@ enum BackgroundPipeline: Sendable {
                 throw PipelineLlmCancelled()
             }
 
+            if articleSummaryNeedsRetry(item: item, article: article) {
+                do {
+                    try await SharedLlamaInference.shared.withSession(role: .primary, unloadOnExit: true, pipelineItemID: itemID) { session in
+                        if aborting() {
+                            await session.cancelInFlight()
+                            if cancel(), !isItemArchived(itemID, in: ctx) {
+                                checkpointAfterCancel(item: item)
+                                saveAndNotify(ctx)
+                            }
+                            throw PipelineLlmCancelled()
+                        }
+                        item.processingDetail = "Retrying summary…"
+                        saveAndNotify(ctx)
+                        let bullets = try await session.summarize(article)
+                        guard !aborting() else { return }
+                        if bullets.isEmpty {
+                            item.summaryBullets = nil
+                        } else {
+                            item.encodeSummaryBullets(bullets)
+                        }
+                        saveAndNotify(ctx)
+                    }
+                } catch is PipelineLlmCancelled {
+                    throw PipelineLlmCancelled()
+                } catch {
+                    print("[PhathomPipeline] summary_retry_failed item=\(itemID.uuidString) error=\(error.localizedDescription)")
+                }
+            }
+
             let derivedEmptyForTags = item.decodedSummaryBullets.isEmpty && item.decodedExtracts.isEmpty
             if !derivedEmptyForTags {
                 do {
@@ -973,6 +1022,18 @@ enum BackgroundPipeline: Sendable {
         case .web, .note:
             return ModelManager.hasReadableSelection
         }
+    }
+
+    /// One summary retry when KV pass returned the insufficient sentinel (or empty) but extracts succeeded.
+    fileprivate nonisolated static func articleSummaryNeedsRetry(item: ContentItem, article: String) -> Bool {
+        let extracts = item.decodedExtracts
+        guard !extracts.isEmpty else { return false }
+        guard LlamaContentAnalyzer.sourceWordCount(article) > LlamaContentAnalyzer.minimumSourceWordsForSummary else {
+            return false
+        }
+        let bullets = item.decodedSummaryBullets
+        if LlamaContentAnalyzer.isSummaryInsufficientSentinel(bullets) { return true }
+        return bullets.isEmpty
     }
 
     fileprivate nonisolated static func completeMediaWithPlaceholder(item: ContentItem, context: ModelContext) {

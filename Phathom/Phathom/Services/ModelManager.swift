@@ -1,7 +1,8 @@
 import Foundation
+import PhathomCore
 
 /// Persists the user's chosen `.gguf` as a security-scoped bookmark so the file stays in place (e.g. shared across apps under **On My iPhone**) instead of copying into Phathom's Documents.
-enum ModelManager {
+public enum ModelManager {
     private nonisolated static let bookmarkKey = "phathom.selectedGGUFBookmark"
     /// Optional second GGUF used only for derived tagging when set and readable.
     private nonisolated static let taggingBookmarkKey = "phathom.selectedGGUFBookmark.tagging"
@@ -14,26 +15,26 @@ enum ModelManager {
     private nonisolated static let lastLoadFailedKey = "phathom.lastModelLoadFailed"
 
     /// Holds an active `startAccessingSecurityScopedResource` match; call `end()` when done reading.
-    struct ScopedAccess: Sendable {
+    public struct ScopedAccess: Sendable {
         let url: URL
         private let stopAccess: @Sendable () -> Void
 
-        nonisolated init(url: URL, stopAccess: @escaping @Sendable () -> Void) {
+        public nonisolated init(url: URL, stopAccess: @escaping @Sendable () -> Void) {
             self.url = url
             self.stopAccess = stopAccess
         }
 
-        nonisolated func end() {
+        public nonisolated func end() {
             stopAccess()
         }
 
         /// Normalized path for llama.cpp / file checks.
-        nonisolated var path: String {
+        public nonisolated var path: String {
             url.standardizedFileURL.path
         }
     }
 
-    enum SelectionDisplayState: Equatable, Sendable {
+    public enum SelectionDisplayState: Equatable, Sendable {
         /// No bookmark (after migration).
         case noSelection
         /// Bookmark resolves and file is readable.
@@ -45,7 +46,7 @@ enum ModelManager {
     // MARK: - Primary selection (existing API)
 
     /// `true` when a non-empty bookmark exists after legacy migration (may still be `.missingFile` on disk).
-    nonisolated static var hasBookmark: Bool {
+    public nonisolated static var hasBookmark: Bool {
         migrateLegacyIfNeeded()
         guard let data = UserDefaults.standard.data(forKey: bookmarkKey) else { return false }
         return !data.isEmpty
@@ -54,13 +55,13 @@ enum ModelManager {
     /// Cheap probe used by the BG pipeline before fetching the next analyze item, so items stay in
     /// `.embedding` instead of transitioning to `.failed` when no model is picked. The subsequent
     /// `SharedLlamaInference.withSession` load re-opens scope for the actual weights.
-    nonisolated static var hasReadableSelection: Bool {
+    public nonisolated static var hasReadableSelection: Bool {
         guard let access = openSelection() else { return false }
         access.end()
         return true
     }
 
-    nonisolated static func clearSelection() {
+    public nonisolated static func clearSelection() {
         UserDefaults.standard.removeObject(forKey: bookmarkKey)
         UserDefaults.standard.removeObject(forKey: legacyPathKey)
         UserDefaults.standard.set(false, forKey: lastLoadFailedKey)
@@ -68,7 +69,7 @@ enum ModelManager {
     }
 
     /// Call from the `fileImporter` completion handler. The URL must still be valid for security-scoped access (call `startAccessingSecurityScopedResource` if needed before this).
-    nonisolated static func setSelection(from pickedURL: URL) throws {
+    public nonisolated static func setSelection(from pickedURL: URL) throws {
         migrateLegacyIfNeeded()
 
         let accessed = pickedURL.startAccessingSecurityScopedResource()
@@ -92,42 +93,42 @@ enum ModelManager {
     }
 
     /// Resolve bookmark and begin access. Returns `nil` if missing, stale, unreadable, or access denied. Caller **must** call `end()` on success.
-    nonisolated static func openSelection() -> ScopedAccess? {
+    public nonisolated static func openSelection() -> ScopedAccess? {
         migrateLegacyIfNeeded()
         return openBookmark(forKey: bookmarkKey)
     }
 
     /// UI: status row without holding long-lived scoped access.
-    nonisolated static func selectionDisplayState() -> SelectionDisplayState {
+    public nonisolated static func selectionDisplayState() -> SelectionDisplayState {
         migrateLegacyIfNeeded()
         return selectionDisplayState(forKey: bookmarkKey)
     }
 
     /// Drops bookmark data when resolution says the reference is stale. Does **not** remove bookmark when the file is merely missing on disk (so Settings can show **missingFile**).
-    nonisolated static func validateSelection() {
+    public nonisolated static func validateSelection() {
         migrateLegacyIfNeeded()
         validateBookmark(forKey: bookmarkKey, clear: clearSelection)
     }
 
     // MARK: - Tagging-only selection (optional)
 
-    nonisolated static var hasTaggingBookmark: Bool {
+    public nonisolated static var hasTaggingBookmark: Bool {
         guard let data = UserDefaults.standard.data(forKey: taggingBookmarkKey) else { return false }
         return !data.isEmpty
     }
 
-    nonisolated static var hasReadableTaggingSelection: Bool {
+    public nonisolated static var hasReadableTaggingSelection: Bool {
         guard let access = openTaggingSelection() else { return false }
         access.end()
         return true
     }
 
-    nonisolated static func clearTaggingSelection() {
+    public nonisolated static func clearTaggingSelection() {
         UserDefaults.standard.removeObject(forKey: taggingBookmarkKey)
         notifyModelAvailabilityChanged()
     }
 
-    nonisolated static func setTaggingSelection(from pickedURL: URL) throws {
+    public nonisolated static func setTaggingSelection(from pickedURL: URL) throws {
         let accessed = pickedURL.startAccessingSecurityScopedResource()
         defer {
             if accessed {
@@ -143,16 +144,16 @@ enum ModelManager {
         notifyModelAvailabilityChanged()
     }
 
-    nonisolated static func openTaggingSelection() -> ScopedAccess? {
+    public nonisolated static func openTaggingSelection() -> ScopedAccess? {
         openBookmark(forKey: taggingBookmarkKey)
     }
 
-    nonisolated static func taggingSelectionDisplayState() -> SelectionDisplayState {
+    public nonisolated static func taggingSelectionDisplayState() -> SelectionDisplayState {
         selectionDisplayState(forKey: taggingBookmarkKey)
     }
 
     /// Drops stale tagging bookmark data only.
-    nonisolated static func validateTaggingSelection() {
+    public nonisolated static func validateTaggingSelection() {
         validateBookmark(forKey: taggingBookmarkKey, clear: clearTaggingSelection)
     }
 
@@ -163,23 +164,23 @@ enum ModelManager {
         case mmproj
     }
 
-    nonisolated static var hasVisionTextBookmark: Bool {
+    public nonisolated static var hasVisionTextBookmark: Bool {
         guard let data = UserDefaults.standard.data(forKey: visionTextBookmarkKey) else { return false }
         return !data.isEmpty
     }
 
-    nonisolated static var hasVisionMmprojBookmark: Bool {
+    public nonisolated static var hasVisionMmprojBookmark: Bool {
         guard let data = UserDefaults.standard.data(forKey: visionMmprojBookmarkKey) else { return false }
         return !data.isEmpty
     }
 
     /// `true` when both vision bookmarks exist (either may still be `.missingFile` on disk).
-    nonisolated static var hasVisionBookmark: Bool {
+    public nonisolated static var hasVisionBookmark: Bool {
         hasVisionTextBookmark && hasVisionMmprojBookmark
     }
 
     /// Cheap probe for pipeline drain gates and Settings smoke — both files must open and read.
-    nonisolated static var hasReadableVisionSelection: Bool {
+    public nonisolated static var hasReadableVisionSelection: Bool {
         guard let textAccess = openVisionTextSelection(),
               let mmprojAccess = openVisionMmprojSelection()
         else {
@@ -190,37 +191,37 @@ enum ModelManager {
         return true
     }
 
-    nonisolated static func clearVisionSelection() {
+    public nonisolated static func clearVisionSelection() {
         UserDefaults.standard.removeObject(forKey: visionTextBookmarkKey)
         UserDefaults.standard.removeObject(forKey: visionMmprojBookmarkKey)
         notifyModelAvailabilityChanged()
     }
 
-    nonisolated static func setVisionTextSelection(from pickedURL: URL) throws {
+    public nonisolated static func setVisionTextSelection(from pickedURL: URL) throws {
         try setVisionBookmark(from: pickedURL, key: visionTextBookmarkKey)
     }
 
-    nonisolated static func setVisionMmprojSelection(from pickedURL: URL) throws {
+    public nonisolated static func setVisionMmprojSelection(from pickedURL: URL) throws {
         try setVisionBookmark(from: pickedURL, key: visionMmprojBookmarkKey)
     }
 
-    nonisolated static func openVisionTextSelection() -> ScopedAccess? {
+    public nonisolated static func openVisionTextSelection() -> ScopedAccess? {
         openBookmark(forKey: visionTextBookmarkKey)
     }
 
-    nonisolated static func openVisionMmprojSelection() -> ScopedAccess? {
+    public nonisolated static func openVisionMmprojSelection() -> ScopedAccess? {
         openBookmark(forKey: visionMmprojBookmarkKey)
     }
 
-    nonisolated static func visionTextSelectionDisplayState() -> SelectionDisplayState {
+    public nonisolated static func visionTextSelectionDisplayState() -> SelectionDisplayState {
         selectionDisplayState(forKey: visionTextBookmarkKey)
     }
 
-    nonisolated static func visionMmprojSelectionDisplayState() -> SelectionDisplayState {
+    public nonisolated static func visionMmprojSelectionDisplayState() -> SelectionDisplayState {
         selectionDisplayState(forKey: visionMmprojBookmarkKey)
     }
 
-    nonisolated static func validateVisionSelection() {
+    public nonisolated static func validateVisionSelection() {
         validateBookmark(forKey: visionTextBookmarkKey) {
             UserDefaults.standard.removeObject(forKey: visionTextBookmarkKey)
             notifyModelAvailabilityChanged()
@@ -234,11 +235,11 @@ enum ModelManager {
     // MARK: - Shared helpers
 
     /// For Library's unobtrusive settings gear indicator.
-    nonisolated static var didLastLoadFail: Bool {
+    public nonisolated static var didLastLoadFail: Bool {
         UserDefaults.standard.bool(forKey: lastLoadFailedKey)
     }
 
-    nonisolated static func setLastLoadFailed(_ failed: Bool) {
+    public nonisolated static func setLastLoadFailed(_ failed: Bool) {
         let prior = UserDefaults.standard.bool(forKey: lastLoadFailedKey)
         UserDefaults.standard.set(failed, forKey: lastLoadFailedKey)
         if prior != failed {

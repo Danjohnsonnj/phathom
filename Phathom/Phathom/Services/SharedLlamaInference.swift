@@ -2,7 +2,7 @@ import Foundation
 import PhathomCore
 
 /// Which GGUF bookmark `SharedLlamaInference` prefers when acquiring a session.
-enum ModelSessionRole: Sendable {
+public enum ModelSessionRole: Sendable {
     /// Primary bookmark (`ModelManager.openSelection`).
     case primary
     /// Optional tagging bookmark first; falls back to primary when tagging missing or load fails.
@@ -12,7 +12,7 @@ enum ModelSessionRole: Sendable {
 }
 
 extension ModelSessionRole: Equatable {
-    nonisolated static func == (lhs: ModelSessionRole, rhs: ModelSessionRole) -> Bool {
+    public nonisolated static func == (lhs: ModelSessionRole, rhs: ModelSessionRole) -> Bool {
         switch (lhs, rhs) {
         case (.primary, .primary), (.taggingPreferred, .taggingPreferred), (.vision, .vision):
             return true
@@ -23,22 +23,22 @@ extension ModelSessionRole: Equatable {
 }
 
 /// Serializes load → inference → unload so concurrent callers (pipeline, Settings test, warmup) cannot unload mid-generation.
-struct ModelSession: Sendable {
+public struct ModelSession: Sendable {
     private let inference: SharedLlamaInference
 
     fileprivate init(_ inference: SharedLlamaInference) {
         self.inference = inference
     }
 
-    func summarize(_ text: String) async throws -> [String] {
+    public func summarize(_ text: String) async throws -> [String] {
         try await inference.sessionGenerateSummary(text)
     }
 
-    func tags(_ text: String) async throws -> [String] {
+    public func tags(_ text: String) async throws -> [String] {
         try await inference.sessionGenerateTags(text)
     }
 
-    func tagsFromDerived(
+    public func tagsFromDerived(
         summaryBullets: [String],
         extracts: [Extract],
         highlights: [DerivedTagHighlight]
@@ -50,11 +50,11 @@ struct ModelSession: Sendable {
         )
     }
 
-    func extracts(_ text: String) async throws -> [Extract] {
+    public func extracts(_ text: String) async throws -> [Extract] {
         try await inference.sessionGenerateExtracts(text)
     }
 
-    func rankAdjacentItems(
+    public func rankAdjacentItems(
         tappedTag: String,
         sourceTagNames: [String],
         candidates: [(id: UUID, tagNames: [String])]
@@ -66,42 +66,42 @@ struct ModelSession: Sendable {
         )
     }
 
-    func expandTagsSemantically(query: String, libraryTagNames: [String]) async throws -> [String] {
+    public func expandTagsSemantically(query: String, libraryTagNames: [String]) async throws -> [String] {
         try await inference.sessionExpandTagsSemantically(
             query: query,
             libraryTagNames: libraryTagNames
         )
     }
 
-    func analyze(
+    public func analyze(
         _ articleText: String,
         onPartial: @escaping (LlamaContentAnalyzer.PartialAnalysis) -> Void
     ) async throws {
         try await inference.sessionAnalyzeArticle(articleText, onPartial: onPartial)
     }
 
-    func runQuickTest() async throws -> String {
+    public func runQuickTest() async throws -> String {
         try await inference.sessionRunQuickTest()
     }
 
     /// Settings smoke: describe a JPEG via production vision bookmarks (`ModelSessionRole.vision`).
-    func runVisionSmokeTest(jpegData: Data) async throws -> String {
+    public func runVisionSmokeTest(jpegData: Data) async throws -> String {
         try await inference.sessionRunVisionSmokeTest(jpegData: jpegData)
     }
 
     /// Pipeline / recovery: describe photo bytes via `ModelSessionRole.vision` session.
-    func describeImage(jpegData: Data) async throws -> String {
+    public func describeImage(jpegData: Data) async throws -> String {
         try await inference.sessionDescribeImage(jpegData: jpegData)
     }
 
-    func cancelInFlight() async {
+    public func cancelInFlight() async {
         await inference.sessionCancelBridgeGeneration()
     }
 }
 
 /// One shared `LlamaContentAnalyzer` for the process so startup warmup, the analyze pipeline, and Settings “test model” reuse the same loaded weights.
-actor SharedLlamaInference {
-    static let shared = SharedLlamaInference()
+public actor SharedLlamaInference {
+    public static let shared = SharedLlamaInference()
 
     private let llamaRuntime = LlamaCppRuntime()
     private let analyzer: LlamaContentAnalyzer
@@ -111,7 +111,7 @@ actor SharedLlamaInference {
     /// Active security-scoped access for `loadedPath`; released in `unload()`.
     private var scopedAccess: ModelManager.ScopedAccess?
     /// Set during `ensureLoadedLocked(role: .taggingPreferred)` so Settings can report fallback after `runQuickTest`.
-    private(set) var lastTaggingPreferredUsedPrimaryFallback = false
+    public private(set) var lastTaggingPreferredUsedPrimaryFallback = false
 
     private init() {
         analyzer = LlamaContentAnalyzer(bridge: llamaRuntime)
@@ -119,7 +119,7 @@ actor SharedLlamaInference {
     }
 
     /// If the user previously picked a GGUF that still exists, load it in the background shortly after launch (skipped when thermally throttled).
-    nonisolated static func scheduleWarmFromPersistedSelection() {
+    public nonisolated static func scheduleWarmFromPersistedSelection() {
         Task(priority: .utility) {
             ModelManager.validateSelection()
             guard !ThermalMonitor.shouldThrottle else { return }
@@ -134,12 +134,12 @@ actor SharedLlamaInference {
     }
 
     /// Ask llama.cpp to stop sampling; use when e.g. a BG task expires (does not unload — the session owns that).
-    nonisolated static func signalCancelInFlight() {
+    public nonisolated static func signalCancelInFlight() {
         Task { await shared.sessionCancelBridgeGeneration() }
     }
 
     /// Acquire the lifecycle lock, load weights if needed, run `work`, then optionally unload and release the lock.
-    func withSession<R: Sendable>(
+    public func withSession<R: Sendable>(
         role: ModelSessionRole = .primary,
         unloadOnExit: Bool = true,
         pipelineItemID: UUID?,
@@ -177,7 +177,7 @@ actor SharedLlamaInference {
     }
 
     /// Convenience for callers that do not need `load_model` pipeline metrics (Settings, warmup).
-    func withSession<R: Sendable>(
+    public func withSession<R: Sendable>(
         role: ModelSessionRole = .primary,
         unloadOnExit: Bool = true,
         rewarmPrimaryAfterVision: Bool = true,
@@ -412,11 +412,11 @@ actor SharedLlamaInference {
     }
 }
 
-enum SharedLlamaInferenceError: LocalizedError {
+public enum SharedLlamaInferenceError: LocalizedError {
     case noModelSelected
     case noVisionModelSelected
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .noModelSelected:
             return "No model is selected or the file is not reachable."

@@ -52,7 +52,7 @@ struct FocusOutcomeSheet: View {
             }
             .background(AppPalette.background)
             .navigationTitle("Complete in Focus")
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Cancel",

@@ -1,4 +1,5 @@
 import PhathomCore
+import PhathomCoreMarkdown
 import XCTest
 
 final class HighlightMarkdownAnchorTests: XCTestCase {

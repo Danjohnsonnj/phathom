@@ -6,11 +6,16 @@
 //
 
 import PhathomCore
+import PhathomInference
 import SwiftData
 import SwiftUI
 
 @main
 struct PhathomApp: App {
+    #if os(macOS)
+    @State private var macNavigation = MacShellNavigationModel()
+    #endif
+
     var sharedModelContainer: ModelContainer = {
         do {
             return try PhathomModelContainer.makeShared()
@@ -31,12 +36,32 @@ struct PhathomApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
-                .onAppear {
-                    seedIfEmpty()
-                }
+            Group {
+                #if os(macOS)
+                MainMacView()
+                    .environment(macNavigation)
+                #else
+                MainTabView()
+                #endif
+            }
+            .pipelineLifecycle()
+            .onAppear {
+                seedIfEmpty()
+            }
         }
         .modelContainer(sharedModelContainer)
+        #if os(macOS)
+        .commands {
+            CommandMenu("Navigate") {
+                ForEach(MacNavigationSelection.allCases, id: \.self) { section in
+                    Button(section.title) {
+                        macNavigation.selection = section
+                    }
+                    .keyboardShortcut(section.menuKey, modifiers: .command)
+                }
+            }
+        }
+        #endif
     }
 
     @MainActor

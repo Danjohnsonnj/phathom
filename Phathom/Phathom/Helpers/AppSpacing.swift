@@ -21,8 +21,12 @@ enum AppSpacing {
     /// Detail hairline sections: inset below top hairline (spaced blocks + action CTAs). Matches ai-zone bottom → action hairline gap (last Key Figures row to line).
     static let detailSectionAfterHairlineGap: CGFloat = 20
 
-    /// Bottom padding so list scrolls under liquid-glass tab bar.
+    /// Bottom padding so list scrolls under liquid-glass tab bar (iOS only; Mac uses sidebar, no tab bar).
+    #if os(macOS)
+    static let tabBarScrollInset: CGFloat = 0
+    #else
     static let tabBarScrollInset: CGFloat = 104
+    #endif
 
     /// Library gallery row vertical padding.
     static let galleryRowVertical: CGFloat = 19

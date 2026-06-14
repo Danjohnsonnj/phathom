@@ -21,7 +21,7 @@ enum LLMJSONExtractor {
     }
 }
 
-actor LlamaContentAnalyzer {
+public actor LlamaContentAnalyzer {
     private let bridge: LlamaCppBridge
 
     /// Character caps for fitting (token budget is enforced separately); avoids tokenizing megabyte notes.
@@ -30,7 +30,7 @@ actor LlamaContentAnalyzer {
     private static let tagsFromDerivedArticleCharCap = 12_000
     private static let extractsArticleCharCap = 120_000
 
-    init(bridge: LlamaCppBridge = LlamaCppRuntime()) {
+    public init(bridge: LlamaCppRuntime = LlamaCppRuntime()) {
         self.bridge = bridge
     }
 
@@ -82,17 +82,43 @@ actor LlamaContentAnalyzer {
         return try await collectTemplated(user: bestUser, maxTokens: maxTokens, temperature: temperature)
     }
 
-    func loadModel(path: String) throws {
+    public func loadModel(path: String) throws {
         try bridge.loadModel(path: path)
     }
 
-    func unloadModel() {
+    public func unloadModel() {
         bridge.unloadModel()
     }
 
     /// Request stop of an in-flight `collectTemplated` loop (e.g. BG task expiration).
     func cancelBridgeGeneration() {
         bridge.cancelGeneration()
+    }
+
+    // MARK: - Summary insufficient sentinel
+
+    public nonisolated static let summaryInsufficientSentinel = "Insufficient source material"
+    public nonisolated static let minimumSourceWordsForSummary = 100
+
+    public nonisolated static func sourceWordCount(_ text: String) -> Int {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return 0 }
+        return trimmed.split(whereSeparator: \.isWhitespace).count
+    }
+
+    public nonisolated static func isSummaryInsufficientSentinel(_ bullets: [String]) -> Bool {
+        let normalized = bullets
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard normalized.count == 1 else { return false }
+        return normalized[0].caseInsensitiveCompare(summaryInsufficientSentinel) == .orderedSame
+    }
+
+    /// Drops the model's "insufficient source" escape hatch when the article clearly has enough text.
+    public nonisolated static func sanitizeSummaryBullets(_ bullets: [String], sourceText: String) -> [String] {
+        guard isSummaryInsufficientSentinel(bullets) else { return bullets }
+        guard sourceWordCount(sourceText) > minimumSourceWordsForSummary else { return bullets }
+        return []
     }
 
     // MARK: - Article-first prompt builders
@@ -119,7 +145,7 @@ actor LlamaContentAnalyzer {
         *Amplify & Explain Significance:* For each insight, explain why it matters, its implications, and what action it might inform.
         *Synthesize:* Combine into a structured summary — core theme(s) first, then amplified insights. Prioritize depth over breadth.
         
-        If there is and insufficent amount of source content (e.g less than 100 words) to follow the instructions with meaningful output, **DO NOT MAKE ANYTHING UP, DO NOT RELY ON GENERAL INFORMATION**. Instrad, reply with the string "Insufficient source material". This instruction takes prioriity above the others.
+        Only when the article above contains fewer than 100 words of substantive content: do not invent facts or rely on general knowledge; output a JSON array with the single string "Insufficient source material". When the article has enough content to summarize, never use that sentinel — produce real summary bullets instead.
         </INSTRUCTIONS>
 
         <CONSTRAINTS>
@@ -256,7 +282,13 @@ actor LlamaContentAnalyzer {
         ) { body in
             "<ARTICLE>\n\(body)\n</ARTICLE>" + Self.summaryTaskSuffix()
         }
-        return LLMJSONExtractor.decodeStringArray(out) ?? []
+        let bullets = LLMJSONExtractor.decodeStringArray(out) ?? []
+        return Self.sanitizeSummaryBullets(bullets, sourceText: articleText)
+    }
+
+    /// Standalone summary pass (pipeline retry, spike regression).
+    public func summarizeArticle(_ articleText: String) async throws -> [String] {
+        try await generateSummary(articleText: articleText)
     }
 
     func generateTags(articleText: String) async throws -> [String] {
@@ -449,7 +481,7 @@ actor LlamaContentAnalyzer {
     /// Result emitted after each task completes inside `analyzeArticle`.
     /// Delivered synchronously before the next task's suffix begins decoding,
     /// so callers can checkpoint to persistent storage between tasks.
-    enum PartialAnalysis {
+    public enum PartialAnalysis {
         case summary([String])
         case extracts([Extract])
     }
@@ -463,7 +495,7 @@ actor LlamaContentAnalyzer {
     ///   - the combined prompt budget check fails (`contextLimitReached`) — the sequential path's
     ///     binary-search fitting may still succeed for the individual tasks.
     /// Other errors (tokenisation, hard decode failures) propagate to the caller.
-    func analyzeArticle(
+    public func analyzeArticle(
         _ articleText: String,
         onPartial: (PartialAnalysis) -> Void
     ) async throws {
@@ -502,7 +534,8 @@ actor LlamaContentAnalyzer {
         // Deliver each partial in task order. Index guard is defensive — the bridge guarantees
         // onPartial is called once per task, but we protect against a future stub mismatch.
         if partials.indices.contains(0) {
-            onPartial(.summary(LLMJSONExtractor.decodeStringArray(partials[0]) ?? []))
+            let rawSummary = LLMJSONExtractor.decodeStringArray(partials[0]) ?? []
+            onPartial(.summary(Self.sanitizeSummaryBullets(rawSummary, sourceText: articleText)))
         }
         if partials.indices.contains(1) {
             onPartial(.extracts(LLMJSONExtractor.decodeExtracts(partials[1]) ?? []))
@@ -510,7 +543,7 @@ actor LlamaContentAnalyzer {
     }
 
     /// Short verification run for Settings.
-    func runQuickTest() async throws -> String {
+    public func runQuickTest() async throws -> String {
         let user = "Summarize in one short sentence: The quick brown fox jumps over the lazy dog."
         return try await collectTemplated(user: user, maxTokens: 64)
     }

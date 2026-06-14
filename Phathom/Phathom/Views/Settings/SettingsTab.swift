@@ -1,7 +1,10 @@
+#if os(iOS)
+import UIKit
+#endif
 import PhathomCore
+import PhathomInference
 import SwiftData
 import SwiftUI
-import UIKit
 import UniformTypeIdentifiers
 
 struct SettingsContent: View {
@@ -221,9 +224,9 @@ struct SettingsContent: View {
             .background(AppPalette.background)
             .tint(AppPalette.accent)
             .foregroundStyle(AppPalette.textPrimary)
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .navigationBarBackButtonHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
+            .phathomHideNavigationBar()
             .safeAreaInset(edge: .top, spacing: 0) {
                 DetailPushNavBar()
             }
@@ -678,7 +681,7 @@ struct SettingsContent: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Button {
-                        UIPasteboard.general.string = importErrorDetails ?? ""
+                        copyImportErrorToPasteboard(importErrorDetails ?? "")
                     } label: {
                         Text("Copy details to clipboard")
                             .font(.subheadline.weight(.semibold))
@@ -698,7 +701,7 @@ struct SettingsContent: View {
             }
             .background(AppPalette.background)
             .navigationTitle("Import error details")
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Done",
@@ -872,7 +875,7 @@ struct SettingsContent: View {
                 visionTestPhase = .idle
                 showVisionTestResponse = false
                 refreshSelectionState()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                HapticFeedback.lightImpact()
             } catch {
                 importerError = error.localizedDescription
             }
@@ -890,7 +893,7 @@ struct SettingsContent: View {
                 visionTestPhase = .idle
                 showVisionTestResponse = false
                 refreshSelectionState()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                HapticFeedback.lightImpact()
             } catch {
                 importerError = error.localizedDescription
             }
@@ -1015,7 +1018,7 @@ struct SettingsContent: View {
                 primaryTestPhase = .idle
                 showPrimaryTestResponse = false
                 refreshSelectionState()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                HapticFeedback.lightImpact()
             } catch {
                 importerError = error.localizedDescription
             }
@@ -1035,7 +1038,7 @@ struct SettingsContent: View {
                 taggingTestPhase = .idle
                 showTaggingTestResponse = false
                 refreshSelectionState()
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                HapticFeedback.lightImpact()
             } catch {
                 importerError = error.localizedDescription
             }
@@ -1049,7 +1052,7 @@ struct SettingsContent: View {
         switch result {
         case .success:
             importSuccessMessage = "Backup exported successfully."
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            HapticFeedback.lightImpact()
         case .failure(let error):
             presentImportFailure(
                 title: "Export failed",
@@ -1079,7 +1082,7 @@ struct SettingsContent: View {
                 "Import \(policyLabel): \(result.importedCount) items imported, \(result.skippedDuplicateCount) duplicates skipped (of \(preview.itemCount) in file)."
             clearPendingImport()
             backupBusy = false
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            HapticFeedback.lightImpact()
         } catch {
             backupBusy = false
             clearPendingImport()
@@ -1240,6 +1243,15 @@ struct SettingsTab: View {
             SettingsContent()
         }
     }
+}
+
+private func copyImportErrorToPasteboard(_ text: String) {
+    #if os(iOS)
+    UIPasteboard.general.string = text
+    #elseif os(macOS)
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(text, forType: .string)
+    #endif
 }
 
 #Preview {

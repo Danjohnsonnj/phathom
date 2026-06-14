@@ -1,4 +1,6 @@
 import SwiftUI
+
+#if os(iOS)
 import UIKit
 
 /// Re-enables `UINavigationController` edge-swipe pop when SwiftUI hides the system back button.
@@ -33,6 +35,13 @@ struct NavigationInteractivePopEnabler: UIViewControllerRepresentable {
             super.init(nibName: nil, bundle: nil)
         }
 
+        override func loadView() {
+            let passthrough = UIView()
+            passthrough.backgroundColor = .clear
+            passthrough.isUserInteractionEnabled = false
+            view = passthrough
+        }
+
         @available(*, unavailable)
         required init?(coder: NSCoder) {
             fatalError("init(coder:) has not been implemented")
@@ -48,3 +57,9 @@ struct NavigationInteractivePopEnabler: UIViewControllerRepresentable {
         }
     }
 }
+#else
+/// macOS: no interactive pop gesture; navigation uses sidebar / back button.
+struct NavigationInteractivePopEnabler: View {
+    var body: some View { EmptyView() }
+}
+#endif

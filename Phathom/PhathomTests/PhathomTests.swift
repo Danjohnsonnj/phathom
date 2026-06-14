@@ -12,6 +12,7 @@ import SwiftData
 import Testing
 import UIKit
 @testable import Phathom
+@testable import PhathomInference
 
 private actor OrderLog {
     private(set) var values: [Int] = []
@@ -1036,6 +1037,30 @@ struct ProcessingStatusPresentationMediaTests {
             processingDetail: nil
         )
         #expect(fallback == ProcessingStatusPresentation.embeddingChipLabel)
+    }
+}
+
+@Suite("Summary insufficient sentinel")
+struct SummaryInsufficientSentinelTests {
+    @Test func rejectsSentinelWhenSourceHasEnoughWords() {
+        let longSource = String(repeating: "word ", count: 150)
+        let bullets = [LlamaContentAnalyzer.summaryInsufficientSentinel]
+        let sanitized = LlamaContentAnalyzer.sanitizeSummaryBullets(bullets, sourceText: longSource)
+        #expect(sanitized.isEmpty)
+    }
+
+    @Test func keepsSentinelWhenSourceIsThin() {
+        let thinSource = "short note"
+        let bullets = [LlamaContentAnalyzer.summaryInsufficientSentinel]
+        let sanitized = LlamaContentAnalyzer.sanitizeSummaryBullets(bullets, sourceText: thinSource)
+        #expect(sanitized == bullets)
+    }
+
+    @Test func keepsRealBulletsUntouched() {
+        let source = String(repeating: "word ", count: 200)
+        let bullets = ["Core theme", "Novel insight"]
+        #expect(LlamaContentAnalyzer.sanitizeSummaryBullets(bullets, sourceText: source) == bullets)
+        #expect(!LlamaContentAnalyzer.isSummaryInsufficientSentinel(bullets))
     }
 }
 

@@ -5,7 +5,7 @@ import Darwin
 #if canImport(llama)
 import llama
 
-nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
+public nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
     struct RuntimeConfig: Sendable {
         /// Requested `n_ctx` before capping to `llama_model_n_ctx_train`. KV-cache RAM scales ~linearly with this value;
         /// Phathom unloads between `withSession` runs. On **8GB** unified-memory phones (e.g. iPhone 16 Pro), **8192** is a
@@ -54,7 +54,12 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         return runtime.shouldCancel
     }
 
-    init(config: RuntimeConfig = .default) {
+    public init() {
+        self.config = RuntimeConfig.default
+        self.contextLimitTokens = Int(RuntimeConfig.default.contextWindow)
+    }
+
+    init(config: RuntimeConfig) {
         self.config = config
         self.contextLimitTokens = Int(config.contextWindow)
     }
@@ -207,6 +212,8 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         var modelParams = llama_model_default_params()
 #if targetEnvironment(simulator)
         modelParams.n_gpu_layers = 0
+#elseif os(macOS)
+        modelParams.n_gpu_layers = -1
 #else
         modelParams.n_gpu_layers = -1
 #endif
@@ -604,6 +611,8 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
         var modelParams = llama_model_default_params()
 #if targetEnvironment(simulator)
         modelParams.n_gpu_layers = 0
+#elseif os(macOS)
+        modelParams.n_gpu_layers = -1
 #else
         modelParams.n_gpu_layers = -1
 #endif
@@ -900,8 +909,8 @@ nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
 
 #else
 
-nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
-    init() {}
+public nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBridge {
+    public init() {}
 
     func loadModel(path: String) throws {
         _ = path

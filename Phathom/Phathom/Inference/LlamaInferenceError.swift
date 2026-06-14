@@ -1,13 +1,13 @@
 import PhathomCore
 import Foundation
 
-enum LlamaInferenceError: Error, LocalizedError {
+public enum LlamaInferenceError: Error, LocalizedError {
     case modelLoadFailed(String)
     case modelNotLoaded
     case generationFailed(String)
     case contextLimitReached(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .modelLoadFailed(let r): r
         case .modelNotLoaded: "No model is loaded."

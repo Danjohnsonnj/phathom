@@ -1,3 +1,4 @@
+#if os(iOS)
 import PhathomCore
 import SwiftUI
 import UIKit
@@ -53,3 +54,10 @@ enum AppAppearance {
         header.textColor = dust
     }
 }
+#else
+import PhathomCore
+
+enum AppAppearance {
+    static func configureIfNeeded() {}
+}
+#endif

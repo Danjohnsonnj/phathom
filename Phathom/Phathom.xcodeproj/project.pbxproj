@@ -9,8 +9,25 @@
 /* Begin PBXBuildFile section */
 		216DC9982FA583E900C58AA8 /* PhathomCore in Frameworks */ = {isa = PBXBuildFile; productRef = E8B00002 /* PhathomCore */; };
 		B2A01022 /* PhathomCore in Frameworks */ = {isa = PBXBuildFile; productRef = E8B00002 /* PhathomCore */; };
-		B2A01023 /* PhathomShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2A01001 /* PhathomShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B2A01023 /* PhathomShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2A01001 /* PhathomShare.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B3A01022 /* PhathomShareCore in Frameworks */ = {isa = PBXBuildFile; productRef = E8B00003 /* PhathomShareCore */; };
+		B3A01023 /* PhathomShareMac.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B3A01001 /* PhathomShareMac.appex */; platformFilters = (macos, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E8A1B0012FA2C428005527D2 /* llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = E8A1B0002FA2C428005527D1 /* llama.xcframework */; };
+		C1A01031 /* llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = E8A1B0002FA2C428005527D1 /* llama.xcframework */; };
+		C1A01032 /* PhathomCore in Frameworks */ = {isa = PBXBuildFile; productRef = E8B00002 /* PhathomCore */; };
+		C1A01121 /* ModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A01101 /* ModelManager.swift */; };
+		C1A01122 /* SharedLlamaInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A01102 /* SharedLlamaInference.swift */; };
+		C1A01123 /* VisionModelSmokeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A01103 /* VisionModelSmokeTest.swift */; };
+		C1A01124 /* AsyncLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A01104 /* AsyncLock.swift */; };
+		C1A01125 /* VisionProfileConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A01105 /* VisionProfileConfiguration.swift */; };
+		C1A01126 /* PipelineMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A01106 /* PipelineMetrics.swift */; };
+		C1A01127 /* ThermalMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A01107 /* ThermalMonitor.swift */; };
+		C1A01211 /* article.md in Resources */ = {isa = PBXBuildFile; fileRef = C1A01201 /* article.md */; };
+		C1A01212 /* sample.jpg in Resources */ = {isa = PBXBuildFile; fileRef = C1A01202 /* sample.jpg */; };
+		C1A02003 /* libPhathomInference.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C1A02001 /* libPhathomInference.a */; };
+		C1A03003 /* libPhathomInference.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C1A02001 /* libPhathomInference.a */; };
+		C1A02041 /* llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = E8A1B0002FA2C428005527D1 /* llama.xcframework */; };
+		C1A02042 /* PhathomCore in Frameworks */ = {isa = PBXBuildFile; productRef = E8B00002 /* PhathomCore */; };
 		E8A1B0032FA2C428005527D2 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = E8A1B0022FA2C428005527D2 /* MarkdownUI */; };
 		F1C0A0022FA2C428005527D2 /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = F1C0A0032FA2C428005527D2 /* SwiftSoup */; };
 		F1C0A1002FA2C428005527D2 /* SwiftSoup in Frameworks */ = {isa = PBXBuildFile; productRef = F1C0A1012FA2C428005527D2 /* SwiftSoup */; };
@@ -38,6 +55,20 @@
 			remoteGlobalIDString = B2A01010;
 			remoteInfo = PhathomShare;
 		};
+		C1A02014 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2167F7E42FA2C427005527D2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C1A02010;
+			remoteInfo = PhathomInference;
+		};
+		C1A03014 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2167F7E42FA2C427005527D2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C1A02010;
+			remoteInfo = PhathomInference;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -48,6 +79,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				B2A01023 /* PhathomShare.appex in Embed Foundation Extensions */,
+				B3A01023 /* PhathomShareMac.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -59,7 +91,19 @@
 		2167F7FB2FA2C428005527D2 /* PhathomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhathomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2167F8052FA2C428005527D2 /* PhathomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhathomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B2A01001 /* PhathomShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PhathomShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3A01001 /* PhathomShareMac.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PhathomShareMac.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E8A1B0002FA2C428005527D1 /* llama.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = llama.xcframework; path = vendor/llama/llama.xcframework; sourceTree = SOURCE_ROOT; };
+		C1A01002 /* PhathomMacSpike */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PhathomMacSpike; sourceTree = BUILT_PRODUCTS_DIR; };
+		C1A02001 /* libPhathomInference.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPhathomInference.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C1A01101 /* ModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelManager.swift; sourceTree = "<group>"; };
+		C1A01102 /* SharedLlamaInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedLlamaInference.swift; sourceTree = "<group>"; };
+		C1A01103 /* VisionModelSmokeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionModelSmokeTest.swift; sourceTree = "<group>"; };
+		C1A01104 /* AsyncLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncLock.swift; sourceTree = "<group>"; };
+		C1A01105 /* VisionProfileConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionProfileConfiguration.swift; sourceTree = "<group>"; };
+		C1A01106 /* PipelineMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineMetrics.swift; sourceTree = "<group>"; };
+		C1A01107 /* ThermalMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalMonitor.swift; sourceTree = "<group>"; };
+		C1A01201 /* article.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = article.md; sourceTree = "<group>"; };
+		C1A01202 /* sample.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = sample.jpg; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -70,11 +114,49 @@
 			);
 			target = B2A01010 /* PhathomShare */;
 		};
+		B3A01028 /* Exceptions for "PhathomShareMac" folder in "PhathomShareMac" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B3A01010 /* PhathomShareMac */;
+		};
+		C1A03028 /* Exceptions for "Phathom" folder in "Phathom" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Inference/GenerationOptions.swift,
+				Inference/LlamaContentAnalyzer.swift,
+				Inference/LlamaCppBridge.swift,
+				Inference/LlamaCppRuntime.swift,
+				Inference/LlamaInferenceError.swift,
+				Inference/VisionContentAnalyzer.swift,
+				Inference/VisionInferenceError.swift,
+				Services/AsyncLock.swift,
+				Services/ModelManager.swift,
+				Services/PipelineMetrics.swift,
+				Services/SharedLlamaInference.swift,
+				Services/ThermalMonitor.swift,
+				Services/VisionModelSmokeTest.swift,
+				Services/VisionProfileConfiguration.swift,
+			);
+			target = 2167F7EB2FA2C427005527D2 /* Phathom */;
+		};
+		C1A01071 /* Exceptions for "PhathomMacSpike" folder in "PhathomMacSpike" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Fixtures/article.md,
+				Fixtures/sample.jpg,
+			);
+			target = C1A01010 /* PhathomMacSpike */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2167F7EE2FA2C427005527D2 /* Phathom */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C1A03028 /* Exceptions for "Phathom" folder in "Phathom" target */,
+			);
 			path = Phathom;
 			sourceTree = "<group>";
 		};
@@ -96,6 +178,37 @@
 			path = PhathomShare;
 			sourceTree = "<group>";
 		};
+		B3A01000 /* PhathomShareMac */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B3A01028 /* Exceptions for "PhathomShareMac" folder in "PhathomShareMac" target */,
+			);
+			path = PhathomShareMac;
+			sourceTree = "<group>";
+		};
+		C1A01060 /* PhathomInference */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Phathom/Inference;
+			sourceTree = "<group>";
+		};
+		C1A01061 /* PhathomMacSpike */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C1A01071 /* Exceptions for "PhathomMacSpike" folder in "PhathomMacSpike" target */,
+			);
+			path = PhathomMacSpike;
+			sourceTree = "<group>";
+		};
+		C1A01200 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				C1A01201 /* article.md */,
+				C1A01202 /* sample.jpg */,
+			);
+			name = Fixtures;
+			path = PhathomMacSpike/Fixtures;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,6 +217,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				216DC9982FA583E900C58AA8 /* PhathomCore in Frameworks */,
+				C1A03003 /* libPhathomInference.a in Frameworks */,
 				E8A1B0012FA2C428005527D2 /* llama.xcframework in Frameworks */,
 				E8A1B0032FA2C428005527D2 /* MarkdownUI in Frameworks */,
 				F1C0A0022FA2C428005527D2 /* SwiftSoup in Frameworks */,
@@ -133,6 +247,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B3A01013 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B3A01022 /* PhathomShareCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A01011 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1A01032 /* PhathomCore in Frameworks */,
+				C1A01031 /* llama.xcframework in Frameworks */,
+				C1A02003 /* libPhathomInference.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A02011 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1A02042 /* PhathomCore in Frameworks */,
+				C1A02041 /* llama.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -140,7 +281,12 @@
 			isa = PBXGroup;
 			children = (
 				2167F7EE2FA2C427005527D2 /* Phathom */,
+				C1A01060 /* PhathomInference */,
+				C1A01061 /* PhathomMacSpike */,
+				C1A01200 /* Fixtures */,
+				C1A01110 /* InferenceServices */,
 				B2A01000 /* PhathomShare */,
+				B3A01000 /* PhathomShareMac */,
 				2167F7FE2FA2C428005527D2 /* PhathomTests */,
 				2167F8082FA2C428005527D2 /* PhathomUITests */,
 				2167F7ED2FA2C427005527D2 /* Products */,
@@ -148,11 +294,29 @@
 			);
 			sourceTree = "<group>";
 		};
+		C1A01110 /* InferenceServices */ = {
+			isa = PBXGroup;
+			children = (
+				C1A01101 /* ModelManager.swift */,
+				C1A01102 /* SharedLlamaInference.swift */,
+				C1A01103 /* VisionModelSmokeTest.swift */,
+				C1A01104 /* AsyncLock.swift */,
+				C1A01105 /* VisionProfileConfiguration.swift */,
+				C1A01106 /* PipelineMetrics.swift */,
+				C1A01107 /* ThermalMonitor.swift */,
+			);
+			name = InferenceServices;
+			path = Phathom/Services;
+			sourceTree = "<group>";
+		};
 		2167F7ED2FA2C427005527D2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				2167F7EC2FA2C427005527D2 /* Phathom.app */,
+				C1A02001 /* libPhathomInference.a */,
+				C1A01002 /* PhathomMacSpike */,
 				B2A01001 /* PhathomShare.appex */,
+				B3A01001 /* PhathomShareMac.appex */,
 				2167F7FB2FA2C428005527D2 /* PhathomTests.xctest */,
 				2167F8052FA2C428005527D2 /* PhathomUITests.xctest */,
 			);
@@ -174,6 +338,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				C1A03016 /* PBXTargetDependency */,
 				B2A01024 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
@@ -201,6 +366,7 @@
 			);
 			dependencies = (
 				2167F7FD2FA2C428005527D2 /* PBXTargetDependency */,
+				C1A03017 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				2167F7FE2FA2C428005527D2 /* PhathomTests */,
@@ -259,6 +425,75 @@
 			productReference = B2A01001 /* PhathomShare.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		B3A01010 /* PhathomShareMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B3A01017 /* Build configuration list for PBXNativeTarget "PhathomShareMac" */;
+			buildPhases = (
+				B3A01012 /* Sources */,
+				B3A01013 /* Frameworks */,
+				B3A01014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B3A01000 /* PhathomShareMac */,
+			);
+			name = PhathomShareMac;
+			packageProductDependencies = (
+				E8B00003 /* PhathomShareCore */,
+			);
+			productName = PhathomShareMac;
+			productReference = B3A01001 /* PhathomShareMac.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		C1A01010 /* PhathomMacSpike */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C1A01082 /* Build configuration list for PBXNativeTarget "PhathomMacSpike" */;
+			buildPhases = (
+				C1A01012 /* Sources */,
+				C1A01011 /* Frameworks */,
+				C1A01023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C1A02016 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C1A01061 /* PhathomMacSpike */,
+			);
+			name = PhathomMacSpike;
+			packageProductDependencies = (
+				E8B00002 /* PhathomCore */,
+			);
+			productName = PhathomMacSpike;
+			productReference = C1A01002 /* PhathomMacSpike */;
+			productType = "com.apple.product-type.tool";
+		};
+		C1A02010 /* PhathomInference */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C1A02022 /* Build configuration list for PBXNativeTarget "PhathomInference" */;
+			buildPhases = (
+				C1A02012 /* Sources */,
+				C1A02011 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C1A01060 /* PhathomInference */,
+			);
+			name = PhathomInference;
+			packageProductDependencies = (
+				E8B00002 /* PhathomCore */,
+			);
+			productName = PhathomInference;
+			productReference = C1A02001 /* libPhathomInference.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -283,6 +518,15 @@
 					B2A01010 = {
 						CreatedOnToolsVersion = 26.4.1;
 					};
+					B3A01010 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+					C1A01010 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+					C1A02010 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
 				};
 			};
 			buildConfigurationList = 2167F7E72FA2C427005527D2 /* Build configuration list for PBXProject "Phathom" */;
@@ -305,7 +549,10 @@
 			projectRoot = "";
 			targets = (
 				2167F7EB2FA2C427005527D2 /* Phathom */,
+				C1A02010 /* PhathomInference */,
+				C1A01010 /* PhathomMacSpike */,
 				B2A01010 /* PhathomShare */,
+				B3A01010 /* PhathomShareMac */,
 				2167F7FA2FA2C428005527D2 /* PhathomTests */,
 				2167F8042FA2C428005527D2 /* PhathomUITests */,
 			);
@@ -341,6 +588,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B3A01014 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A01023 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1A01211 /* article.md in Resources */,
+				C1A01212 /* sample.jpg in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -372,6 +635,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B3A01012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A01012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C1A02012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1A01121 /* ModelManager.swift in Sources */,
+				C1A01122 /* SharedLlamaInference.swift in Sources */,
+				C1A01123 /* VisionModelSmokeTest.swift in Sources */,
+				C1A01124 /* AsyncLock.swift in Sources */,
+				C1A01125 /* VisionProfileConfiguration.swift in Sources */,
+				C1A01126 /* PipelineMetrics.swift in Sources */,
+				C1A01127 /* ThermalMonitor.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -387,8 +678,24 @@
 		};
 		B2A01024 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilter = ios;
 			target = B2A01010 /* PhathomShare */;
 			targetProxy = B2A01025 /* PBXContainerItemProxy */;
+		};
+		C1A02016 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C1A02010 /* PhathomInference */;
+			targetProxy = C1A02014 /* PBXContainerItemProxy */;
+		};
+		C1A03016 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C1A02010 /* PhathomInference */;
+			targetProxy = C1A03014 /* PBXContainerItemProxy */;
+		};
+		C1A03017 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C1A02010 /* PhathomInference */;
+			targetProxy = C1A03014 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -522,27 +829,36 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Phathom/Phathom.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Phathom/Phathom-Mac.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 89;
 				DEVELOPMENT_TEAM = DB7PBBZ5ZK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Phase2-Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "Phathom-Mac-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=macosx*]" = NO;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=macosx*]" = NO;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=macosx*]" = NO;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad[sdk=macosx*]" = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone[sdk=macosx*]" = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.7.1;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.phathom.Phathom;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -561,27 +877,36 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Phathom/Phathom.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Phathom/Phathom-Mac.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 89;
 				DEVELOPMENT_TEAM = DB7PBBZ5ZK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Phase2-Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "Phathom-Mac-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=macosx*]" = NO;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=macosx*]" = NO;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=macosx*]" = NO;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad[sdk=macosx*]" = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				"INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone[sdk=macosx*]" = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.7.1;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.phathom.Phathom;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -742,6 +1067,158 @@
 			};
 			name = Release;
 		};
+		B3A01026 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PhathomShareMac/PhathomShareMac.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 89;
+				DEVELOPMENT_TEAM = DB7PBBZ5ZK;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PhathomShareMac/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.7.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.phathom.Phathom.PhathomShareMac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B3A01027 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = PhathomShareMac/PhathomShareMac.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 89;
+				DEVELOPMENT_TEAM = DB7PBBZ5ZK;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PhathomShareMac/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.7.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.phathom.Phathom.PhathomShareMac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C1A01080 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 89;
+				DEVELOPMENT_TEAM = DB7PBBZ5ZK;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.7.1;
+				OTHER_LDFLAGS = "-lc++";
+				OTHER_SWIFT_FLAGS = "-parse-as-library";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C1A01081 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 89;
+				DEVELOPMENT_TEAM = DB7PBBZ5ZK;
+				ENABLE_APP_SANDBOX = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.7.1;
+				OTHER_LDFLAGS = "-lc++";
+				OTHER_SWIFT_FLAGS = "-parse-as-library";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C1A02020 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 89;
+				DEVELOPMENT_TEAM = DB7PBBZ5ZK;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.7.1;
+				OTHER_LDFLAGS = "-lc++";
+				PRODUCT_MODULE_NAME = PhathomInference;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C1A02021 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 89;
+				DEVELOPMENT_TEAM = DB7PBBZ5ZK;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.7.1;
+				OTHER_LDFLAGS = "-lc++";
+				PRODUCT_MODULE_NAME = PhathomInference;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -790,6 +1267,33 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		B3A01017 /* Build configuration list for PBXNativeTarget "PhathomShareMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B3A01026 /* Debug */,
+				B3A01027 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C1A01082 /* Build configuration list for PBXNativeTarget "PhathomMacSpike" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1A01080 /* Debug */,
+				C1A01081 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C1A02022 /* Build configuration list for PBXNativeTarget "PhathomInference" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1A02020 /* Debug */,
+				C1A02021 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -828,6 +1332,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E8B00001 /* XCLocalSwiftPackageReference "PhathomCore" */;
 			productName = PhathomCore;
+		};
+		E8B00003 /* PhathomShareCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E8B00001 /* XCLocalSwiftPackageReference "PhathomCore" */;
+			productName = PhathomShareCore;
 		};
 		F1C0A0032FA2C428005527D2 /* SwiftSoup */ = {
 			isa = XCSwiftPackageProductDependency;

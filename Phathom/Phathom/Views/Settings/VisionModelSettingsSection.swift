@@ -1,6 +1,10 @@
-import PhotosUI
 import PhathomCore
+import PhathomInference
 import SwiftUI
+#if os(iOS)
+import PhotosUI
+#endif
+import UniformTypeIdentifiers
 
 /// Production vision model picker (text GGUF + mmproj) and Settings smoke test.
 struct VisionModelSettingsSection: View {
@@ -18,7 +22,10 @@ struct VisionModelSettingsSection: View {
     let onTest: () -> Void
     let onForget: () -> Void
 
+    #if os(iOS)
     @State private var photoItem: PhotosPickerItem?
+    #endif
+    @State private var showTestImageImporter = false
 
     enum TestPhase: Equatable {
         case idle
@@ -51,17 +58,30 @@ struct VisionModelSettingsSection: View {
                 settingsGroupedInteriorDivider
 
                 VStack(alignment: .leading, spacing: 12) {
+                    #if os(iOS)
                     PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
-                        Label(
-                            testJPEG == nil ? "Choose test photo" : "Replace test photo",
-                            systemImage: "photo"
-                        )
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppPalette.accent)
+                        visionTestPhotoLabel
                     }
                     .onChange(of: photoItem) { _, item in
                         Task { await loadPhoto(item) }
                     }
+                    #else
+                    Button {
+                        showTestImageImporter = true
+                    } label: {
+                        visionTestPhotoLabel
+                    }
+                    .buttonStyle(.plain)
+                    .fileImporter(
+                        isPresented: $showTestImageImporter,
+                        allowedContentTypes: [.jpeg, .png, .heic, .image],
+                        allowsMultipleSelection: false
+                    ) { result in
+                        if case .success(let urls) = result, let url = urls.first {
+                            Task { await loadPhotoFromURL(url) }
+                        }
+                    }
+                    #endif
 
                     SettingsModelActionRow(
                         title: "Test vision model",
@@ -241,10 +261,33 @@ struct VisionModelSettingsSection: View {
         }
     }
 
+    private var visionTestPhotoLabel: some View {
+        Label(
+            testJPEG == nil ? "Choose test photo" : "Replace test photo",
+            systemImage: "photo"
+        )
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(AppPalette.accent)
+    }
+
+    #if os(iOS)
     private func loadPhoto(_ item: PhotosPickerItem?) async {
         guard let item else { return }
         guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+        await applyTestJPEGData(data)
+    }
+    #else
+    private func loadPhotoFromURL(_ url: URL) async {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { return }
+        await applyTestJPEGData(data)
+    }
+    #endif
+
+    @MainActor
+    private func applyTestJPEGData(_ data: Data) async {
         let jpeg = MediaImageEncoding.normalizedJPEG(from: data, maxDimension: 1600, quality: 0.82) ?? data
-        await MainActor.run { testJPEG = jpeg }
+        testJPEG = jpeg
     }
 }

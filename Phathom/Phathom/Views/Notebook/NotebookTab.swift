@@ -94,7 +94,7 @@ struct NotebookTab: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .phathomHideNavigationBar()
         }
         .onAppear {
             sanitizeCategoryFilterIfNeeded()

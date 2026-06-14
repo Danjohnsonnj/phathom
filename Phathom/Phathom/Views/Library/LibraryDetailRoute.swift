@@ -1,4 +1,3 @@
-#if os(iOS)
 import PhathomCore
 import SwiftUI
 
@@ -10,6 +9,7 @@ struct LibraryDetailRoute: View {
     init(item: ContentItem, onRelatedItemSelected: @escaping (UUID) -> Void) {
         self.item = item
         self.onRelatedItemSelected = onRelatedItemSelected
+        #if os(iOS)
         if item.kind == .media, let modelContainer = BackgroundPipeline.modelContainerOrNil() {
             MediaDisplayImageLoader.prewarm(
                 itemID: item.id,
@@ -17,10 +17,10 @@ struct LibraryDetailRoute: View {
                 modelContainer: modelContainer
             )
         }
+        #endif
     }
 
     var body: some View {
         DetailView(item: item, onRelatedItemSelected: onRelatedItemSelected)
     }
 }
-#endif

@@ -1,4 +1,5 @@
 import PhathomCore
+import PhathomInference
 import SwiftData
 import SwiftUI
 
@@ -42,11 +43,11 @@ struct RelatedItemsSheet: View {
             }
             .background(AppPalette.background)
             .navigationTitle("Related to \"\(tappedTag.name)\"")
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Done",
-                    placement: .topBarTrailing,
+                    placement: PhathomToolbarPlacement.trailing,
                     foreground: AppPalette.accent,
                     action: { dismiss() }
                 )

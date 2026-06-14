@@ -1,4 +1,3 @@
-#if os(iOS)
 import Foundation
 import OSLog
 
@@ -117,4 +116,3 @@ enum MediaImageLoadMetrics {
         elapsedMilliseconds(since: start)
     }
 }
-#endif

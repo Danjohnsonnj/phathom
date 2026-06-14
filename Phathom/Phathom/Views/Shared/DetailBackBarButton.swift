@@ -29,7 +29,30 @@ struct DetailShareBarButton: View {
     let shareURL: URL?
     let fallbackTitle: String
 
+    #if os(iOS)
+    @State private var isPresentingShare = false
+    #endif
+
+    private var shareItems: [Any] {
+        if let shareURL { return [shareURL] }
+        return [fallbackTitle]
+    }
+
     var body: some View {
+        #if os(iOS)
+        Button {
+            isPresentingShare = true
+        } label: {
+            shareLabel
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $isPresentingShare) {
+            ShareActivityViewController(items: shareItems) {
+                isPresentingShare = false
+            }
+            .ignoresSafeArea()
+        }
+        #else
         Group {
             if let shareURL {
                 ShareLink(item: shareURL) {
@@ -42,6 +65,7 @@ struct DetailShareBarButton: View {
             }
         }
         .buttonStyle(.plain)
+        #endif
     }
 
     private var shareLabel: some View {
@@ -114,7 +138,7 @@ struct FlatToolbarTextItem: ToolbarContent {
             FlatToolbarTextButton(title: title, foreground: foreground, action: action)
                 .disabled(disabled)
         }
-        .sharedBackgroundVisibility(.hidden)
+        .phathomSharedToolbarBackgroundHidden()
     }
 }
 
@@ -123,10 +147,10 @@ struct DetailBackBarToolbarItem: ToolbarContent {
     var action: (() -> Void)?
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarItem(placement: PhathomToolbarPlacement.leading) {
             DetailBackBarButton(action: action)
         }
-        .sharedBackgroundVisibility(.hidden)
+        .phathomSharedToolbarBackgroundHidden()
     }
 }
 
@@ -136,10 +160,10 @@ struct DetailShareToolbarItem: ToolbarContent {
     let fallbackTitle: String
 
     var body: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: PhathomToolbarPlacement.trailing) {
             DetailShareBarButton(shareURL: shareURL, fallbackTitle: fallbackTitle)
         }
-        .sharedBackgroundVisibility(.hidden)
+        .phathomSharedToolbarBackgroundHidden()
     }
 }
 
@@ -149,9 +173,9 @@ struct DetailShareToolbarItem: ToolbarContent {
             Text("Title block aligns with chevron leading edge")
                 .padding(.horizontal, AppSpacing.screenHorizontal)
         }
-        .navigationBarTitleDisplayMode(.inline)
+        .phathomInlineNavigationTitle()
         .navigationBarBackButtonHidden(true)
-        .toolbar(.hidden, for: .navigationBar)
+        .phathomHideNavigationBar()
         .safeAreaInset(edge: .top, spacing: 0) {
             DetailPushNavBar {
                 DetailShareBarButton(shareURL: nil, fallbackTitle: "Example")

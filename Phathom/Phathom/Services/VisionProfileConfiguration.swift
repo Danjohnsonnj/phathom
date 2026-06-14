@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// User-facing profile knob (`VisionContentAnalyzer` accepts overrides; production uses `.automatic` + `VisionProfileResolver` heuristics).
-enum VisionProfileOverride: String, CaseIterable, Sendable {
+public enum VisionProfileOverride: String, CaseIterable, Sendable {
     case automatic = "auto"
     case compact = "compact"
     case capable = "capable"
@@ -17,7 +17,7 @@ enum VisionProfileOverride: String, CaseIterable, Sendable {
 }
 
 /// Auto-detected or overridden VLM profile (`compact` vs `capable`).
-enum VisionProfile: String, Sendable {
+public enum VisionProfile: String, Sendable {
     /// Smaller VLMs — default 1600px image side, permissive mtmd image token caps.
     case compact
     /// Larger VLMs (e.g. Qwen2.5-VL) — tighter image + token budgets for 8 GB class devices.
@@ -29,7 +29,7 @@ enum VisionProfile: String, Sendable {
 }
 
 /// Which configured attempt ran (logged in spike reports / diagnostics).
-enum VisionRuntimeAttempt: String, Sendable {
+public enum VisionRuntimeAttempt: String, Sendable {
     case primary
     /// Only used for `.capable` when the primary attempt threw and describe retried tightened settings.
     case tightenedRetry

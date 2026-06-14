@@ -2,11 +2,12 @@ import Foundation
 
 /// FIFO async mutex. One waiter holds the lock at a time; `acquire` suspends until the previous holder calls `release`.
 /// Not re-entrant — do not `acquire` twice from the same task without releasing.
-actor AsyncLock {
+public actor AsyncLock {
+    public init() {}
     private var locked = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
-    func acquire() async {
+    public func acquire() async {
         if !locked {
             locked = true
             return
@@ -16,7 +17,7 @@ actor AsyncLock {
         }
     }
 
-    func release() {
+    public func release() {
         if waiters.isEmpty {
             locked = false
         } else {
@@ -25,7 +26,7 @@ actor AsyncLock {
     }
 
     /// Acquire, run `work`, then release — even when `work` throws.
-    func withLock<R: Sendable>(_ work: @Sendable () async throws -> R) async rethrows -> R {
+    public func withLock<R: Sendable>(_ work: @Sendable () async throws -> R) async rethrows -> R {
         await acquire()
         do {
             let value = try await work()

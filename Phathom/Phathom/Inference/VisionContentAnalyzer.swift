@@ -3,22 +3,22 @@ import PhathomCore
 
 #if canImport(llama)
 
-struct VisionDescribeResult: Sendable {
-    let description: String
-    let profile: VisionProfile
-    let runtimeAttempt: VisionRuntimeAttempt
-    let imageMaxDimensionApplied: CGFloat
-    let loadDuration: TimeInterval
-    let evalDuration: TimeInterval
-    let generateDuration: TimeInterval
-    let totalDuration: TimeInterval
-    let supportsVision: Bool
-    let useGPUProjector: Bool
-    let estimatedVisionSequenceTokens: UInt?
+public struct VisionDescribeResult: Sendable {
+    public let description: String
+    public let profile: VisionProfile
+    public let runtimeAttempt: VisionRuntimeAttempt
+    public let imageMaxDimensionApplied: CGFloat
+    public let loadDuration: TimeInterval
+    public let evalDuration: TimeInterval
+    public let generateDuration: TimeInterval
+    public let totalDuration: TimeInterval
+    public let supportsVision: Bool
+    public let useGPUProjector: Bool
+    public let estimatedVisionSequenceTokens: UInt?
 }
 
 /// On-device VLM describe for media items (text GGUF + mmproj via libmtmd).
-actor VisionContentAnalyzer {
+public actor VisionContentAnalyzer {
     static let defaultDescribePrompt = VisionDescribePrompts.defaultMediaDescribe
 
     private static let maxNewTokens = 192
@@ -26,7 +26,7 @@ actor VisionContentAnalyzer {
 
     private let runtime: LlamaCppRuntime
 
-    init(runtime: LlamaCppRuntime) {
+    public init(runtime: LlamaCppRuntime) {
         self.runtime = runtime
     }
 
@@ -38,7 +38,7 @@ actor VisionContentAnalyzer {
         runtime.cancelGeneration()
     }
 
-    func describeImage(
+    public func describeImage(
         jpegData: Data,
         textModelPath: String,
         mmprojPath: String,
@@ -147,24 +147,24 @@ actor VisionContentAnalyzer {
 
 #else
 
-struct VisionDescribeResult: Sendable {
-    let description: String
-    let profile: VisionProfile
-    let runtimeAttempt: VisionRuntimeAttempt
-    let imageMaxDimensionApplied: CGFloat
-    let loadDuration: TimeInterval
-    let evalDuration: TimeInterval
-    let generateDuration: TimeInterval
-    let totalDuration: TimeInterval
-    let supportsVision: Bool
-    let useGPUProjector: Bool
-    let estimatedVisionSequenceTokens: UInt?
+public struct VisionDescribeResult: Sendable {
+    public let description: String
+    public let profile: VisionProfile
+    public let runtimeAttempt: VisionRuntimeAttempt
+    public let imageMaxDimensionApplied: CGFloat
+    public let loadDuration: TimeInterval
+    public let evalDuration: TimeInterval
+    public let generateDuration: TimeInterval
+    public let totalDuration: TimeInterval
+    public let supportsVision: Bool
+    public let useGPUProjector: Bool
+    public let estimatedVisionSequenceTokens: UInt?
 }
 
-actor VisionContentAnalyzer {
+public actor VisionContentAnalyzer {
     static let defaultDescribePrompt = VisionDescribePrompts.defaultMediaDescribe
 
-    init(runtime: LlamaCppRuntime) {
+    public init(runtime: LlamaCppRuntime) {
         _ = runtime
     }
 
@@ -172,7 +172,7 @@ actor VisionContentAnalyzer {
 
     func cancelGeneration() {}
 
-    func describeImage(
+    public func describeImage(
         jpegData: Data,
         textModelPath: String,
         mmprojPath: String,

@@ -1,4 +1,3 @@
-#if os(iOS)
 import Foundation
 import PhathomCore
 import SwiftData
@@ -41,4 +40,3 @@ enum MediaThumbnailDataFetcher {
         }.value
     }
 }
-#endif

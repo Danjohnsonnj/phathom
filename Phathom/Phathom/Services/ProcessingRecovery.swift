@@ -1,5 +1,6 @@
 import Foundation
 import PhathomCore
+import PhathomInference
 import SwiftData
 
 enum ProcessingRecovery {

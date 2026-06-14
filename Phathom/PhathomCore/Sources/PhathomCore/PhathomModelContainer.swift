@@ -8,7 +8,7 @@ public enum PhathomModelContainer {
 
     private static let highlightWipeKey = "PhathomHighlightWipeV4Done"
 
-    /// Shared SwiftData container for the main app and Share Extension (App Group URL).
+    /// Shared SwiftData container for the main app and share extensions (App Group or macOS shared fallback).
     public static func makeShared() throws -> ModelContainer {
         SwiftDataStoreMigration.migrateLegacyStoreToAppGroupIfNeeded()
         let schema = currentSchema

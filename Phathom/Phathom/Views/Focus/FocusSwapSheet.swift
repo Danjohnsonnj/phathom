@@ -44,7 +44,7 @@ struct FocusSwapSheet: View {
             }
             .background(AppPalette.background)
             .navigationTitle("Stack is full")
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Cancel",

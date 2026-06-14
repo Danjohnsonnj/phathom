@@ -1,11 +1,11 @@
 import Foundation
 
 /// Settings smoke path for production vision bookmarks (Phase 1+). Runs via `SharedLlamaInference` + `VisionContentAnalyzer`.
-enum VisionModelSmokeTest {
+public enum VisionModelSmokeTest {
     /// ~10-minute wall-clock guard for Settings vision test.
     private static let timeoutNanoseconds: UInt64 = 600 * 1_000_000_000
 
-    nonisolated static func describe(jpegData: Data) async throws -> String {
+    public nonisolated static func describe(jpegData: Data) async throws -> String {
         guard !jpegData.isEmpty else {
             throw VisionModelSmokeTestError.emptyImage
         }
@@ -35,12 +35,12 @@ enum VisionModelSmokeTest {
     }
 }
 
-enum VisionModelSmokeTestError: LocalizedError, Sendable {
+public enum VisionModelSmokeTestError: LocalizedError, Sendable {
     case emptyImage
     case emptyDescription
     case timeout
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .emptyImage:
             "Choose a test photo before running the vision test."

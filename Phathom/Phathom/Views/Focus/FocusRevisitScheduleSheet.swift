@@ -96,7 +96,7 @@ struct FocusRevisitScheduleSheet: View {
             }
             .background(AppPalette.background)
             .navigationTitle("Revisit")
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Cancel",

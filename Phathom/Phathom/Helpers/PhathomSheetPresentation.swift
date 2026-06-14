@@ -1,3 +1,4 @@
+#if os(iOS)
 import SwiftUI
 import UIKit
 
@@ -62,3 +63,13 @@ private struct PhathomSheetPresentationModifier: ViewModifier {
             }
     }
 }
+#else
+import SwiftUI
+
+extension View {
+    func phathomSheetHeightMeasurable() -> some View { self }
+
+    /// macOS: native sheet sizing; no UIKit detent measurement.
+    func phathomSheetPresentation() -> some View { self }
+}
+#endif

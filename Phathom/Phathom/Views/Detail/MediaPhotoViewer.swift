@@ -1,8 +1,7 @@
 import SwiftUI
-import UIKit
 
 struct MediaPhotoViewer: View {
-    let image: UIImage
+    let image: PlatformImage
     var accessibilityLabel: String = "Photo"
 
     @Environment(\.dismiss) private var dismiss
@@ -12,12 +11,20 @@ struct MediaPhotoViewer: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
+            #if os(iOS)
             PhotoZoomScrollViewRepresentable(
                 image: image,
                 accessibilityLabel: accessibilityLabel,
                 animateZoom: !accessibilityReduceMotion
             )
             .ignoresSafeArea()
+            #elseif os(macOS)
+            Image(platformImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityLabel(accessibilityLabel)
+            #endif
         }
         .overlay(alignment: .topLeading) {
             FlatToolbarTextButton(title: "Done", foreground: AppPalette.accent) {
@@ -31,10 +38,13 @@ struct MediaPhotoViewer: View {
     }
 }
 
+#if os(iOS)
+import UIKit
+
 // MARK: - UIKit photo zoom (Photos-style)
 
 private struct PhotoZoomScrollViewRepresentable: UIViewRepresentable {
-    let image: UIImage
+    let image: PlatformImage
     let accessibilityLabel: String
     let animateZoom: Bool
 
@@ -123,7 +133,6 @@ private final class PhotoZoomScrollView: UIScrollView, UIScrollViewDelegate {
         minimumZoomScale = fitScale
         maximumZoomScale = maxScale
 
-        // Snap to fit only when bounds change (rotation / first layout), not while user pinches.
         if boundsSize != lastLayoutBoundsSize {
             lastLayoutBoundsSize = boundsSize
             zoomScale = fitScale
@@ -166,3 +175,4 @@ private final class PhotoZoomScrollView: UIScrollView, UIScrollViewDelegate {
         return CGRect(x: originX, y: originY, width: width, height: height)
     }
 }
+#endif

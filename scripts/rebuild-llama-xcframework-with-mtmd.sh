@@ -2,6 +2,7 @@
 # Rebuilds llama.xcframework with libmtmd (multimodal) linked into the combined static library.
 # Requires: cmake, xcrun, llama.cpp at ~/Local Documents/repos/llama.cpp
 # Output: Phathom/vendor/llama/llama.xcframework
+# Slices: ios-arm64, ios-arm64-simulator, macos-arm64
 # After install: bash scripts/build-phathom.sh all
 set -euo pipefail
 
@@ -12,13 +13,17 @@ DEST_XCFRAMEWORK="${REPO_ROOT}/Phathom/vendor/llama/llama.xcframework"
 LLAMA_CPP_DIR="${HOME}/Local Documents/repos/llama.cpp"
 BUILD_SIM_DIR="${LLAMA_CPP_DIR}/build-ios-sim-mtmd"
 BUILD_DEVICE_DIR="${LLAMA_CPP_DIR}/build-ios-device-mtmd"
-BUILD_ARTIFACT_DIR="${LLAMA_CPP_DIR}/build-apple-ios-mtmd"
+BUILD_MAC_DIR="${LLAMA_CPP_DIR}/build-macos-arm64-mtmd"
+BUILD_ARTIFACT_DIR="${LLAMA_CPP_DIR}/build-apple-mtmd"
 HEADERS_DIR="${BUILD_ARTIFACT_DIR}/Headers"
 SIM_COMBINED_LIB="${BUILD_SIM_DIR}/llama-ios-sim-mtmd.a"
 DEVICE_COMBINED_LIB="${BUILD_DEVICE_DIR}/llama-ios-device-mtmd.a"
+MAC_COMBINED_LIB="${BUILD_MAC_DIR}/llama-macos-arm64-mtmd.a"
 
 # Match intrai-llama / Phathom simulator baseline where possible.
+# iOS 18 = legacy sim/device floor; macOS 26 = Mac v1 product floor (grill-me Jun 2026).
 IOS_MIN_OS_VERSION="${IOS_MIN_OS_VERSION:-18.0}"
+MACOS_MIN_OS_VERSION="${MACOS_MIN_OS_VERSION:-26.0}"
 
 if [ ! -d "${LLAMA_CPP_DIR}" ]; then
   echo "Missing llama.cpp at: ${LLAMA_CPP_DIR}"
@@ -39,7 +44,7 @@ COMMON_CMAKE_ARGS=(
   -DGGML_OPENMP=OFF
 )
 
-configure_and_build() {
+configure_and_build_ios() {
   local build_dir="$1"
   local sysroot="$2"
   echo "Configuring ${build_dir} (${sysroot})..."
@@ -51,6 +56,17 @@ configure_and_build() {
     "${COMMON_CMAKE_ARGS[@]}"
   echo "Building mtmd + deps in ${build_dir}..."
   cmake --build "${build_dir}" --config Release --target mtmd -- -quiet
+}
+
+configure_and_build_macos() {
+  echo "Configuring ${BUILD_MAC_DIR} (macos-arm64)..."
+  cmake -B "${BUILD_MAC_DIR}" -G Xcode \
+    -DCMAKE_SYSTEM_NAME=Darwin \
+    -DCMAKE_OSX_ARCHITECTURES="arm64" \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOS_MIN_OS_VERSION}" \
+    "${COMMON_CMAKE_ARGS[@]}"
+  echo "Building mtmd + deps in ${BUILD_MAC_DIR}..."
+  cmake --build "${BUILD_MAC_DIR}" --config Release --target mtmd -- -quiet
 }
 
 combine_mtmd_libs() {
@@ -84,14 +100,16 @@ combine_mtmd_libs() {
 }
 
 cd "${LLAMA_CPP_DIR}"
-rm -rf "${BUILD_SIM_DIR}" "${BUILD_DEVICE_DIR}" "${BUILD_ARTIFACT_DIR}"
+rm -rf "${BUILD_SIM_DIR}" "${BUILD_DEVICE_DIR}" "${BUILD_MAC_DIR}" "${BUILD_ARTIFACT_DIR}"
 mkdir -p "${BUILD_ARTIFACT_DIR}" "${HEADERS_DIR}"
 
-configure_and_build "${BUILD_SIM_DIR}" iphonesimulator
-configure_and_build "${BUILD_DEVICE_DIR}" iphoneos
+configure_and_build_ios "${BUILD_SIM_DIR}" iphonesimulator
+configure_and_build_ios "${BUILD_DEVICE_DIR}" iphoneos
+configure_and_build_macos
 
 combine_mtmd_libs "${BUILD_SIM_DIR}" "${SIM_COMBINED_LIB}" "Release-iphonesimulator"
 combine_mtmd_libs "${BUILD_DEVICE_DIR}" "${DEVICE_COMBINED_LIB}" "Release-iphoneos"
+combine_mtmd_libs "${BUILD_MAC_DIR}" "${MAC_COMBINED_LIB}" "Release"
 
 REQUIRED_HEADERS=(
   "include/llama.h"
@@ -141,9 +159,10 @@ MODULEMAP
 xcrun xcodebuild -create-xcframework \
   -library "${DEVICE_COMBINED_LIB}" -headers "${HEADERS_DIR}" \
   -library "${SIM_COMBINED_LIB}" -headers "${HEADERS_DIR}" \
+  -library "${MAC_COMBINED_LIB}" -headers "${HEADERS_DIR}" \
   -output "${BUILD_ARTIFACT_DIR}/llama.xcframework"
 
 mkdir -p "$(dirname "${DEST_XCFRAMEWORK}")"
 rm -rf "${DEST_XCFRAMEWORK}"
 cp -R "${BUILD_ARTIFACT_DIR}/llama.xcframework" "${DEST_XCFRAMEWORK}"
-echo "Installed ${DEST_XCFRAMEWORK} (with mtmd)"
+echo "Installed ${DEST_XCFRAMEWORK} (ios + macos-arm64, with mtmd)"

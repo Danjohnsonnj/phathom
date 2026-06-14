@@ -1,4 +1,5 @@
 import PhathomCore
+import PhathomInference
 import Foundation
 
 /// Shared tag inversion, prefix expansion, adjacent discovery, and LLM-assisted ranking used by library search

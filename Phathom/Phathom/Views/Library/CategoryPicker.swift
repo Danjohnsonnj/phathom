@@ -51,7 +51,7 @@ struct CategoryPicker: View {
 
                     pickerSectionHeader("New category")
                     TextField("Name", text: $newDraft)
-                        .textInputAutocapitalization(.words)
+                        .phathomAutocapitalizationWords()
                         .foregroundStyle(AppPalette.textPrimary)
                         .padding(.horizontal, AppSpacing.screenHorizontal)
                         .padding(.vertical, 12)
@@ -74,7 +74,7 @@ struct CategoryPicker: View {
             }
             .background(AppPalette.background)
             .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .phathomInlineNavigationTitle()
             .toolbar {
                 FlatToolbarTextItem(
                     title: "Cancel",

@@ -3,12 +3,10 @@ import Foundation
 
 extension Notification.Name {
     static let openPhathomItem = Notification.Name("openPhathomItem")
-    /// userInfo: primary `itemIDs` (`[String]` UUID strings); legacy `itemID` (`UUID`) when absent. Optional `switchToLibrary` (Bool, default `true`): when `true`, `MainTabView` selects the Library tab so the bottom undo snackbar is visible; set `false` only for future call sites that archive outside Library and handle their own UX.
+    /// userInfo: primary `itemIDs` (`[String]` UUID strings); legacy `itemID` (`UUID`) when absent. Optional `switchToLibrary` (Bool, default `true`): when `true`, shell selects Library so the undo snackbar is visible; set `false` only for future call sites that archive outside Library and handle their own UX.
     static let phathomDidArchiveItem = Notification.Name("phathom.didArchiveItem")
     /// Posted after Recently Deleted (or similar) changes archived-item count so Settings can refresh its badge without relying on scene phase.
     static let phathomArchivedItemsDidChange = Notification.Name("phathom.archivedItemsDidChange")
-    /// Model file selection or load outcome changed; Library (and similar) should refresh lightweight indicators.
-    static let phathomModelAvailabilityDidChange = Notification.Name("phathom.modelAvailabilityDidChange")
     /// User toggled global pipeline pause (Library Pause / Resume).
     static let phathomPipelinePauseDidChange = Notification.Name("phathom.pipelinePauseDidChange")
     /// Foreground drain started or finished; Library Pause button visibility.

@@ -1,8 +1,12 @@
 import PhathomCore
+import PhathomCoreMarkdown
+import PhathomInference
 import SwiftData
 import SwiftUI
-import UIKit
 import MarkdownUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct DetailView: View {
     @Bindable var item: ContentItem
@@ -39,7 +43,7 @@ struct DetailView: View {
     @State private var focusOutcomeSkipReleaseOnDismiss = false
     @State private var isFocusSwapSheetPresented = false
     @State private var mediaPhotoPresentation: MediaPhotoViewerPresentation?
-    @State private var cachedMediaUIImage: UIImage?
+    @State private var cachedMediaUIImage: PlatformImage?
     @State private var mediaImageLoadAppearGeneration: Int = 0
     @State private var loadedMediaThumbnailCacheKey: String?
     @FocusState private var titleFocused: Bool
@@ -119,7 +123,7 @@ struct DetailView: View {
         return title.isEmpty || title == "Photo" ? "Photo" : title
     }
 
-    private var heroImageForSection: UIImage? {
+    private var heroImageForSection: PlatformImage? {
         item.kind == .media ? cachedMediaUIImage : nil
     }
 
@@ -172,9 +176,9 @@ struct DetailView: View {
             .padding(.bottom, 32)
         }
         .background(AppPalette.background)
-        .navigationBarTitleDisplayMode(.inline)
+        .phathomInlineNavigationTitle()
         .navigationBarBackButtonHidden(true)
-        .toolbar(.hidden, for: .navigationBar)
+        .phathomHideNavigationBar()
         .safeAreaInset(edge: .top, spacing: 0) {
             DetailPushNavBar {
                 DetailShareBarButton(shareURL: shareURL, fallbackTitle: item.displayTitle)
@@ -206,7 +210,7 @@ struct DetailView: View {
             invalidateMediaImageCache()
             Task { await loadCachedMediaImageIfNeeded() }
         }
-        .fullScreenCover(item: $mediaPhotoPresentation, onDismiss: {
+        .phathomFullScreenPhotoCover(item: $mediaPhotoPresentation, onDismiss: {
             mediaPhotoPresentation = nil
         }) { presentation in
             MediaPhotoViewer(
@@ -927,8 +931,12 @@ struct DetailView: View {
     }
 
     private var collapsedSourceMarkdownMaxHeight: CGFloat {
-        let font = UIFont.preferredFont(forTextStyle: .body)
-        return ceil(font.lineHeight * 8)
+        #if os(iOS)
+        let lineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
+        #else
+        let lineHeight = NSFont.preferredFont(forTextStyle: .body).boundingRectForFont.size.height
+        #endif
+        return ceil(lineHeight * 8)
     }
 
     private var mediaSourceContentInFlight: Bool {
