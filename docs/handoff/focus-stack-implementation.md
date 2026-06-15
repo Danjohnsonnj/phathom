@@ -348,13 +348,13 @@ Execute in order; each slice = build + targeted tests green before next.
 
 ## 7b. Phase A+ — Library long-press (post Detail acceptance)
 
-**Gate:** User manual QA sign-off on **A4 Detail Focus toggle** + **A5 outcome flows** before starting A+.
+**Gate:** User manual QA sign-off on **A4 Detail Focus toggle** + **A5 outcome flows** before starting A+. **Passed** — A+1 shipped 2026-06-14.
 
 | Slice | Deliverable | Key files |
 |:-----:|-------------|-----------|
-| **A+1** | Library context menu Add to Focus / Remove from Focus | `LibraryTab.swift`, reuse `FocusStackService` + swap sheet |
+| **A+1** | Library context menu **Add to Focus** · **Done in Focus** · **Remove from Focus** | `LibraryTab.swift`, reuse `FocusStackService` + swap sheet + `focusOutcomeFlow` |
 
-Same cap/swap rules as Detail. **Not** in Phase A or B completion criteria.
+Same cap/swap rules as Detail. **Done in Focus** opens outcome sheet (Focus tab Complete parity). **Remove from Focus** = silent drop (`logRelease: false`, Detail toggle-off parity). Focus-only menu — no read-status duplicates. **Not** in Phase A or B completion criteria.
 
 ---
 

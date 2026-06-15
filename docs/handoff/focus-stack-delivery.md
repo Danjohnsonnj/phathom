@@ -72,7 +72,7 @@ flowchart LR
 
 ## Living status
 
-**Last updated:** 2026-06-09 (Session 7 — Focus v1 shipped; docs synced)
+**Last updated:** 2026-06-14 (Session 8 — Phase A+ Library long-press shipped)
 
 | Phase | Status | Notes |
 |:-----:|:------:|-------|
@@ -111,6 +111,12 @@ flowchart LR
 | B4 | **Done** | Revisit sheet — preset date labels, compact custom picker |
 | B5 | **Done** | Weekly Focus check-in banner; ISO-week dismiss; Go to Library |
 
+### Phase A+ slice tracker
+
+| Slice | Status | Notes |
+|:-----:|:------:|-------|
+| A+1 | **Done** | Library long-press context menu — Add · Done in Focus · Remove; swap sheet + `focusOutcomeFlow` |
+
 ### Decisions locked so far
 
 | Topic | Decision |
@@ -126,7 +132,7 @@ flowchart LR
 | Takeaway | `FocusOutcome` log; pin → `Highlight.userNote` sync |
 | Revisit | Signal only; **trailing clock icon** (22pt secondary); no notification v1 |
 | In Focus (Library) | **Trailing scope icon** (22pt paprika); **vertically centered** in row; **22pt** inset from right (`screenHorizontal`); mutually exclusive with revisit due |
-| Add/remove Focus | **Detail Focus row** toggle (primary); Library long-press → **Phase A+** after Detail QA; **no** leading swipe |
+| Add/remove Focus | **Detail Focus row** toggle (primary); Library **long-press** Add · Done in Focus · Remove (**A+1** shipped); **no** leading swipe |
 | Stale nudge + row tint | **≥7d** untouched while in Focus; progressive **`staleIntensity`**; re-add resets clock (Phase B) |
 | Reference | Category sheet if uncategorized only |
 | Outcome sheet Cancel | **Abort** — stay in Focus (smoke fix 2026-06-09; supersedes grill “dismiss = Release”) |
@@ -141,6 +147,27 @@ flowchart LR
 ## Session log
 
 Newest session **first**. Agent append on every wrap-up.
+
+### Session 8 — 2026-06-14
+
+**Goal:** Phase A+ — Library long-press Focus context menu.
+
+**Done:**
+- **A+1:** `LibraryTab` context menu on `libraryItemRow` — Add to Focus · Done in Focus · Remove from Focus
+- Reused `FocusStackService`, `FocusSwapSheet` (`focusSwapIncomingItem`), `focusOutcomeFlow`
+- Docs: `focus-stack-implementation.md` §7b · `decisions.md` **2026-06-14** row · delivery status
+
+**Verify:** `bash scripts/build-phathom.sh sim` · `bash scripts/test-phathom.sh` (agent)
+
+**Manual UAT:** User — 8-item checklist (implementation.md §7b / plan Verification)
+
+**Not done:** Phase C Connect / Thread
+
+**Blockers:** None.
+
+**Next session:** Phase C gate (separate) or other product work per user.
+
+---
 
 ### Session 5 closeout — 2026-06-09
 
@@ -302,12 +329,11 @@ Read in order:
 4. docs/handoff/focus-stack-implementation.md (slice history + QA §10)
 5. Swift sources only when implementing follow-ups
 
-Current status: Focus v1 shipped (Phases A + B). Phase B manual QA pending user sign-off.
+Current status: Focus v1 shipped (Phases A + B). Phase A+ Library long-press shipped (A+1).
 
 Next work (pick one gate):
-- Phase B QA sign-off (implementation.md §10 items 1–5)
-- A+ Library long-press Add/Remove Focus (after Detail QA acceptance)
 - Phase C Connect / Thread (separate gate)
+- Other product work per user
 
 Do NOT implement open RAG / Chat tab unless explicitly directed (phase-3-rag-chat.md deferred).
 

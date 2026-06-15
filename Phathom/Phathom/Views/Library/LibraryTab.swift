@@ -92,6 +92,15 @@ struct LibraryTab: View {
     @FocusState private var isSearchFieldFocused: Bool
     @State private var isShowingSettings = false
 
+    @State private var focusOutcomeItem: ContentItem?
+    @State private var focusTakeawayItem: ContentItem?
+    @State private var focusRevisitItem: ContentItem?
+    @State private var focusReferenceTargetItem: ContentItem?
+    @State private var pendingFocusReferenceCategory = false
+    @State private var focusReferenceCategoryHandled = false
+    @State private var focusOutcomeSkipReleaseOnDismiss = false
+    @State private var focusSwapIncomingItem: ContentItem?
+
     private static let inFlightStatuses: Set<ProcessingStatus> = [
         .scraping, .embedding, .summarizing, .extracting, .tagging,
     ]
@@ -320,6 +329,28 @@ struct LibraryTab: View {
                 bulkCategoryHandled = true
                 applyBulkCategoryPick(picked)
             }
+        }
+        .focusOutcomeFlow(
+            outcomeItem: $focusOutcomeItem,
+            takeawayItem: $focusTakeawayItem,
+            revisitItem: $focusRevisitItem,
+            referenceTargetItem: $focusReferenceTargetItem,
+            pendingReferenceCategory: $pendingFocusReferenceCategory,
+            referenceCategoryHandled: $focusReferenceCategoryHandled,
+            skipReleaseOnOutcomeDismiss: $focusOutcomeSkipReleaseOnDismiss
+        )
+        .sheet(item: $focusSwapIncomingItem) { incoming in
+            FocusSwapSheet(
+                incomingItem: incoming,
+                entries: focusActiveEntriesForSwap,
+                onSwap: { entry in
+                    performFocusSwap(releasing: entry, adding: incoming)
+                    focusSwapIncomingItem = nil
+                },
+                onCancel: {
+                    focusSwapIncomingItem = nil
+                }
+            )
         }
     }
 
@@ -724,6 +755,82 @@ struct LibraryTab: View {
         archiveItems([item])
     }
 
+    private var focusActiveEntriesForSwap: [FocusEntry] {
+        (try? FocusStackService.activeEntries(in: modelContext)) ?? []
+    }
+
+    private func focusAtCapacity(for item: ContentItem) -> Bool {
+        guard !item.isArchived else { return false }
+        guard !FocusStackService.isInFocus(item) else { return false }
+        guard let canAdd = try? FocusStackService.canAddWithoutSwap(in: modelContext) else { return false }
+        return !canAdd
+    }
+
+    private func addToFocusFromLibrary(_ item: ContentItem) {
+        guard !FocusStackService.isInFocus(item) else { return }
+        if focusAtCapacity(for: item) {
+            focusSwapIncomingItem = item
+            return
+        }
+        do {
+            try FocusStackService.addToFocus(item: item, in: modelContext)
+            try modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
+        } catch FocusStackError.capFull {
+            focusSwapIncomingItem = item
+        } catch {
+            return
+        }
+    }
+
+    private func performFocusSwap(releasing entry: FocusEntry, adding item: ContentItem) {
+        do {
+            try FocusStackService.releaseForSwap(entry: entry, in: modelContext)
+            try FocusStackService.addToFocus(item: item, in: modelContext)
+            try modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
+        } catch {
+            return
+        }
+    }
+
+    private func removeFromFocusFromLibrary(_ item: ContentItem) {
+        do {
+            try FocusStackService.removeFromFocus(item: item, in: modelContext)
+            try modelContext.save()
+            LibraryContentChangeNotifier.postLibraryContentDidChange()
+        } catch {
+            return
+        }
+    }
+
+    private func beginDoneInFocus(_ item: ContentItem) {
+        focusOutcomeSkipReleaseOnDismiss = false
+        focusOutcomeItem = item
+    }
+
+    @ViewBuilder
+    private func libraryFocusContextMenu(for item: ContentItem) -> some View {
+        if FocusStackService.isInFocus(item) {
+            Button {
+                beginDoneInFocus(item)
+            } label: {
+                Label("Done in Focus", systemImage: "checkmark.circle")
+            }
+            Button {
+                removeFromFocusFromLibrary(item)
+            } label: {
+                Label("Remove from Focus", systemImage: "scope")
+            }
+        } else {
+            Button {
+                addToFocusFromLibrary(item)
+            } label: {
+                Label("Add to Focus", systemImage: "scope")
+            }
+        }
+    }
+
     @ViewBuilder
     private func libraryItemRow(item: ContentItem, showsBottomHairline: Bool) -> some View {
         if editMode == .inactive {
@@ -733,6 +840,9 @@ struct LibraryTab: View {
                 GalleryListRow(item: item, showsBottomHairline: showsBottomHairline)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                libraryFocusContextMenu(for: item)
+            }
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
