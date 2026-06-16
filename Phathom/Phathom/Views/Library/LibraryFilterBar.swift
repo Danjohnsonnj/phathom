@@ -94,7 +94,7 @@ struct LibraryFilterBar: View {
             showStatusPicker = false
             showCategoryPicker = true
         } label: {
-            FilterValueCapsule(value: categoryLabel)
+            FilterValueCapsule(value: categoryLabel, allowsTailTruncation: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
@@ -256,13 +256,11 @@ struct LibraryFilterBar: View {
 /// Capsule containing only the displayed value + chevron (labels live above in ``LibraryFilterBar``).
 private struct FilterValueCapsule: View {
     let value: String
+    var allowsTailTruncation: Bool = false
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(value)
-                .appTypography(.disclosureLabel)
-                .foregroundStyle(AppPalette.textPrimary)
-                .phathomToolbarTextLabel()
+            valueLabel
                 .frame(maxWidth: .infinity, alignment: .leading)
             Image(systemName: "chevron.down")
                 .font(.caption2.weight(.semibold))
@@ -274,6 +272,21 @@ private struct FilterValueCapsule: View {
         .background(Capsule().fill(AppPalette.surface))
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Capsule())
+    }
+
+    @ViewBuilder
+    private var valueLabel: some View {
+        let text = Text(value)
+            .appTypography(.disclosureLabel)
+            .foregroundStyle(AppPalette.textPrimary)
+        if allowsTailTruncation {
+            text
+                .lineLimit(1)
+                .truncationMode(.tail)
+        } else {
+            text
+                .phathomToolbarTextLabel()
+        }
     }
 }
 

@@ -338,6 +338,33 @@ struct PhathomTests {
         #expect(fullKinds == "")
         let fullStatuses = LibraryFilterCodec.encodeStatuses([.new, .read, .filed])
         #expect(fullStatuses == "")
+
+        let valid = ["work", "travel", "home"]
+        let sorted = valid.sorted()
+
+        #expect(LibraryFilterCodec.categoryCapsuleLabel(raw: "", sortedCategoryNames: sorted) == "All")
+        #expect(LibraryFilterCodec.categoryCapsuleLabel(raw: "work", sortedCategoryNames: sorted) == "Work")
+        #expect(
+            LibraryFilterCodec.categoryCapsuleLabel(
+                raw: "\(LibraryCategoryFilterStorage.uncategorizedRaw),work",
+                sortedCategoryNames: sorted
+            ) == "Work +1"
+        )
+        #expect(
+            LibraryFilterCodec.categoryCapsuleLabel(
+                raw: "\(LibraryCategoryFilterStorage.uncategorizedRaw),work,travel",
+                sortedCategoryNames: sorted
+            ) == "Work +2"
+        )
+        #expect(
+            LibraryFilterCodec.categoryCapsuleLabel(raw: "home,work", sortedCategoryNames: sorted) == "Home +1"
+        )
+        #expect(
+            LibraryFilterCodec.categoryAccessibilityValue(
+                raw: "\(LibraryCategoryFilterStorage.uncategorizedRaw),work,travel",
+                sortedCategoryNames: sorted
+            ) == "Uncategorized, Travel, Work"
+        )
     }
 
     @Test func libraryFilterCodec_categorySanitizeAndToggle() {

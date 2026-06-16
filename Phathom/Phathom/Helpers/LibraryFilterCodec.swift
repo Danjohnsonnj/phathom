@@ -151,7 +151,14 @@ enum LibraryFilterCodec {
         if selection == universe { return "All" }
         let order = categoryDisplayOrder(sortedCategoryNames: sortedCategoryNames)
         let ordered = order.filter { selection.contains($0) }
-        return plusNLabel(first: ordered.first.map(categoryTokenLabel), count: ordered.count)
+        if ordered.count > 1 {
+            let lead = categoryShortestDisplayLabelToken(in: ordered)
+            return plusNLabel(first: lead.map(categoryTokenLabel), count: ordered.count)
+        } else if let first = ordered.first {
+            return categoryTokenLabel(first)
+        } else {
+            return "All"
+        }
     }
 
     static func kindAccessibilityValue(raw: String) -> String {
@@ -223,5 +230,16 @@ enum LibraryFilterCodec {
         let remaining = count - 1
         if remaining == 0 { return first }
         return "\(first) +\(remaining)"
+    }
+
+    /// Shortest display label among selected tokens; ties broken alphabetically (case-insensitive).
+    private static func categoryShortestDisplayLabelToken(in ordered: [String]) -> String? {
+        guard let shortest = ordered.min(by: { a, b in
+            let la = categoryTokenLabel(a)
+            let lb = categoryTokenLabel(b)
+            if la.count != lb.count { return la.count < lb.count }
+            return la.localizedCaseInsensitiveCompare(lb) == .orderedAscending
+        }) else { return nil }
+        return shortest
     }
 }
