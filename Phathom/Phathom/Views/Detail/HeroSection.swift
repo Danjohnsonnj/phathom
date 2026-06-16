@@ -64,8 +64,8 @@ struct HeroSection: View {
     private func heroCapsuleButton(title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline.weight(.semibold))
                 .phathomCapsuleCTALabel()
+                .appTypography(.disclosureLabel)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .foregroundStyle(AppPalette.textPrimary)

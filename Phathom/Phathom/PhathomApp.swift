@@ -36,17 +36,19 @@ struct PhathomApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                #if os(macOS)
-                MainMacView()
-                    .environment(macNavigation)
-                #else
-                MainTabView()
-                #endif
-            }
-            .pipelineLifecycle()
-            .onAppear {
-                seedIfEmpty()
+            TypographyEnvironmentRoot {
+                Group {
+                    #if os(macOS)
+                    MainMacView()
+                        .environment(macNavigation)
+                    #else
+                    MainTabView()
+                    #endif
+                }
+                .pipelineLifecycle()
+                .onAppear {
+                    seedIfEmpty()
+                }
             }
         }
         .modelContainer(sharedModelContainer)

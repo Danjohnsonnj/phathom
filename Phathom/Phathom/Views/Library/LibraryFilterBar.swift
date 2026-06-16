@@ -43,7 +43,7 @@ struct LibraryFilterBar: View {
     private func filterColumn(title: String, width: CGFloat, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.subheadline.weight(.light))
+                .appTypography(.filterLabel)
                 .foregroundStyle(AppPalette.textSecondary)
                 .phathomToolbarTextLabel()
                 .padding(EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 0))
@@ -201,12 +201,12 @@ struct LibraryFilterBar: View {
         Button(action: action) {
             HStack {
                 Text(title)
-                    .font(.body)
+                    .appTypography(.body)
                     .foregroundStyle(disabled ? AppPalette.textSecondary : AppPalette.textPrimary)
                 Spacer(minLength: 12)
                 if selected {
                     Image(systemName: "checkmark")
-                        .font(.body.weight(.semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppPalette.accent)
                 }
             }
@@ -260,7 +260,7 @@ private struct FilterValueCapsule: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(value)
-                .font(.subheadline.weight(.semibold))
+                .appTypography(.disclosureLabel)
                 .foregroundStyle(AppPalette.textPrimary)
                 .phathomToolbarTextLabel()
                 .frame(maxWidth: .infinity, alignment: .leading)

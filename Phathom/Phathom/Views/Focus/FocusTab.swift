@@ -107,7 +107,7 @@ struct FocusTab: View {
                         }
                     } label: {
                         Text(editMode == .active ? "Done" : "Edit")
-                            .font(.system(size: 15, weight: .semibold))
+                            .appTypography(.disclosureLabel)
                             .foregroundStyle(AppPalette.accent)
                             .phathomToolbarTextLabel()
                             .padding(.top, 20)
@@ -234,7 +234,7 @@ struct FocusTab: View {
             }
         } else {
             Text("This item is not in your library.")
-                .font(.subheadline)
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

@@ -71,7 +71,7 @@ struct RelatedItemsSheet: View {
                         .font(.title2)
                         .foregroundStyle(AppPalette.textTertiary)
                     Text("No related items")
-                        .font(.subheadline)
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -107,7 +107,7 @@ struct RelatedItemsSheet: View {
     private func sectionBlock<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.headline)
+                .appTypography(.zoneHeader)
                 .foregroundStyle(AppPalette.textPrimary)
                 .padding(.bottom, 2)
             content()

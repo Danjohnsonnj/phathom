@@ -18,6 +18,7 @@ struct DetailView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.typographyScale) private var typographyScale
 
     @State private var sourceExpanded = false
     @State private var titleDraft: String = ""
@@ -298,12 +299,12 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             if let host = item.displayHost, item.kind == .web {
                 Text(host)
-                    .font(.subheadline.weight(.medium))
+                    .appTypography(.subsectionHeader)
                     .foregroundStyle(AppPalette.accent)
             }
 
             TextField(item.displayTitle, text: $titleDraft, axis: .vertical)
-                .font(.title.bold())
+                .appTypography(.detailTitle)
                 .foregroundStyle(AppPalette.textPrimary)
                 .textFieldStyle(.plain)
                 .submitLabel(.done)
@@ -314,7 +315,7 @@ struct DetailView: View {
                 }
 
             Text(item.createdAt.formatted(Self.timestampFormat))
-                .font(.subheadline)
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -386,7 +387,7 @@ struct DetailView: View {
             }
             if item.tags.isEmpty {
                 Text("No tags")
-                    .font(.system(size: 15))
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textSecondary)
             }
             if isTagEditMode {
@@ -539,8 +540,7 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Text("Focus")
-                    .font(.system(size: 17, weight: .semibold))
-                    .tracking(-0.34)
+                    .appTypography(.zoneHeader)
                     .foregroundStyle(AppPalette.textPrimary)
                 Spacer(minLength: 8)
                 Toggle("", isOn: focusToggleBinding)
@@ -558,7 +558,7 @@ struct DetailView: View {
 
             if let closureLine = focusClosureLine {
                 Text(closureLine)
-                    .font(.system(size: 15))
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textSecondary)
                     .accessibilityLabel("Last Focus outcome: \(closureLine)")
             }
@@ -637,20 +637,18 @@ struct DetailView: View {
     private var categorySection: some View {
         HStack(spacing: 8) {
             Text("Category")
-                .font(.system(size: 17, weight: .semibold))
-                .tracking(-0.34)
+                .appTypography(.zoneHeader)
                 .foregroundStyle(AppPalette.textPrimary)
             Spacer(minLength: 8)
             Text(categorySectionDisplayName)
-                .font(.system(size: 15))
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textPrimary)
             Text("  ")
             Button {
                 isCategoryPickerPresented = true
             } label: {
                 Text("Edit")
-                    .font(.system(size: 15, weight: .semibold))
-                    .tracking(-0.15)
+                    .appTypography(.disclosureLabel)
                     .phathomToolbarTextLabel()
             }
             .buttonStyle(.plain)
@@ -694,12 +692,11 @@ struct DetailView: View {
         if item.status == .failed {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Processing failed")
-                    .font(.system(size: 17, weight: .semibold))
-                    .tracking(-0.34)
+                    .appTypography(.zoneHeader)
                     .foregroundStyle(AppPalette.textPrimary)
 
                 Text(failedReasonDisplay)
-                    .font(.system(size: 15))
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -717,7 +714,7 @@ struct DetailView: View {
 
                 if item.kind == .note, !noteHasRetryableText {
                     Text("This note has no text to analyze, so it cannot be retried.")
-                        .font(.caption)
+                        .appTypography(.meta)
                         .foregroundStyle(AppPalette.textTertiary)
                 }
             }
@@ -745,10 +742,10 @@ struct DetailView: View {
                     ForEach(Array(item.displaySummaryBullets.enumerated()), id: \.offset) { _, line in
                         HStack(alignment: .top, spacing: 8) {
                             Text("•")
-                                .font(.system(size: 15))
+                                .appTypography(.zoneSubtitle)
                                 .foregroundStyle(AppPalette.textSecondary)
                             Text(line)
-                                .font(.system(size: 15))
+                                .appTypography(.zoneSubtitle)
                                 .foregroundStyle(AppPalette.textPrimary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -757,7 +754,7 @@ struct DetailView: View {
                 .environment(\.layoutDirection, .leftToRight)
             } else if item.status == .failed {
                 Text("Not available until processing succeeds.")
-                    .font(.system(size: 15))
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
@@ -953,7 +950,7 @@ struct DetailView: View {
         switch item.status {
         case .failed:
             Text("Not available until processing succeeds.")
-                .font(.system(size: 15))
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -975,14 +972,14 @@ struct DetailView: View {
                     Group {
                         if sourceExpanded {
                             Text(desc)
-                                .font(.subheadline)
+                                .appTypography(.zoneSubtitle)
                                 .foregroundStyle(AppPalette.textSecondary)
                                 .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .textSelection(.enabled)
                         } else {
                             Text(desc)
-                                .font(.subheadline)
+                                .appTypography(.zoneSubtitle)
                                 .foregroundStyle(AppPalette.textSecondary)
                                 .multilineTextAlignment(.leading)
                                 .lineLimit(4)
@@ -991,7 +988,7 @@ struct DetailView: View {
                     }
                 } else {
                     Text("No description generated")
-                        .font(.subheadline)
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                 }
             }
@@ -1067,13 +1064,12 @@ struct DetailView: View {
             } label: {
                 HStack(alignment: .firstTextBaseline) {
                     Text(sourceContentSectionTitle)
-                        .font(.system(size: 17, weight: .semibold))
-                        .tracking(-0.34)
+                        .appTypography(.zoneHeader)
                         .foregroundStyle(AppPalette.textPrimary)
                     Spacer()
                     HStack(spacing: 4) {
                         Text(sourceExpanded ? "show less" : "show more")
-                            .font(.system(size: 13, weight: .semibold))
+                            .appTypography(.addNewAccentLabel)
                             .foregroundStyle(AppPalette.accent)
                         Image(systemName: "chevron.down")
                             .font(.caption.weight(.semibold))
@@ -1094,19 +1090,19 @@ struct DetailView: View {
                 if let raw = item.rawText, !raw.isEmpty {
                     if sourceExpanded {
                         Markdown(raw)
-                            .markdownTheme(.phathomNote)
+                            .markdownTheme(.phathomNote(scale: typographyScale))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
                     } else {
                         Markdown(raw)
-                            .markdownTheme(.phathomNote)
+                            .markdownTheme(.phathomNote(scale: typographyScale))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .frame(maxHeight: collapsedSourceMarkdownMaxHeight, alignment: .top)
                             .clipped()
                     }
                 } else {
                     Text("No source text")
-                        .font(.subheadline)
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                 }
             } else if item.kind == .media {
@@ -1117,6 +1113,7 @@ struct DetailView: View {
                         selectionActive: $sourceWebSelectionActive,
                         highlightApplyToken: $sourceWebHighlightApplyToken,
                         sourceHTML: html,
+                        bodyFontSizePx: typographyScale.scaled(16),
                         highlights: item.highlightsSortedByOffset,
                         collapsed: !sourceExpanded,
                         onCreateHighlight: { quotedText, hintOffset in
@@ -1132,12 +1129,12 @@ struct DetailView: View {
             } else if let md = sourceMarkdownForDisplay {
                 if sourceExpanded {
                     Markdown(md)
-                        .markdownTheme(.phathomNote)
+                        .markdownTheme(.phathomNote(scale: typographyScale))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                 } else {
                     Markdown(md)
-                        .markdownTheme(.phathomNote)
+                        .markdownTheme(.phathomNote(scale: typographyScale))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .frame(maxHeight: collapsedSourceMarkdownMaxHeight, alignment: .top)
                         .clipped()
@@ -1146,14 +1143,14 @@ struct DetailView: View {
                 Group {
                     if sourceExpanded {
                         Text(raw)
-                            .font(.subheadline)
+                            .appTypography(.zoneSubtitle)
                             .foregroundStyle(AppPalette.textSecondary)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
                     } else {
                         Text(raw)
-                            .font(.subheadline)
+                            .appTypography(.zoneSubtitle)
                             .foregroundStyle(AppPalette.textSecondary)
                             .multilineTextAlignment(.leading)
                             .lineLimit(4)
@@ -1162,7 +1159,7 @@ struct DetailView: View {
                 }
             } else {
                 Text("No source text")
-                    .font(.subheadline)
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textSecondary)
             }
         }

@@ -63,7 +63,7 @@ Map to existing `AppPalette` unless a new semantic token is justified.
 
 ## 4. Typography (SF Pro)
 
-Suggested SwiftUI mapping:
+Suggested SwiftUI mapping — scaled sizes: **`AppTypography`** in [`AppTypography.swift`](../../Phathom/Phathom/Helpers/AppTypography.swift) (Settings **Display → Text size**).
 
 | Role | Size / weight | SwiftUI (approx.) | Surfaces |
 |------|---------------|-------------------|----------|

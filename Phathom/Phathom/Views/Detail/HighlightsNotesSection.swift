@@ -14,13 +14,12 @@ struct HighlightsNotesSection: View {
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Highlights & Notes")
-                    .font(.system(size: 17, weight: .semibold))
-                    .tracking(-0.34)
+                    .appTypography(.zoneHeader)
                     .foregroundStyle(AppPalette.textPrimary)
 
                 if highlights.isEmpty {
                     Text("No highlights")
-                        .font(.system(size: 15))
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {

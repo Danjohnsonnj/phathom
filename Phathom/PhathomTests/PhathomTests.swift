@@ -1424,6 +1424,35 @@ struct SharedLlamaInferenceWithSessionTests {
     }
 }
 
+@Suite("TypographyScale")
+struct TypographyScaleTests {
+    @Test func scaledAtNormalMultiplier() {
+        let scale = TypographyScale(multiplier: 1.0)
+        #expect(scale.scaled(16) == 16)
+        #expect(scale.scaled(34) == 34)
+    }
+
+    @Test func scaledAtLargeMultiplier() {
+        let scale = TypographyScale(multiplier: 1.15)
+        #expect(scale.scaled(16) == 18.5)
+    }
+
+    @Test func scaledAtSmallestMultiplierFloorsAt11() {
+        let scale = TypographyScale(multiplier: 0.80)
+        #expect(scale.scaled(12) == 11)
+    }
+
+    @Test func scaledRoundsToHalfPoint() {
+        let scale = TypographyScale(multiplier: 0.90)
+        #expect(scale.scaled(17) == 15.5)
+    }
+
+    @Test func preferenceMultipliers() {
+        #expect(AppTextSizePreference.xs.multiplier == 0.80)
+        #expect(AppTextSizePreference.xl.multiplier == 1.30)
+    }
+}
+
 #if os(iOS)
 @Suite("MediaImageEncoding library storage")
 struct MediaImageEncodingLibraryStorageTests {

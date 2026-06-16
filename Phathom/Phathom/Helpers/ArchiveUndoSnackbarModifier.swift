@@ -36,7 +36,7 @@ struct ArchiveUndoSnackbarModifier: ViewModifier {
                 if isSnackbarVisible, let batch = undoArchiveBatch, !batch.isEmpty {
                     HStack(alignment: .center, spacing: 12) {
                         Text(message)
-                            .font(.footnote)
+                            .appTypography(.footnote)
                             .foregroundStyle(AppPalette.textPrimary)
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 8)
@@ -44,8 +44,8 @@ struct ArchiveUndoSnackbarModifier: ViewModifier {
                             performUndoArchive()
                         } label: {
                             Text("Undo")
-                                .font(.footnote.weight(.semibold))
                                 .phathomToolbarTextLabel()
+                                .appTypography(.captionSemibold)
                         }
                         .foregroundStyle(AppPalette.accent)
                     }

@@ -23,6 +23,7 @@ struct HighlightNoteEditSheet: View {
                     .allowsHitTesting(false)
 
                     TextEditor(text: $noteDraft)
+                        .appTypography(.body)
                         .frame(minHeight: 140)
                         .padding(10)
                         .scrollContentBackground(.hidden)
@@ -32,7 +33,7 @@ struct HighlightNoteEditSheet: View {
 
                     if let persistenceError {
                         Text(persistenceError)
-                            .font(.caption)
+                            .appTypography(.meta)
                             .foregroundStyle(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -49,8 +50,8 @@ struct HighlightNoteEditSheet: View {
                         }
                     } label: {
                         Text("Save")
-                            .font(.subheadline.weight(.semibold))
                             .phathomCapsuleCTALabel()
+                            .appTypography(.disclosureLabel)
                             .foregroundStyle(AppPalette.floralWhite)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -70,8 +71,8 @@ struct HighlightNoteEditSheet: View {
                         }
                     } label: {
                         Text("Delete note")
-                            .font(.subheadline.weight(.medium))
                             .phathomCapsuleCTALabel()
+                            .appTypography(.subsectionHeader)
                             .foregroundStyle(AppPalette.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -91,7 +92,7 @@ struct HighlightNoteEditSheet: View {
                         }
                     } label: {
                         Text("Remove highlight")
-                            .font(.subheadline.weight(.medium))
+                            .appTypography(.subsectionHeader)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                     }

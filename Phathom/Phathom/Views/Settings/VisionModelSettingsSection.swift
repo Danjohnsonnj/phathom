@@ -127,10 +127,10 @@ struct VisionModelSettingsSection: View {
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("Vision model")
-                    .font(.subheadline.weight(.semibold))
+                    .appTypography(.disclosureLabel)
                     .foregroundStyle(AppPalette.textPrimary)
                 Text("(optional)")
-                    .font(.subheadline)
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textSecondary)
                 Spacer(minLength: 8)
                 visionSelectionIndicator
@@ -174,20 +174,22 @@ struct VisionModelSettingsSection: View {
                 switch state {
                 case .noSelection:
                     Text(emptyHint)
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                 case .ready(let name, let byteString):
                     VStack(alignment: .leading, spacing: 6) {
                         Text(title)
-                            .font(.footnote)
+                            .appTypography(.footnote)
                             .foregroundStyle(AppPalette.textSecondary)
                         SettingsModelFileInfoBlock(fileName: name, byteString: byteString)
                     }
                 case .missingFile:
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\(title) file not found")
+                            .appTypography(.zoneSubtitle)
                             .foregroundStyle(.orange)
                         Text("Re-pick the file or forget this selection.")
-                            .font(.footnote)
+                            .appTypography(.footnote)
                             .foregroundStyle(AppPalette.textSecondary)
                     }
                 }
@@ -220,27 +222,39 @@ struct VisionModelSettingsSection: View {
                 ProgressView()
                     .controlSize(.small)
                 Text("Running vision test…")
-                    .font(.footnote)
+                    .appTypography(.footnote)
                     .foregroundStyle(AppPalette.textSecondary)
             }
         case .succeeded(let summary, let raw):
             VStack(alignment: .leading, spacing: 8) {
-                Label(summary, systemImage: "checkmark.circle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.green)
-                DisclosureGroup("Show description", isExpanded: showTestResponse) {
+                Label {
+                    Text(summary)
+                        .appTypography(.footnote)
+                } icon: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .imageScale(.medium)
+                }
+                .foregroundStyle(.green)
+                DisclosureGroup(isExpanded: showTestResponse) {
                     Text(raw)
-                        .font(.footnote)
+                        .appTypography(.footnote)
                         .foregroundStyle(AppPalette.textSecondary)
                         .textSelection(.enabled)
                         .padding(.top, 6)
+                } label: {
+                    Text("Show description")
+                        .appTypography(.footnote)
                 }
-                .font(.footnote)
             }
         case .failed(let message):
-            Label(message, systemImage: "xmark.circle.fill")
-                .font(.footnote)
-                .foregroundStyle(.red)
+            Label {
+                Text(message)
+                    .appTypography(.footnote)
+            } icon: {
+                Image(systemName: "xmark.circle.fill")
+                    .imageScale(.medium)
+            }
+            .foregroundStyle(.red)
         }
     }
 
@@ -262,11 +276,12 @@ struct VisionModelSettingsSection: View {
     }
 
     private var visionTestPhotoLabel: some View {
-        Label(
-            testJPEG == nil ? "Choose test photo" : "Replace test photo",
-            systemImage: "photo"
-        )
-        .font(.subheadline.weight(.semibold))
+        Label {
+            Text(testJPEG == nil ? "Choose test photo" : "Replace test photo")
+                .appTypography(.disclosureLabel)
+        } icon: {
+            Image(systemName: "photo")
+        }
         .foregroundStyle(AppPalette.accent)
     }
 

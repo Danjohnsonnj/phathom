@@ -10,13 +10,12 @@ struct ZoneSectionHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
-                .tracking(-0.34)
+                .appTypography(.zoneHeader)
                 .foregroundStyle(AppPalette.textPrimary)
 
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(.system(size: 15))
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

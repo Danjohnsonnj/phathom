@@ -11,7 +11,7 @@ struct FocusOutcomeSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(item.displayTitle)
-                        .font(.system(size: 15))
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -76,10 +76,10 @@ struct FocusOutcomeSheet: View {
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 17, weight: .medium))
+                    .appTypography(.bodyMedium)
                     .foregroundStyle(destructive ? Color.red : AppPalette.textPrimary)
                 Text(hint)
-                    .font(.system(size: 15))
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(destructive ? Color.red.opacity(0.72) : AppPalette.textSecondary)
                     .multilineTextAlignment(.leading)
             }

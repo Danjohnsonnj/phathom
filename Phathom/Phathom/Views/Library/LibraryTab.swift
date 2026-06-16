@@ -359,7 +359,7 @@ struct LibraryTab: View {
         if editMode == .active, !selectedItemIDs.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("\(selectedItemIDs.count) selected")
-                    .font(.subheadline.weight(.semibold))
+                    .appTypography(.disclosureLabel)
                     .foregroundStyle(AppPalette.textPrimary)
                     .accessibilityAddTraits(.updatesFrequently)
 
@@ -378,7 +378,7 @@ struct LibraryTab: View {
                     } label: {
                         Label {
                             Text("Mark as…")
-                                .font(.subheadline.weight(.semibold))
+                                .appTypography(.disclosureLabel)
                                 .phathomCapsuleCTALabel()
                         } icon: {
                             Image(systemName: "square.and.pencil")
@@ -396,7 +396,7 @@ struct LibraryTab: View {
                     } label: {
                         Label {
                             Text("Archive")
-                                .font(.subheadline.weight(.semibold))
+                                .appTypography(.disclosureLabel)
                                 .phathomCapsuleCTALabel()
                         } icon: {
                             Image(systemName: "archivebox")
@@ -465,7 +465,7 @@ struct LibraryTab: View {
                     selectedItemIDs = []
                 } label: {
                     Text("Done")
-                        .font(.system(size: 17))
+                        .appTypography(.body)
                         .phathomToolbarTextLabel()
                 }
                 .foregroundStyle(AppPalette.accent)
@@ -476,7 +476,7 @@ struct LibraryTab: View {
                     editMode = .active
                 } label: {
                     Text("Select")
-                        .font(.system(size: 17))
+                        .appTypography(.body)
                         .phathomToolbarTextLabel()
                 }
                 .foregroundStyle(AppPalette.accent)
@@ -542,7 +542,7 @@ struct LibraryTab: View {
     private var libraryEmptyState: some View {
         if !trimmedQuery.isEmpty {
             Text("No matches")
-                .font(.subheadline)
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 48)
@@ -555,7 +555,7 @@ struct LibraryTab: View {
             .padding(.bottom, 24)
         } else {
             Text("No items yet")
-                .font(.subheadline)
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 48)
@@ -600,7 +600,7 @@ struct LibraryTab: View {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
                 Text("Dive deeper")
-                    .font(.subheadline.weight(.semibold))
+                    .appTypography(.disclosureLabel)
                     .phathomCapsuleCTALabel()
             }
             .foregroundStyle(AppPalette.accent)
@@ -617,7 +617,7 @@ struct LibraryTab: View {
     private var relatedByTagsSection: some View {
         Section {
             Text("Related by tags")
-                .font(.headline)
+                .appTypography(.zoneHeader)
                 .foregroundStyle(AppPalette.textPrimary)
                 .textCase(nil)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1023,7 +1023,7 @@ struct LibraryTab: View {
             }
         } else {
             Text("This item is not in your library.")
-                .font(.subheadline)
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

@@ -41,8 +41,7 @@ struct GalleryListRow: View {
                         }
 
                         Text(item.displayTitle)
-                            .font(.system(size: 16, weight: .medium))
-                            .tracking(-0.32)
+                            .appTypography(.galleryTitle)
                             .foregroundStyle(AppPalette.textPrimary)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -52,7 +51,7 @@ struct GalleryListRow: View {
 
                     if !sourceLine.isEmpty {
                         Text(sourceLine)
-                            .font(.system(size: 13))
+                            .appTypography(.sourceLine)
                             .foregroundStyle(AppPalette.textSecondary)
                             .lineLimit(1)
                             .padding(.bottom, 6)
@@ -130,9 +129,8 @@ struct GalleryListRow: View {
                 )
             } else {
                 Text(item.createdAt.formatted(Self.dateFormat))
-                    .font(.system(size: 12))
+                    .appTypography(.meta)
                     .foregroundStyle(AppPalette.textSecondary.opacity(0.65))
-                    .tracking(0.24)
             }
         }
     }

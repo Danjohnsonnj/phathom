@@ -46,7 +46,7 @@ struct RecentlyDeletedView: View {
                                     ContentCardRow(item: item, chrome: .plain)
                                     if let at = item.archivedAt {
                                         Text(ArchiveRetention.timeUntilPermanentDeletion(from: at))
-                                            .font(.caption)
+                                            .appTypography(.meta)
                                             .foregroundStyle(AppPalette.textSecondary)
                                     }
                                 }
@@ -72,7 +72,7 @@ struct RecentlyDeletedView: View {
 
                         if isCapped {
                             Text("Showing the \(Self.archivedFetchLimit) most recently deleted items.")
-                                .font(.caption)
+                                .appTypography(.meta)
                                 .foregroundStyle(AppPalette.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.top, 8)

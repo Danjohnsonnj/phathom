@@ -43,6 +43,7 @@ struct SettingsContent: View {
     @State private var backupBusy = false
     @State private var showResetWebProcessingConfirm = false
     @State private var isResettingWebProcessingQueue = false
+    @AppStorage(AppTextSizeStorage.key) private var textSizeRaw: String = AppTextSizePreference.default.rawValue
 
     private enum ModelTestPhase {
         case idle
@@ -275,6 +276,7 @@ struct SettingsContent: View {
                 EditorialScreenTitle(title: "Settings")
                 VStack(alignment: .leading, spacing: AppSpacing.sectionVerticalGap) {
                     aiModelsGroupedSection
+                    displayGroupedSection
                     libraryGroupedSection
                     dataGroupedSection
                     settingsScreenFooter
@@ -319,7 +321,7 @@ struct SettingsContent: View {
                     } label: {
                         HStack {
                             Text("Primary model")
-                                .font(.subheadline.weight(.semibold))
+                                .appTypography(.disclosureLabel)
                                 .foregroundStyle(AppPalette.textPrimary)
                             Spacer(minLength: 8)
                             modelSelectionIndicator(for: selectionState, rolePhrase: "Primary model")
@@ -356,10 +358,10 @@ struct SettingsContent: View {
                     } label: {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text("Tagging model")
-                                .font(.subheadline.weight(.semibold))
+                                .appTypography(.disclosureLabel)
                                 .foregroundStyle(AppPalette.textPrimary)
                             Text("(optional)")
-                                .font(.subheadline)
+                                .appTypography(.zoneSubtitle)
                                 .foregroundStyle(AppPalette.textSecondary)
                             Spacer(minLength: 8)
                             modelSelectionIndicator(for: taggingSelectionState, rolePhrase: "Tagging model")
@@ -472,6 +474,7 @@ struct SettingsContent: View {
                     Text(role == .primary
                         ? "No primary model selected."
                         : "No optional tagging model — tags use the primary model.")
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
 
                 case .ready(let name, let byteString):
@@ -482,11 +485,12 @@ struct SettingsContent: View {
                         Text(role == .primary
                             ? "Primary model file not found"
                             : "Tagging model file not found")
+                            .appTypography(.zoneSubtitle)
                             .foregroundStyle(.orange)
                         Text(role == .primary
                             ? "The file may have moved or been deleted. Choose a new primary model or forget this selection."
                             : "Tagging will use the primary model until you pick a new tagging file or forget this selection.")
-                            .font(.footnote)
+                            .appTypography(.footnote)
                             .foregroundStyle(AppPalette.textSecondary)
                     }
                 }
@@ -566,6 +570,38 @@ struct SettingsContent: View {
         }
     }
 
+    private var displayGroupedSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZoneSectionHeader(
+                title: "Display",
+                subtitle: "Adjust text size across the app"
+            )
+            settingsGroupedSurface {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Text size")
+                        .appTypography(.body)
+                        .foregroundStyle(AppPalette.textPrimary)
+                    Picker("Text size", selection: Binding(
+                        get: { AppTextSizePreference(rawValue: textSizeRaw) ?? .default },
+                        set: { textSizeRaw = $0.rawValue }
+                    )) {
+                        ForEach(AppTextSizePreference.allCases) { pref in
+                            Text(pref.segmentTitle)
+                                .appTypography(.captionSemibold)
+                                .tag(pref)
+                                .accessibilityLabel(pref.accessibilityLabel)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .tint(AppPalette.accent)
+                    .accessibilityElement(children: .contain)
+                }
+                .padding(.horizontal, SettingsCardCell.horizontalPadding)
+                .padding(.vertical, SettingsCardCell.verticalPadding)
+            }
+        }
+    }
+
     private var libraryGroupedSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZoneSectionHeader(title: "Library")
@@ -576,11 +612,12 @@ struct SettingsContent: View {
                     } label: {
                         HStack {
                             Text("Recently Deleted")
+                                .appTypography(.body)
                                 .foregroundStyle(AppPalette.textPrimary)
                             Spacer()
                             if archivedCount > 0 {
                                 Text("\(archivedCount)")
-                                    .font(.caption2.weight(.semibold))
+                                    .appTypography(.captionSemibold)
                                     .foregroundStyle(AppPalette.textPrimary)
                                     .padding(.horizontal, 7)
                                     .frame(minWidth: 24, minHeight: 24)
@@ -602,11 +639,11 @@ struct SettingsContent: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Reset processing queue")
-                                .font(.body)
+                                .appTypography(.body)
                                 .foregroundStyle(AppPalette.textPrimary)
                                 .multilineTextAlignment(.leading)
                             Text("Clears processing data and retries incomplete web, note, and photo items")
-                                .font(.footnote)
+                                .appTypography(.footnote)
                                 .foregroundStyle(AppPalette.textSecondary)
                                 .multilineTextAlignment(.leading)
                         }
@@ -630,7 +667,12 @@ struct SettingsContent: View {
                     Button {
                         exportLibraryBackup()
                     } label: {
-                        Label("Export Library", systemImage: "square.and.arrow.up")
+                        Label {
+                            Text("Export Library")
+                                .appTypography(.body)
+                        } icon: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
                             .labelStyle(.titleAndIcon)
                             .foregroundStyle(AppPalette.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -645,7 +687,12 @@ struct SettingsContent: View {
                     Button {
                         requestedImporter = .backup
                     } label: {
-                        Label("Import Library", systemImage: "square.and.arrow.down")
+                        Label {
+                            Text("Import Library")
+                                .appTypography(.body)
+                        } icon: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
                             .labelStyle(.titleAndIcon)
                             .foregroundStyle(AppPalette.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -662,9 +709,10 @@ struct SettingsContent: View {
     private var settingsScreenFooter: some View {
         VStack(spacing: 6) {
             Text("Phathom v\(appVersion) (\(build))")
+                .appTypography(.footnote)
             Text("Your data stays on your device")
+                .appTypography(.footnote)
         }
-        .font(.footnote)
         .foregroundStyle(AppPalette.textSecondary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
@@ -676,7 +724,8 @@ struct SettingsContent: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(importErrorDetails ?? "")
-                        .font(.footnote.monospaced())
+                        .appTypography(.footnote)
+                        .monospaced()
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -684,8 +733,8 @@ struct SettingsContent: View {
                         copyImportErrorToPasteboard(importErrorDetails ?? "")
                     } label: {
                         Text("Copy details to clipboard")
-                            .font(.subheadline.weight(.semibold))
                             .phathomCapsuleCTALabel()
+                            .appTypography(.disclosureLabel)
                             .foregroundStyle(AppPalette.floralWhite)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -739,32 +788,44 @@ struct SettingsContent: View {
                 ProgressView()
                     .controlSize(.small)
                 Text("Running test inference…")
-                    .font(.footnote)
+                    .appTypography(.footnote)
                     .foregroundStyle(AppPalette.textSecondary)
             }
         case .succeeded(let summary, let raw, let subtitle):
             VStack(alignment: .leading, spacing: 8) {
-                Label(summary, systemImage: "checkmark.circle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.green)
+                Label {
+                    Text(summary)
+                        .appTypography(.footnote)
+                } icon: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .imageScale(.medium)
+                }
+                .foregroundStyle(.green)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.footnote)
+                        .appTypography(.footnote)
                         .foregroundStyle(AppPalette.textSecondary)
                 }
-                DisclosureGroup("Show response", isExpanded: showResponse) {
+                DisclosureGroup(isExpanded: showResponse) {
                     Text(raw)
-                        .font(.footnote)
+                        .appTypography(.footnote)
                         .foregroundStyle(AppPalette.textSecondary)
                         .textSelection(.enabled)
                         .padding(.top, 6)
+                } label: {
+                    Text("Show response")
+                        .appTypography(.footnote)
                 }
-                .font(.footnote)
             }
         case .failed(let message):
-            Label(message, systemImage: "xmark.circle.fill")
-                .font(.footnote)
-                .foregroundStyle(.red)
+            Label {
+                Text(message)
+                    .appTypography(.footnote)
+            } icon: {
+                Image(systemName: "xmark.circle.fill")
+                    .imageScale(.medium)
+            }
+            .foregroundStyle(.red)
         }
     }
 
@@ -1155,7 +1216,7 @@ struct SettingsModelActionRow: View {
             HStack(alignment: .center, spacing: 12) {
                 SettingsModelIconWell(systemName: iconName, foreground: iconTint)
                 Text(title)
-                    .font(.body)
+                    .appTypography(.body)
                     .foregroundStyle(disabled ? AppPalette.textTertiary : foreground)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1176,17 +1237,17 @@ struct SettingsModelFileInfoBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Selected file")
-                .font(.footnote)
+                .appTypography(.footnote)
                 .foregroundStyle(AppPalette.textSecondary)
             Text(fileName)
-                .font(.body)
+                .appTypography(.body)
                 .foregroundStyle(AppPalette.textPrimary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
             Text(byteString)
-                .font(.footnote)
+                .appTypography(.footnote)
                 .foregroundStyle(AppPalette.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1202,7 +1263,7 @@ struct SettingsModelInfoFooter: View {
                 .font(.footnote)
                 .foregroundStyle(AppPalette.textSecondary)
             Text(text)
-                .font(.footnote)
+                .appTypography(.footnote)
                 .foregroundStyle(AppPalette.textSecondary)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)

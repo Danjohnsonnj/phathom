@@ -10,7 +10,7 @@ struct FocusStaleNudgeBanner: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(message)
-                .font(.system(size: 15))
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -35,7 +35,7 @@ struct FocusStaleNudgeBanner: View {
 
     private func nudgeAction(_ title: String, primary: Bool, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .font(.system(size: 15, weight: .medium))
+            .appTypography(.subsectionHeader)
             .foregroundStyle(primary ? AppPalette.accent : AppPalette.textSecondary)
     }
 }

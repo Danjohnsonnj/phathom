@@ -12,12 +12,12 @@ struct PinnedLibrarySearchBar: View {
         HStack(spacing: 10) {
             HStack(spacing: 0) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 16))
                     .foregroundStyle(AppPalette.accent)
                     .padding(.leading, 12)
 
                 TextField("Search title, tags, source, highlights", text: $text)
-                    .font(.system(size: 16))
+                    .appTypography(.searchField)
                     .foregroundStyle(AppPalette.textPrimary)
                     .phathomAutocapitalizationNever()
                     .autocorrectionDisabled()
@@ -50,7 +50,7 @@ struct PinnedLibrarySearchBar: View {
 
             Button(action: onClose) {
                 Text("Close")
-                    .font(.system(size: 17))
+                    .appTypography(.body)
                     .phathomToolbarTextLabel()
             }
             .foregroundStyle(AppPalette.accent)

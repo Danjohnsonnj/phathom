@@ -25,8 +25,7 @@ struct NotebookItemGroup: View {
 
                         VStack(alignment: .leading, spacing: 0) {
                             Text(item.displayTitle)
-                                .font(.system(size: 16, weight: .medium))
-                                .tracking(-0.32)
+                                .appTypography(.galleryTitle)
                                 .foregroundStyle(AppPalette.textPrimary)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
@@ -35,7 +34,7 @@ struct NotebookItemGroup: View {
 
                             if !subtitle.isEmpty {
                                 Text(subtitle)
-                                    .font(.system(size: 13))
+                                    .appTypography(.sourceLine)
                                     .foregroundStyle(AppPalette.textSecondary)
                                     .lineLimit(1)
                                     .frame(maxWidth: .infinity, alignment: .leading)

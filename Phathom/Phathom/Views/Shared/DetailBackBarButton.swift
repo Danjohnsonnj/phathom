@@ -118,6 +118,7 @@ struct FlatToolbarTextButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
+                .appTypography(.body)
                 .phathomToolbarTextLabel()
         }
         .buttonStyle(.plain)

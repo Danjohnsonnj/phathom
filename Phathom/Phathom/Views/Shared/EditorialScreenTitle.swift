@@ -7,10 +7,8 @@ struct EditorialScreenTitle: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 34, weight: .semibold))
-            .tracking(-1.02)
+            .appTypography(.screenTitle)
             .foregroundStyle(AppPalette.textPrimary)
-            .lineSpacing(3.4)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, bottomSpacing)
             .accessibilityAddTraits(.isHeader)

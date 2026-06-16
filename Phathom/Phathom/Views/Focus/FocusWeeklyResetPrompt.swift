@@ -21,21 +21,21 @@ struct FocusWeeklyResetPrompt: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Weekly Focus check-in")
-                .font(.system(size: 15, weight: .semibold))
+                .appTypography(.disclosureLabel)
                 .foregroundStyle(AppPalette.textPrimary)
 
             Text(message)
-                .font(.system(size: 15))
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 16) {
                 Button("Go to Library", action: onGoToLibrary)
-                    .font(.system(size: 15, weight: .medium))
+                    .appTypography(.subsectionHeader)
                     .foregroundStyle(AppPalette.accent)
 
                 Button("Not now", action: onDismiss)
-                    .font(.system(size: 15, weight: .medium))
+                    .appTypography(.subsectionHeader)
                     .foregroundStyle(AppPalette.textSecondary)
 
                 Spacer(minLength: 0)

@@ -55,7 +55,7 @@ struct ContentCardRow: View {
                             .accessibilityAddTraits(.isStaticText)
                     }
                     Text(item.displayTitle)
-                        .font(.headline)
+                        .appTypography(.galleryTitle)
                         .foregroundStyle(AppPalette.textPrimary)
                         .lineLimit(1)
                 }
@@ -70,14 +70,14 @@ struct ContentCardRow: View {
                     )
                 } else {
                     Text(secondaryText)
-                        .font(.subheadline)
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                         .lineLimit(2)
                 }
 
                 HStack(spacing: 8) {
                     Text(item.createdAt.formatted(Self.timestampFormat))
-                        .font(.caption)
+                        .appTypography(.meta)
                         .foregroundStyle(AppPalette.textTertiary)
                 }
             }
@@ -153,7 +153,7 @@ struct ProcessingStatusBadge: View {
             Image(systemName: ProcessingStatusPresentation.symbolName(for: status))
                 .font(.caption.weight(.semibold))
             Text(label)
-                .font(.caption.weight(.semibold))
+                .appTypography(.captionSemibold)
                 .lineLimit(1)
         }
         .padding(.horizontal, 10)

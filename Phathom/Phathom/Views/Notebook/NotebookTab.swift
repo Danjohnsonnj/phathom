@@ -89,7 +89,7 @@ struct NotebookTab: View {
                     }
                 } else {
                     Text("This item is not in your library.")
-                        .font(.subheadline)
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }

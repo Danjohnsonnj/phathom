@@ -20,7 +20,7 @@ struct HairlineHighlightRow: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(quotedText)
-                        .font(.system(size: 15))
+                        .appTypography(.zoneSubtitle)
                         .italic()
                         .foregroundStyle(AppPalette.textPrimary)
                         .multilineTextAlignment(.leading)
@@ -30,13 +30,12 @@ struct HairlineHighlightRow: View {
                     if let note = trimmedNote {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Note")
-                                .font(.system(size: 11, weight: .medium))
-                                .tracking(0.44)
+                                .appTypography(.noteLabel)
                                 .textCase(.uppercase)
                                 .foregroundStyle(AppPalette.textSecondary.opacity(0.55))
 
                             Text(note)
-                                .font(.system(size: 15))
+                                .appTypography(.zoneSubtitle)
                                 .foregroundStyle(AppPalette.textSecondary)
                                 .multilineTextAlignment(.leading)
                                 .lineLimit(noteLineLimit)

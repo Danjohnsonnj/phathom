@@ -24,7 +24,7 @@ struct FocusStackHeader: View {
         VStack(alignment: .leading, spacing: 0) {
             EditorialScreenTitle(title: "Focus", bottomSpacing: 8)
             Text(subline)
-                .font(.system(size: 15))
+                .appTypography(.zoneSubtitle)
                 .foregroundStyle(AppPalette.textSecondary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)

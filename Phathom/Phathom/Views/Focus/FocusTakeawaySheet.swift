@@ -18,6 +18,7 @@ struct FocusTakeawaySheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     TextEditor(text: $takeawayDraft)
+                        .appTypography(.body)
                         .frame(minHeight: 120)
                         .padding(10)
                         .scrollContentBackground(.hidden)
@@ -27,7 +28,7 @@ struct FocusTakeawaySheet: View {
 
                     if !highlights.isEmpty {
                         Text("Pin to highlight (optional)")
-                            .font(.system(size: 15, weight: .semibold))
+                            .appTypography(.disclosureLabel)
                             .foregroundStyle(AppPalette.textPrimary)
 
                         VStack(spacing: 0) {
@@ -50,7 +51,7 @@ struct FocusTakeawaySheet: View {
                         onSave(String(text.prefix(2_000)), selectedHighlightID)
                     } label: {
                         Text("Save takeaway")
-                            .font(.subheadline.weight(.semibold))
+                            .appTypography(.disclosureLabel)
                             .phathomCapsuleCTALabel()
                             .foregroundStyle(AppPalette.floralWhite)
                             .frame(maxWidth: .infinity)
@@ -87,7 +88,7 @@ struct FocusTakeawaySheet: View {
         } label: {
             HStack(spacing: 10) {
                 Text(title)
-                    .font(.system(size: 15))
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)

@@ -9,11 +9,10 @@ struct EditorialTwoTierEmptyState: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
-                .tracking(-0.34)
+                .appTypography(.emptyPrimary)
                 .foregroundStyle(AppPalette.textPrimary)
             Text(hint)
-                .font(.system(size: 15))
+                .appTypography(.emptyHint)
                 .foregroundStyle(AppPalette.textSecondary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: hintMaxWidth, alignment: .leading)

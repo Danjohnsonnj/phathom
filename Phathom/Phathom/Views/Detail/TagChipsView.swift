@@ -33,9 +33,9 @@ struct TagChipsView: View {
                     onAddAction()
                 } label: {
                     Text(addActionTitle)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppPalette.textPrimary)
                         .phathomToolbarTextLabel()
+                        .appTypography(.captionSemibold)
+                        .foregroundStyle(AppPalette.textPrimary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(AppPalette.surfaceNested)
@@ -51,10 +51,9 @@ struct TagChipsView: View {
 
     private func chipLabel(for tag: Tag) -> some View {
         Text(tag.name.localizedCapitalized)
-            .font(.system(size: 13, weight: .medium))
-            .tracking(-0.13)
-            .foregroundStyle(AppPalette.textPrimary)
             .phathomToolbarTextLabel()
+            .appTypography(.tagChip)
+            .foregroundStyle(AppPalette.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(AppPalette.tagChipBackground)

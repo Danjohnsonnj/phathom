@@ -51,6 +51,7 @@ struct CategoryPicker: View {
 
                     pickerSectionHeader("New category")
                     TextField("Name", text: $newDraft)
+                        .appTypography(.body)
                         .phathomAutocapitalizationWords()
                         .foregroundStyle(AppPalette.textPrimary)
                         .padding(.horizontal, AppSpacing.screenHorizontal)
@@ -61,6 +62,7 @@ struct CategoryPicker: View {
                         complete(findOrInsertCategory(normalizedName: norm))
                     } label: {
                         Text("Create and use")
+                            .appTypography(.body)
                             .foregroundStyle(AppPalette.accent)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, AppSpacing.screenHorizontal)
@@ -94,7 +96,7 @@ struct CategoryPicker: View {
 
     private func pickerSectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.headline)
+            .appTypography(.subsectionHeader)
             .foregroundStyle(AppPalette.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, AppSpacing.screenHorizontal)
@@ -104,6 +106,7 @@ struct CategoryPicker: View {
 
     private func categoryRowLabel(_ title: String) -> some View {
         Text(title)
+            .appTypography(.body)
             .foregroundStyle(AppPalette.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, AppSpacing.screenHorizontal)

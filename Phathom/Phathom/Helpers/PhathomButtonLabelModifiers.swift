@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - CTA label sizing (design-tokens §5.1 — no tail truncation on buttons)
 
-extension Text {
+extension View {
     /// Toolbar / chrome text actions — full string visible (e.g. Close, Cancel, Done).
     func phathomToolbarTextLabel() -> some View {
         fixedSize(horizontal: true, vertical: false)

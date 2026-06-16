@@ -5,8 +5,7 @@ struct DetailAISubsectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 15, weight: .medium))
-            .tracking(-0.15)
+            .appTypography(.subsectionHeader)
             .foregroundStyle(AppPalette.textSecondary)
             .accessibilityAddTraits(.isHeader)
     }
@@ -24,8 +23,7 @@ struct DetailAITagsSectionHeader: View {
             Button(isEditMode ? "Done" : "Edit") {
                 onEditToggle()
             }
-            .font(.system(size: 15, weight: .semibold))
-            .tracking(-0.15)
+            .appTypography(.disclosureLabel)
             .buttonStyle(.plain)
             .foregroundStyle(AppPalette.accent)
             .accessibilityLabel(isEditMode ? "Done editing tags" : "Edit tags")

@@ -4,12 +4,13 @@ import SwiftUI
 
 extension Theme {
     /// Markdown tuned for the Note card on detail: flat against `AppPalette.surface`, code blocks use `surfaceNested`.
-    static var phathomNote: Theme {
-        Theme.gitHub
+    static func phathomNote(scale: TypographyScale = .normal) -> Theme {
+        let bodySize = scale.scaled(16)
+        return Theme.gitHub
             .text {
                 ForegroundColor(AppPalette.textPrimary)
                 BackgroundColor(Color.clear)
-                FontSize(16)
+                FontSize(bodySize)
             }
             .code {
                 FontFamilyVariant(.monospaced)

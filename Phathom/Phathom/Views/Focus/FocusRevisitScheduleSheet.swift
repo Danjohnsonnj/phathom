@@ -21,7 +21,7 @@ struct FocusRevisitScheduleSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(item.displayTitle)
-                        .font(.system(size: 15))
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textSecondary)
                         .lineLimit(2)
 
@@ -37,11 +37,11 @@ struct FocusRevisitScheduleSheet: View {
                         } label: {
                             HStack {
                                 Text("Custom date")
-                                    .font(.system(size: 17, weight: .medium))
+                                    .appTypography(.bodyMedium)
                                     .foregroundStyle(AppPalette.textPrimary)
                                 Spacer(minLength: 8)
                                 Text(showsCustomPicker ? "Hide" : "Choose")
-                                    .font(.system(size: 15))
+                                    .appTypography(.zoneSubtitle)
                                     .foregroundStyle(AppPalette.accent)
                             }
                             .padding(.horizontal, 16)
@@ -53,7 +53,7 @@ struct FocusRevisitScheduleSheet: View {
                             sheetHairline
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Resurfaces \(customDate.formatted(Self.presetDateFormat))")
-                                    .font(.system(size: 15))
+                                    .appTypography(.zoneSubtitle)
                                     .foregroundStyle(AppPalette.textSecondary)
                                     .padding(.horizontal, 16)
                                     .padding(.top, 12)
@@ -72,7 +72,7 @@ struct FocusRevisitScheduleSheet: View {
                                     onSchedule(startOfDay(customDate))
                                 } label: {
                                     Text("Schedule")
-                                        .font(.subheadline.weight(.semibold))
+                                        .appTypography(.disclosureLabel)
                                         .phathomCapsuleCTALabel()
                                         .foregroundStyle(AppPalette.floralWhite)
                                         .frame(maxWidth: .infinity)
@@ -136,11 +136,11 @@ struct FocusRevisitScheduleSheet: View {
         } label: {
             HStack {
                 Text(title)
-                    .font(.system(size: 17, weight: .medium))
+                    .appTypography(.bodyMedium)
                     .foregroundStyle(AppPalette.textPrimary)
                 Spacer(minLength: 8)
                 Text(date.formatted(Self.presetDateFormat))
-                    .font(.system(size: 15))
+                    .appTypography(.zoneSubtitle)
                     .foregroundStyle(AppPalette.textSecondary)
             }
             .padding(.horizontal, 16)

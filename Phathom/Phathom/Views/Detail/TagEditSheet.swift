@@ -40,6 +40,7 @@ struct TagEditSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                 TextField("Tag", text: $text)
+                    .appTypography(.body)
                     .textFieldStyle(.plain)
                     .phathomAutocapitalizationNever()
                     .autocorrectionDisabled()
@@ -50,22 +51,22 @@ struct TagEditSheet: View {
 
                 if let validationMessage {
                     Text(validationMessage)
-                        .font(.caption)
+                        .appTypography(.meta)
                         .foregroundStyle(AppPalette.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .appTypography(.meta)
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 Button(action: onSave) {
                     Text(saveLabel)
-                        .font(.subheadline.weight(.semibold))
                         .phathomCapsuleCTALabel()
+                        .appTypography(.disclosureLabel)
                         .foregroundStyle(AppPalette.floralWhite)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -78,8 +79,8 @@ struct TagEditSheet: View {
                 if showsDelete, let onDelete {
                     Button(action: onDelete) {
                         Text("Delete tag")
-                            .font(.subheadline.weight(.medium))
                             .phathomCapsuleCTALabel()
+                            .appTypography(.subsectionHeader)
                             .foregroundStyle(AppPalette.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)

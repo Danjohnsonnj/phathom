@@ -39,6 +39,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
     @Binding var highlightApplyToken: Int
 
     var sourceHTML: String
+    var bodyFontSizePx: CGFloat
     var highlights: [Highlight]
     var collapsed: Bool
     var onCreateHighlight: (String, Int?) -> Void
@@ -96,7 +97,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         context.coordinator.onTapHighlight = onTapHighlight
 
         let highlightKey = Coordinator.highlightKey(for: highlights)
-        let bodyKey = "\(Self.stableFingerprint(sourceHTML))_\(collapsed)"
+        let bodyKey = "\(Self.stableFingerprint(sourceHTML))_\(collapsed)_\(bodyFontSizePx)"
 
         let bodyChanged = context.coordinator.loadedBodyKey != bodyKey
         if bodyChanged {
@@ -108,7 +109,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
             context.coordinator.lastSelectionPayload = nil
             context.coordinator.consumedHighlightApplyToken = highlightApplyToken
 
-            let fullHTML = Self.wrapDocument(body: sourceHTML, collapsed: collapsed)
+            let fullHTML = Self.wrapDocument(body: sourceHTML, collapsed: collapsed, bodyFontSizePx: bodyFontSizePx)
             webView.loadHTMLString(fullHTML, baseURL: nil)
         } else if context.coordinator.appliedHighlightKey != highlightKey,
                   context.coordinator.pendingHighlightOverlayKey != highlightKey,
@@ -135,7 +136,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    private static func wrapDocument(body: String, collapsed: Bool) -> String {
+    private static func wrapDocument(body: String, collapsed: Bool, bodyFontSizePx: CGFloat) -> String {
         let collapsedClass = collapsed ? " phathom-source-collapsed" : ""
         return """
         <!DOCTYPE html>
@@ -143,7 +144,7 @@ struct HighlightableMarkdownWebView: UIViewRepresentable {
         <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-        \(HighlightableMarkdownWebViewScript.css)
+        \(HighlightableMarkdownWebViewScript.css(bodyFontSizePx: bodyFontSizePx))
         </style>
         </head>
         <body class="phathom-source\(collapsedClass)">

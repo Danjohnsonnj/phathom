@@ -8,8 +8,7 @@ struct HairlineCapsuleButton: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: 15, weight: .medium))
-            .tracking(-0.15)
+            .appTypography(.subsectionHeader)
             .foregroundStyle(foreground)
             .phathomCapsuleCTALabel()
             .frame(maxWidth: .infinity)

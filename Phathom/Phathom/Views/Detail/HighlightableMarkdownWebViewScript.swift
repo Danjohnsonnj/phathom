@@ -1,3 +1,6 @@
+import CoreGraphics
+import Foundation
+
 enum HighlightableMarkdownWebViewScript {
     static let javaScript: String = """
     function phathomCollectSpansInRange(range) {
@@ -156,7 +159,9 @@ enum HighlightableMarkdownWebViewScript {
     });
     """
 
-    static let css: String = """
+    static func css(bodyFontSizePx: CGFloat) -> String {
+        let fontSize = String(format: "%.1f", bodyFontSizePx)
+        return """
     :root {
       --text-primary: #fffcf2;
       --text-secondary: #ccc5b9;
@@ -167,7 +172,7 @@ enum HighlightableMarkdownWebViewScript {
     }
     body.phathom-source {
       font: -apple-system-body;
-      font-size: 16px;
+      font-size: \(fontSize)px;
       line-height: 1.5;
       color: var(--text-primary);
       background: var(--bg);
@@ -223,4 +228,5 @@ enum HighlightableMarkdownWebViewScript {
       color: inherit;
     }
     """
+    }
 }

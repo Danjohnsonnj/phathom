@@ -11,12 +11,12 @@ struct ExtractsSection: View {
                     Text("•")
                         .foregroundStyle(AppPalette.textSecondary)
                     Text(extract.label)
-                        .font(.subheadline.weight(.medium))
+                        .appTypography(.subsectionHeader)
                         .foregroundStyle(AppPalette.textPrimary)
                     Text("·")
                         .foregroundStyle(AppPalette.textSecondary)
                     Text(extract.value)
-                        .font(.subheadline)
+                        .appTypography(.zoneSubtitle)
                         .foregroundStyle(AppPalette.textPrimary)
                 }
             }

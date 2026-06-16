@@ -17,10 +17,10 @@ struct FocusSwapSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Release one item to add")
-                            .font(.system(size: 15))
+                            .appTypography(.zoneSubtitle)
                             .foregroundStyle(AppPalette.textSecondary)
                         Text(incomingItem.displayTitle)
-                            .font(.system(size: 15, weight: .medium))
+                            .appTypography(.subsectionHeader)
                             .foregroundStyle(AppPalette.textPrimary)
                             .lineLimit(2)
                     }
@@ -72,7 +72,7 @@ struct FocusSwapSheet: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.displayTitle)
-                        .font(.system(size: 15, weight: .medium))
+                        .appTypography(.subsectionHeader)
                         .foregroundStyle(AppPalette.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -86,7 +86,7 @@ struct FocusSwapSheet: View {
                         onSwap(entry)
                     } label: {
                         Text("Release")
-                            .font(.system(size: 15, weight: .semibold))
+                            .appTypography(.disclosureLabel)
                             .foregroundStyle(AppPalette.accent)
                             .phathomToolbarTextLabel()
                     }
@@ -108,11 +108,11 @@ struct FocusSwapSheet: View {
     private func swapMeta(for item: ContentItem, entry: FocusEntry) -> some View {
         HStack(spacing: 6) {
             Text(daysInFocusLabel(for: entry))
-                .font(.system(size: 12))
+                .appTypography(.meta)
                 .foregroundStyle(AppPalette.textSecondary.opacity(0.72))
 
             Text("·")
-                .font(.system(size: 12))
+                .appTypography(.meta)
                 .foregroundStyle(AppPalette.textSecondary.opacity(0.35))
 
             switch item.readState {
@@ -122,7 +122,7 @@ struct FocusSwapSheet: View {
                     .frame(width: 6, height: 6)
             case .read, .filed:
                 Text(ReadStatusPresentation.label(for: item.readState))
-                    .font(.system(size: 12, weight: .medium))
+                    .appTypography(.captionSemibold)
                     .foregroundStyle(AppPalette.textSecondary.opacity(0.65))
             }
         }

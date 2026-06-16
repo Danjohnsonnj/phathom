@@ -145,9 +145,8 @@ struct AddNewTab: View {
                 .frame(width: Layout.iconWellSize, height: Layout.iconWellSize)
 
                 Text(captureMode.accentLabelUppercase)
-                    .font(.caption.weight(.semibold))
+                    .appTypography(.addNewAccentLabel)
                     .foregroundStyle(AppPalette.accent)
-                    .tracking(0.6)
             }
 
             Group {
@@ -172,7 +171,7 @@ struct AddNewTab: View {
 
     private var urlInsetWell: some View {
         TextField("https://...", text: $urlString)
-            .font(.body)
+            .appTypography(.body)
             .foregroundStyle(AppPalette.textPrimary)
             .textContentType(.URL)
             .phathomURLKeyboard()
@@ -187,7 +186,7 @@ struct AddNewTab: View {
     private var optionalTitleUnderline: some View {
         VStack(alignment: .leading, spacing: 6) {
             TextField("Custom title (optional)", text: $title)
-                .font(.body)
+                .appTypography(.body)
                 .foregroundStyle(AppPalette.textPrimary)
                 .textFieldStyle(.plain)
             Divider()
@@ -197,6 +196,7 @@ struct AddNewTab: View {
 
     private var noteEditorInsetWell: some View {
         TextEditor(text: $noteMarkdown)
+            .appTypography(.body)
             .frame(minHeight: Layout.noteEditorMinHeight)
             .scrollContentBackground(.hidden)
             .foregroundStyle(AppPalette.textPrimary)
@@ -268,6 +268,7 @@ struct AddNewTab: View {
         HStack {
             Label {
                 Text(pickedImagePreview == nil ? "Choose photo" : "Replace photo")
+                    .appTypography(.body)
                     .foregroundStyle(
                         pickedImagePreview == nil
                             ? AppPalette.textSecondary.opacity(0.38)
@@ -331,10 +332,10 @@ struct AddNewTab: View {
         Button(action: saveItem) {
             HStack(spacing: 8) {
                 Text("Save to Library")
-                    .font(.system(size: 17, weight: .semibold))
+                    .appTypography(.bodySemibold)
                     .phathomCapsuleCTALabel()
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: AppSpacing.capsuleCTAHeight)
@@ -356,9 +357,9 @@ struct AddNewTab: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: mode.segmentedIcon)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.system(size: 15, weight: .medium))
                         Text(mode.title)
-                            .font(.subheadline.weight(.medium))
+                            .appTypography(.subsectionHeader)
                             .phathomToolbarTextLabel()
                     }
                     .frame(maxWidth: .infinity)
