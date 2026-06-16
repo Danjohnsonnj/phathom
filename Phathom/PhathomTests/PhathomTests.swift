@@ -367,6 +367,49 @@ struct PhathomTests {
         )
     }
 
+    @Test func libraryFilterCodec_categoryCapsuleLabelParts() {
+        let sorted = ["home", "travel", "work"]
+        let screenshotSorted = ["jersey-city", "tech", "xylophonicalised"]
+
+        func expectParts(
+            raw: String,
+            sortedCategoryNames: [String],
+            lead: String,
+            plusN: Int?
+        ) {
+            let parts = LibraryFilterCodec.categoryCapsuleLabelParts(
+                raw: raw,
+                sortedCategoryNames: sortedCategoryNames
+            )
+            #expect(parts.lead == lead)
+            #expect(parts.plusN == plusN)
+            let composed = parts.plusN.map { "\(parts.lead) +\($0)" } ?? parts.lead
+            #expect(LibraryFilterCodec.categoryCapsuleLabel(raw: raw, sortedCategoryNames: sortedCategoryNames) == composed)
+        }
+
+        expectParts(raw: "", sortedCategoryNames: sorted, lead: "All", plusN: nil)
+        expectParts(raw: "work", sortedCategoryNames: sorted, lead: "Work", plusN: nil)
+        expectParts(
+            raw: "\(LibraryCategoryFilterStorage.uncategorizedRaw),work",
+            sortedCategoryNames: sorted,
+            lead: "Work",
+            plusN: 1
+        )
+        expectParts(
+            raw: "\(LibraryCategoryFilterStorage.uncategorizedRaw),work,travel",
+            sortedCategoryNames: sorted,
+            lead: "Work",
+            plusN: 2
+        )
+        expectParts(raw: "home,work", sortedCategoryNames: sorted, lead: "Home", plusN: 1)
+        expectParts(
+            raw: "\(LibraryCategoryFilterStorage.uncategorizedRaw),xylophonicalised",
+            sortedCategoryNames: screenshotSorted,
+            lead: "Uncategorized",
+            plusN: 1
+        )
+    }
+
     @Test func libraryFilterCodec_categorySanitizeAndToggle() {
         let valid = ["work", "travel"]
         #expect(LibraryFilterCodec.sanitizeCategoryRaw("work,deleted", validNames: valid) == "work")

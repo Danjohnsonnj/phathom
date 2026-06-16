@@ -138,7 +138,7 @@ All tappable full-width actions use **`Capsule()`** geometry unless listed as an
 
 - **Toolbar / chrome text** — `Text(...).fixedSize(horizontal: true, vertical: false)` via **`phathomToolbarTextLabel()`** in [`PhathomButtonLabelModifiers.swift`](../../Phathom/Phathom/Helpers/PhathomButtonLabelModifiers.swift) (`FlatToolbarTextButton`, Library Select/Cancel, search overlay Cancel, etc.).
 - **Full-width capsule CTAs** — allow multi-line wrap; forbid `.truncationMode(.tail)` on label `Text` — **`phathomCapsuleCTALabel()`** (`HairlineCapsuleButton`, filled secondary capsules).
-- **Filter value capsules** — **Category** multi-select: shortest display name + **`+N`** (e.g. **`Work +1`** when Uncategorized + Work selected). **Category** capsule only: may tail-truncate (`.lineLimit(1)` + `.truncationMode(.tail)`); full selection in filter **`accessibilityValue`**. **Type** / **Status** capsules: no truncation — keep **`phathomToolbarTextLabel()`**.
+- **Filter value capsules** — **Category** multi-select: shortest display name + **`+N`** (e.g. **`Work +1`** when Uncategorized + Work selected). **Category** capsule only: **lead** may tail-truncate (`.lineLimit(1)` + `.truncationMode(.tail)`); **`+N` suffix is layout-pinned** (never ellipsized). Full selection in filter **`accessibilityValue`**. **Type** / **Status** capsules: no truncation — keep **`phathomToolbarTextLabel()`**.
 
 ---
 
@@ -303,7 +303,7 @@ Non-editable content + one utility action. Reference: Settings **`importErrorDet
 | Use **`Capsule()`** for button shapes per §5.1 | Overlay hairline strokes on system `Picker.segmented` / `UISegmentedControl` |
 | Apply **`.sharedBackgroundVisibility(.hidden)`** on every custom **`NavigationStack` `.toolbar`** text/icon item (`FlatToolbarTextItem`) | Raw `ToolbarItem { Button("Cancel") }` without hidden shared background on iOS 26 |
 | Keep **`NavigationInteractivePopEnabler`** on **`DetailPushNavBar`** (or re-enable pop when hiding system back on new push screens) | `.navigationBarBackButtonHidden(true)` without restoring interactive pop |
-| Size toolbar / CTA labels so the full string is visible (`phathomToolbarTextLabel` / `phathomCapsuleCTALabel`) | `.truncationMode(.tail)` or single-line truncation on button labels — **exception:** Category filter value capsule only (§5.1) |
+| Size toolbar / CTA labels so the full string is visible (`phathomToolbarTextLabel` / `phathomCapsuleCTALabel`) | `.truncationMode(.tail)` or single-line truncation on button labels — **exception:** Category filter lead only; **`+N` pinned** (§5.1) |
 
 ---
 

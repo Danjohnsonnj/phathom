@@ -1,6 +1,12 @@
 import Foundation
 import PhathomCore
 
+/// Category filter capsule display parts — lead may truncate in UI; ``plusN`` is layout-pinned.
+struct CategoryCapsuleLabelParts: Equatable, Sendable {
+    let lead: String
+    let plusN: Int?
+}
+
 /// Encode/decode Library + Notebook multiselect filter state stored in `@AppStorage`.
 ///
 /// Sentinel `""` = pass-through (all values in dimension). Partial = comma-separated raw tokens.
@@ -145,20 +151,29 @@ enum LibraryFilterCodec {
         return plusNLabel(first: ordered.first.map { ReadStatusPresentation.label(for: $0) }, count: ordered.count)
     }
 
-    static func categoryCapsuleLabel(raw: String, sortedCategoryNames: [String]) -> String {
+    static func categoryCapsuleLabelParts(raw: String, sortedCategoryNames: [String]) -> CategoryCapsuleLabelParts {
         let universe = categoryUniverse(categoryNames: sortedCategoryNames)
         let selection = resolvedCategorySelection(raw: raw, universe: universe)
-        if selection == universe { return "All" }
+        if selection == universe { return CategoryCapsuleLabelParts(lead: "All", plusN: nil) }
         let order = categoryDisplayOrder(sortedCategoryNames: sortedCategoryNames)
         let ordered = order.filter { selection.contains($0) }
         if ordered.count > 1 {
-            let lead = categoryShortestDisplayLabelToken(in: ordered)
-            return plusNLabel(first: lead.map(categoryTokenLabel), count: ordered.count)
+            let leadToken = categoryShortestDisplayLabelToken(in: ordered)
+            return CategoryCapsuleLabelParts(
+                lead: leadToken.map(categoryTokenLabel) ?? "All",
+                plusN: ordered.count - 1
+            )
         } else if let first = ordered.first {
-            return categoryTokenLabel(first)
+            return CategoryCapsuleLabelParts(lead: categoryTokenLabel(first), plusN: nil)
         } else {
-            return "All"
+            return CategoryCapsuleLabelParts(lead: "All", plusN: nil)
         }
+    }
+
+    static func categoryCapsuleLabel(raw: String, sortedCategoryNames: [String]) -> String {
+        let parts = categoryCapsuleLabelParts(raw: raw, sortedCategoryNames: sortedCategoryNames)
+        guard let plusN = parts.plusN else { return parts.lead }
+        return "\(parts.lead) +\(plusN)"
     }
 
     static func kindAccessibilityValue(raw: String) -> String {

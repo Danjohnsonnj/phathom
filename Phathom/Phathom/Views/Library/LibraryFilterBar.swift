@@ -94,7 +94,11 @@ struct LibraryFilterBar: View {
             showStatusPicker = false
             showCategoryPicker = true
         } label: {
-            FilterValueCapsule(value: categoryLabel, allowsTailTruncation: true)
+            FilterValueCapsule(
+                value: categoryLabelParts.lead,
+                pinnedPlusN: categoryLabelParts.plusN,
+                allowsTailTruncation: true
+            )
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
@@ -228,8 +232,11 @@ struct LibraryFilterBar: View {
         LibraryFilterCodec.statusCapsuleLabel(raw: filterStatusRaw)
     }
 
-    private var categoryLabel: String {
-        LibraryFilterCodec.categoryCapsuleLabel(raw: filterCategoryRaw, sortedCategoryNames: sortedCategoryNamesAlphabetically)
+    private var categoryLabelParts: CategoryCapsuleLabelParts {
+        LibraryFilterCodec.categoryCapsuleLabelParts(
+            raw: filterCategoryRaw,
+            sortedCategoryNames: sortedCategoryNamesAlphabetically
+        )
     }
 
     private var kindAccessibilityValue: String {
@@ -256,6 +263,7 @@ struct LibraryFilterBar: View {
 /// Capsule containing only the displayed value + chevron (labels live above in ``LibraryFilterBar``).
 private struct FilterValueCapsule: View {
     let value: String
+    var pinnedPlusN: Int? = nil
     var allowsTailTruncation: Bool = false
 
     var body: some View {
@@ -265,7 +273,7 @@ private struct FilterValueCapsule: View {
             Image(systemName: "chevron.down")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(AppPalette.textSecondary)
-                .layoutPriority(1)
+                .layoutPriority(2)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -276,16 +284,34 @@ private struct FilterValueCapsule: View {
 
     @ViewBuilder
     private var valueLabel: some View {
-        let text = Text(value)
-            .appTypography(.disclosureLabel)
-            .foregroundStyle(AppPalette.textPrimary)
-        if allowsTailTruncation {
-            text
-                .lineLimit(1)
-                .truncationMode(.tail)
+        if allowsTailTruncation, let plusN = pinnedPlusN {
+            HStack(spacing: 0) {
+                Text(value)
+                    .appTypography(.disclosureLabel)
+                    .foregroundStyle(AppPalette.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text(" +\(plusN)")
+                    .appTypography(.disclosureLabel)
+                    .foregroundStyle(AppPalette.textPrimary)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            text
-                .phathomToolbarTextLabel()
+            let text = Text(value)
+                .appTypography(.disclosureLabel)
+                .foregroundStyle(AppPalette.textPrimary)
+            if allowsTailTruncation {
+                text
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } else {
+                text
+                    .phathomToolbarTextLabel()
+            }
         }
     }
 }
