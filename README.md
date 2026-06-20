@@ -6,7 +6,7 @@
 
 **Phathom** is a **local-first iOS “personal brain”**: capture links, notes, and media into your own library, run **on-device** analysis with **Llama.cpp**, and manage a capped **Focus Stack** for what you’re committed to read now—without sending your content to the cloud.
 
-**For agents:** start at **[`AGENTS.md`](AGENTS.md)** (build, verify, invariants). Domain glossary: **[`CONTEXT.md`](CONTEXT.md)**.
+**For agents:** start at **[`AGENTS.md`](AGENTS.md)** → **[`docs/agents/product-state.md`](docs/agents/product-state.md)** (what shipped now). Domain glossary: **[`CONTEXT.md`](CONTEXT.md)**.
 
 ## Tab bar
 
@@ -28,8 +28,8 @@
 
 | Track | Doc | Status |
 | ----- | --- | ------ |
-| **Focus Stack v1** | [`docs/handoff/focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md) · [brief](docs/handoff/focus-stack.md) | **Shipped** (Phases A + B) — Focus tab, outcomes, cap/swap, stale treatment, revisit clock, weekly prompt |
-| **Focus — follow-ups** | [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md) | **A+** Library long-press add/remove (post Detail QA) · **Phase C** Connect / Thread (v2) |
+| **Focus Stack v1** | [`docs/handoff/index.md`](docs/handoff/index.md) · [brief](docs/handoff/focus-stack.md) | **Shipped** (Phases A + B + **A+**) — Focus tab, outcomes, cap/swap, stale treatment, revisit clock, weekly prompt, Library long-press |
+| **Focus — follow-ups** | [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md) (opt-in) | **Phase C** Connect / Thread (v2) — not started |
 | **RAG / Chat** | [`docs/handoff/phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) | **Deferred** — standalone Chat tab removed; no open RAG until explicitly re-scoped (likely thread-scoped assist, not a tab) |
 
 **History:** Product priority shifted from a **Chat / RAG** tab to **Focus Stack** (2026-06). `ChatThread` / `ChatMessage` models remain in schema for a possible future assist path; there is no Chat surface in the app today.

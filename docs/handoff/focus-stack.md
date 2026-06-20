@@ -2,7 +2,7 @@
 
 > **Status:** **v1 shipped** (Implementation Phases A + B). See **[`focus-stack-delivery.md`](focus-stack-delivery.md)** for session log, slice tracker, and follow-ups (**A+**, **Phase C**).
 
-> **Agents:** On cold start, read **`focus-stack-delivery.md` first**, then this file. On wrap-up, run the [closeout checklist](focus-stack-delivery.md#end-of-session-closeout-mandatory).
+> **Agents:** **Opt-in** — see [`product-state.md`](../agents/product-state.md) for shipped state. For Focus follow-ups or delivery wrap-up, use [`focus-stack-delivery.md`](focus-stack-delivery.md) session log.
 
 > **Supersedes (for priority):** Standalone **Chat tab / Phase 3 RAG** as the next major product bet. Chat/RAG may return later as **thread-scoped assist** on Focus outcomes — see [Relationship to Phase 3 Chat](#relationship-to-phase-3-chat-rag).
 
@@ -56,7 +56,7 @@ Phathom excels at **capture**, **organize**, and **annotate**. It does not yet h
 - Replacing Categories or Tags
 - Spaced-repetition flashcard system (possible v2 extension)
 - Implementing **Connect / Thread** entity (v2)
-- **Chat tab / standalone RAG** (frozen until Focus Phase A ships; may never return as a tab — see below)
+- **Chat tab / standalone RAG** — **deferred** (Focus v1 shipped); may never return as a tab — see [Relationship to Phase 3 Chat](#relationship-to-phase-3-chat-rag)
 
 ---
 
@@ -426,7 +426,7 @@ Thread (v2 — Connect)
 | Open-ended RAG Q&A | **Thread-scoped assist** on bounded corpus |
 | Conversation starters | Closure prompts across thread members |
 
-**Do not implement** Chat/RAG until **Focus Phase A (MVP)** ships. **Focus tab replaces Chat** in tab row. Existing `ChatThread` / `ChatMessage` schema may remain; standalone Chat tab **may never return** — thread-scoped assist is the likely evolution if Chat ships at all.
+**Do not implement** open Chat/RAG unless explicitly directed. **Focus tab replaced Chat** in tab row. Existing `ChatThread` / `ChatMessage` schema may remain; standalone Chat tab **may never return** — thread-scoped assist is the likely evolution if Chat ships at all.
 
 See [`phase-3-rag-chat.md`](phase-3-rag-chat.md) status banner.
 
@@ -510,7 +510,7 @@ On-device / qualitative — no analytics SDK.
 | 7 | **Revisit notification** | **In-app only** — Library trailing clock icon when due. No local or push notification v1. |
 | 8 | **Reference + Category** | Category filing sheet **only when item is uncategorized**. Already categorized → remove from Focus, no sheet. |
 | 9 | **Stale threshold + row tint** | **Stale** = **7+ days** without engagement **while in current Focus membership** — from **`FocusEntry.lastTouchedAt`** (Detail open or new highlight **since add** only). **Days-in-focus** is display-only. On add: **`lastTouchedAt = addedAt`**. **Leave Focus** (Release, swap-out, outcome, remove) deletes `FocusEntry`; **re-add** = new membership, clock resets. **Progressive tint** (Phase B Focus tab): `staleIntensity = min((daysUntouched − 6) / 7, 1)` on leading bar + row wash when `daysUntouched ≥ 7`; meta **Untouched N days**. Nudge: Keep / Complete / Remove. Implement: [Stale treatment §](#stale-treatment-phase-b) · mock [`focus-stack-ad-tab-a.html`](../archive/design-mocks/focus-stack-ad-tab-a.html). |
-| 10 | **Chat / RAG freeze** | **No Chat/RAG implementation until Focus Phase A (MVP) ships.** Chat tab replaced by Focus; thread assist may return later — **open possibility: Chat never ships** as standalone tab. |
+| 10 | **Chat / RAG freeze** | ~~**No Chat/RAG until Focus Phase A ships.**~~ **Superseded 2026-06-09** — Focus v1 shipped; RAG **deferred**; Chat tab replaced by Focus; thread assist may return later. |
 
 ---
 
@@ -531,8 +531,8 @@ All Phase 1 questions resolved **2026-06-09**. Canonical v1 spec: sections above
 | 1 | Grill-me | **Done** |
 | 2 | Doc consolidation from grill | **Done** |
 | 3 | Design probe (verification) | **Done** |
-| 4 | Technical planning | Pending |
-| 5–7 | Implementation A / B / C | Pending |
+| 4 | Technical planning | **Done** |
+| 5–7 | Implementation A / B / C | **A + B + A+ Done** · **C Pending** |
 
 ---
 

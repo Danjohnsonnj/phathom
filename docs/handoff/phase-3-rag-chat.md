@@ -120,7 +120,9 @@ Reuse **`LlamaContentAnalyzer`** / **`LlamaCppRuntime`** for chat generation; ad
 
 ## Scope and Deliverables
 
-Phase 3 replaces the Chat tab placeholder with a complete RAG-powered conversational interface. Users select tags to define a context scope, then ask questions that are answered using only their saved content.
+~~Phase 3 replaces the Chat tab placeholder with a complete RAG-powered conversational interface.~~ **Historical skeleton** — Focus tab shipped; Chat tab **removed**. Do not implement from this section unless RAG is explicitly re-scoped.
+
+Phase 3 originally targeted a RAG-powered conversational interface. Users select tags to define a context scope, then ask questions that are answered using only their saved content.
 
 ### Files to Create / Modify
 
@@ -130,7 +132,7 @@ Expected new files:
 ```
 Phathom/Phathom/
 ├── Views/Chat/
-│   ├── ChatTab.swift              # Replace placeholder — thread list
+│   ├── ChatTab.swift              # ~~Replace placeholder~~ **Historical** — tab removed; Focus shipped
 │   ├── NewChatSheet.swift         # Tag selection to create a scoped thread
 │   ├── ChatThreadView.swift       # Message list + input bar
 │   ├── ChatMessageBubble.swift    # Single message row

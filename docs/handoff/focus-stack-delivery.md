@@ -1,28 +1,26 @@
 # Focus Stack — Multi-Session Delivery Playbook
 
-> **Purpose:** Orchestrate discovery → design → delivery across **cold-start agent sessions** with repeatable handoffs. **Agents: read this file first** when resuming Focus Stack work.
+> **Purpose:** Orchestrate discovery → design → delivery across **cold-start agent sessions** with repeatable handoffs. **Opt-in only** — for Focus **follow-ups** (Phase C) or explicit resume; default cold-start: [`product-state.md`](../agents/product-state.md).
 >
 > **Product spec:** [`focus-stack.md`](focus-stack.md) · **Glossary:** [`CONTEXT.md`](../../CONTEXT.md) · **Invariants:** [`docs/decisions.md`](../decisions.md) (2026-06-08 row)
 
 ---
 
-## Cold-start read order (agents)
+## Focus follow-up read order (opt-in)
 
-Read **in order**; do not implement until **Current phase** and **Gate** allow it.
+When resuming **Phase C** or delivery wrap-up, read **in order**:
 
 | # | File | Why |
 |---|------|-----|
 | 1 | **This file** (`focus-stack-delivery.md`) | Phase status, session log, **next session prompt** |
-| 2 | [`focus-stack.md`](focus-stack.md) | Product brief, user stories, open questions |
-| 3 | [`CONTEXT.md`](../../CONTEXT.md) | Canonical terms only |
-| 4 | [`docs/decisions.md`](../decisions.md) | Locked invariants (2026-06-08 Focus row) |
-| 5 | [`AGENTS.md`](../../AGENTS.md) | Scope guardrails |
-| 6 | Design mocks (if Phase 3+) | `docs/archive/design-mocks/focus-stack-*.html` when they exist |
-| 7 | Swift sources | **Only** when implementing (Phase 5+) |
+| 2 | [`product-state.md`](../agents/product-state.md) | Shipped vs pending snapshot |
+| 3 | [`focus-stack.md`](focus-stack.md) | Product brief (depth) |
+| 4 | [`CONTEXT.md`](../../CONTEXT.md) · [`decisions.md`](../decisions.md) | Terms + invariants |
+| 5 | Swift sources | **Only** when implementing Phase C+ |
 
 **Skills by phase:** [`grill-me`](../../.cursor/skills/grill-me/SKILL.md) (Phase 1) · [`design-mock-probe`](../../.cursor/skills/design-mock-probe/SKILL.md) (Phase 3) · [`review-plan`](../../.cursor/skills/review-plan/SKILL.md) (after probes / before tech plan) · [`simulator-verify.mdc`](../../.cursor/rules/simulator-verify.mdc) (Phase 5+)
 
-**Hard rule:** Do **not** implement Swift, expand Chat/RAG, or lock canonical mocks until the phase gate for that work is **Done** (see [Delivery phases](#delivery-phases)).
+**Hard rule:** Do **not** implement Phase C / Chat/RAG until explicitly gated — see [`product-state.md`](../agents/product-state.md).
 
 ---
 
@@ -82,7 +80,7 @@ flowchart LR
 | 3 Design probe | **Done** | Canonical mocks approved Safari 2026-06-09; Detail Focus row + library icon chrome locked |
 | 4 Tech plan | **Done** | [`focus-stack-implementation.md`](focus-stack-implementation.md) approved + review edits |
 | 5 Impl A | **Done** | **A0–A10** shipped · manual QA signed off 2026-06-09 |
-| 6 Impl B | **Done** | **B1–B5** shipped · **Next:** Phase B manual QA (implementation.md §10) |
+| 6 Impl B | **Done** | **B1–B5** shipped · manual QA signed off |
 | 7 Impl C | Pending | Connect / Thread — v2 |
 
 ### Phase 5 slice tracker
@@ -127,7 +125,7 @@ flowchart LR
 | v1 surface | **Focus tab** replaces **Chat** in tab row; Library keeps Type · Status · Category only (no Focus segment/filter) |
 | v1 outcomes | Reference · Takeaway · Revisit · Release |
 | v2 | Connect + Thread |
-| Chat/RAG | **Frozen until Focus Phase A**; Chat tab → Focus tab; standalone Chat may **never** ship |
+| Chat/RAG | **Deferred** (Focus v1 shipped); Chat tab → Focus tab; standalone Chat may **never** ship |
 | Cap | **7** fixed; header count; force swap (Release-only) |
 | Takeaway | `FocusOutcome` log; pin → `Highlight.userNote` sync |
 | Revisit | Signal only; **trailing clock icon** (22pt secondary); no notification v1 |

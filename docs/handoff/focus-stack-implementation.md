@@ -1,6 +1,6 @@
 # Focus Stack — Technical Implementation Plan
 
-> **Status:** Phase 4 **approved** (forks locked **2026-06-09**; plan review edits applied). Ready for Swift **Phase 5** slice A0.  
+> **Status:** **Shipped reference** — Swift Phases A0–B5 + A+1 complete. Opt-in archaeology; cold-start [`product-state.md`](../agents/product-state.md).  
 > **Authority:** Locked UX in [`focus-stack.md`](focus-stack.md) · [`docs/decisions.md`](../decisions.md) **2026-06-09** rows · canonical mocks [`focus-stack-ad-*.html`](../archive/design-mocks/). **Code wins** on conflict once shipped.
 
 **Related:** [`focus-stack-delivery.md`](focus-stack-delivery.md) · [`docs/design-tokens.md`](../design-tokens.md) · [`CONTEXT.md`](../../CONTEXT.md)

@@ -60,15 +60,9 @@ Use these terms exactly in issue titles, PRDs, refactor proposals, and test name
 
 ## Inference & pipeline
 
-| Term | One-line definition | Anchor |
-|------|---------------------|--------|
-| **withSession** | Serialized GGUF access via **`SharedLlamaInference`** + **`AsyncLock`**; no parallel Llama calls. | [2026-05-02 serialized session](docs/decisions.md#decision-log) |
-| **BackgroundPipeline** | Orchestrates scrape → embed → analyze (summarize, tags, extracts) and media vision path. | [`BackgroundPipeline.swift`](Phathom/Phathom/Services/BackgroundPipeline.swift) |
-| **SharedLlamaInference** | Single shared Llama session; primary vs optional tagging GGUF bookmarks. | [2026-05-15 tagging GGUF](docs/decisions.md#decision-log) |
-| **KV cache reuse** | Article prefix decoded once; per-task seq fork via **`llama_memory_seq_cp`**. | [2026-05-03 KV reuse](docs/decisions.md#decision-log) |
-| **GGUF bookmark** | Security-scoped bookmark to user-selected model file (not copied into app sandbox). | [2026-05-02 bookmark](docs/decisions.md#decision-log) |
-| **PipelineUserPause** | Global user pause flag; gates **`schedule*`** and foreground/BG processing. | [2026-05-27 Library Pause](docs/decisions.md#decision-log) |
-| **VisionContentAnalyzer** | VLM path for media via llama.cpp **`libmtmd`** (text GGUF + mmproj). | [2026-05-24 media vision](docs/decisions.md#decision-log) |
+Concept stubs (**links only** — see [`docs/concepts/inference/index.md`](docs/concepts/inference/index.md)):
+
+- [**withSession**](docs/concepts/inference/with-session.md) · [**BackgroundPipeline**](docs/concepts/inference/background-pipeline.md) · [**SharedLlamaInference**](docs/concepts/inference/shared-llama-inference.md) · [**KV cache reuse**](docs/concepts/inference/kv-cache-reuse.md) · [**GGUF bookmark**](docs/concepts/inference/gguf-bookmark.md) · [**PipelineUserPause**](docs/concepts/inference/pipeline-user-pause.md) · [**VisionContentAnalyzer**](docs/concepts/inference/vision-content-analyzer.md)
 
 ---
 

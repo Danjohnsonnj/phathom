@@ -15,12 +15,14 @@ Read **minimal files per task:**
 | Priority | Source | Purpose |
 |:--------:|--------|---------|
 | 1 | **`Phathom/`** | Shipped behavior, schema, Swift paths |
-| 2 | **[`CONTEXT.md`](CONTEXT.md)** | Domain glossary (names); links to decisions |
-| 3 | **[`docs/decisions.md`](docs/decisions.md)** | Invariants and rationale |
-| 4 | **[`docs/design-tokens.md`](docs/design-tokens.md)** | Cross-surface spacing, palette, material, button matrix |
-| 5 | **Active hand-offs** | [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md) (**read first** on cold start) · [`focus-stack.md`](docs/handoff/focus-stack.md) (product brief) · [`phase-3-rag-chat.md`](docs/handoff/phase-3-rag-chat.md) (RAG — **deferred**) |
+| 2 | **[`docs/agents/product-state.md`](docs/agents/product-state.md)** | What shipped / deferred now (cold-start after this file) |
+| 3 | **[`CONTEXT.md`](CONTEXT.md)** | Domain glossary (names); links to decisions |
+| 4 | **[`docs/concepts/index.md`](docs/concepts/index.md)** | Term lookup; inference stubs (**links only**) |
+| 5 | **[`docs/decisions.md`](docs/decisions.md)** | Invariants and rationale |
+| 6 | **[`docs/design-tokens.md`](docs/design-tokens.md)** | Cross-surface spacing, palette, material, button matrix |
+| 7 | **Hand-offs (opt-in)** | [`docs/handoff/index.md`](docs/handoff/index.md) — not default cold-start |
 | — | **UI evolution reference (archived, opt-in)** | [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) (locked §3) · [`ui-evolution-implementation-plan.md`](docs/archive/ui-evolution-implementation-plan.md) · [`design-mocks/`](docs/archive/design-mocks/) — Phases **0–4b shipped**; invariants in [`decisions.md`](docs/decisions.md) UI rows |
-| 6 | **[`README.md`](README.md)** | Human orientation |
+| 8 | **[`README.md`](README.md)** | Human orientation |
 
 **Archive:** [`docs/archive/`](docs/archive/) — opt-in only; not for cold start.
 
@@ -28,9 +30,9 @@ Read **minimal files per task:**
 
 ## Hard invariants
 
-- **`SharedLlamaInference.withSession`** — serialized inference; **no parallel Llama calls**
+- **`SharedLlamaInference.withSession`** — serialized inference; **no parallel Llama calls** (detail: [`docs/concepts/inference/`](docs/concepts/inference/index.md))
 - **KV reuse** — maintain `llama_memory_seq_cp` summarize → tags → extracts path in pipeline refactors
-- **Scope** — **Focus Stack v1 shipped** (Phases A + B). Do **not** implement open **RAG / Chat tab** unless explicitly directed. Optional follow-ups: **A+** (Library long-press), **Phase C** (Connect / Thread) — gates in [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md); **wrap-up** = update delivery doc + next-session prompt
+- **Scope** — **Focus Stack v1 shipped** (Phases A + B + **A+**). Do **not** implement open **RAG / Chat tab** unless explicitly directed. Optional follow-up: **Phase C** (Connect / Thread) — gates in [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md); **wrap-up** = update [`product-state.md`](docs/agents/product-state.md) + delivery log
 - **Response style** — see [`.cursor/rules/caveman.mdc`](.cursor/rules/caveman.mdc) (always applied)
 
 ## Agent skills
@@ -84,3 +86,4 @@ After touching [`MediaPhotoViewer.swift`](Phathom/Phathom/Views/Detail/MediaPhot
 | Cold start, file paths, verify ladder | [`docs/agents/onboarding.md`](docs/agents/onboarding.md) |
 | Verify policy (canonical) | [`.cursor/rules/simulator-verify.mdc`](.cursor/rules/simulator-verify.mdc) |
 | Doc migration assessment | [`docs/agents/assessment-doc-migration.md`](docs/agents/assessment-doc-migration.md) |
+| OKF-lite conventions | [`docs/agents/doc-structure.md`](docs/agents/doc-structure.md) |

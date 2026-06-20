@@ -9,7 +9,7 @@ Recall at session start for the task domain; save after architectural decisions,
 ## Obligations
 
 1. **Session start:** Check whether **agentmemory** MCP is installed and responding. **Probe:** server **`user-agentmemory`**, tool **`memory_recall`** — read the tool schema under `mcps/user-agentmemory/tools/` (or list tools) before calling; do **not** guess names like `search_memories`. A **tool-not-found** error means the wrong tool name, **not** that the server is unavailable. Lightweight probe: `memory_recall` with a short query (e.g. task domain), `limit: 1`, `format: compact`. If **available** → recall for the task domain before broad file reads; announce per host rules if required. If **unavailable** → notify the user once (see below); **do not treat as failure** — continue with repo docs and code.
-2. **Authority:** Memory is a gist — never overrides decisions or Swift sources. Read full `docs/decisions.md` for cross-cutting inference/schema/backup edge cases.
+2. **Authority:** Memory is a gist — never overrides decisions or Swift sources. Read full `docs/decisions.md` for cross-cutting inference/schema/backup edge cases. **Recall-then-read (pipeline / inference):** when MCP available → `memory_recall(inference)` → [`docs/concepts/inference/index.md`](../concepts/inference/index.md) → Swift. Pitfalls stay in memory, not concept stubs.
 3. **Save after:** final architectural choices, perf root-causes, must-not constraints — **only when MCP is available**.
 4. **Format:** bullets tagged with concepts (`pipeline`, `KV-cache`, `decisions`); not pasted doc paragraphs.
 
@@ -17,7 +17,7 @@ Recall at session start for the task domain; save after architectural decisions,
 
 ## When MCP is unavailable
 
-Phathom does **not** require agentmemory. Agents should still cold-start from **`AGENTS.md`**, **`CONTEXT.md`**, **`docs/decisions.md`**, and Swift sources.
+Phathom does **not** require agentmemory. Agents should still cold-start from **`AGENTS.md`**, **[`product-state.md`](product-state.md)**, **`CONTEXT.md`**, **`docs/decisions.md`**, and Swift sources.
 
 **Once per session**, if MCP is missing, disabled, or unresponsive, tell the user plainly (adapt wording; keep it short):
 
@@ -31,7 +31,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 
 | Domain | Recall concepts | Code/doc anchors |
 |--------|-----------------|------------------|
-| Pipeline & inference | `pipeline`, `withSession`, `KV-cache` | `BackgroundPipeline.swift`, `SharedLlamaInference.swift`, `ModelManager.swift` |
+| Pipeline & inference | `pipeline`, `withSession`, `KV-cache` | [`docs/concepts/inference/index.md`](../concepts/inference/index.md) first → `BackgroundPipeline.swift`, `SharedLlamaInference.swift`, `ModelManager.swift` |
 | llama.cpp backend | `llama.cpp`, `xcframework`, `LlamaCppRuntime`, `Metal` | `Inference/LlamaCppRuntime.swift`, `vendor/llama/llama.xcframework` |
 | Decisions gist | `decisions`, `decisions.md`, `gist` | `docs/decisions.md` |
 | Performance | `performance`, `thermal`, `PipelineMetrics` | README Llama perf, `[PhathomPipeline]` logs |
@@ -63,7 +63,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 
 **Cold start (implementation)**
 
-> Resume Phathom. Recall pipeline, decisions, and performance memories. Task: [one sentence]. Read **Swift + `docs/decisions.md` first**; hand-offs second; archive only if required.
+> Resume Phathom. Read [`product-state.md`](product-state.md) + recall pipeline/decisions memories. Task: [one sentence]. **Swift + `docs/decisions.md` first**; hand-offs opt-in via [`handoff/index.md`](../handoff/index.md); archive only if required.
 
 **Planning**
 
@@ -71,7 +71,7 @@ Phathom does **not** require agentmemory. Agents should still cold-start from **
 
 **Perf / inference debug**
 
-> Recall pipeline + llama.cpp + performance memories. Symptom: [e.g. analyze slow on device]. Use `[PhathomPipeline]` logs. Propose checks in order; save root cause to agentmemory when fixed.
+> Recall pipeline + llama.cpp + performance memories. Start [`docs/concepts/inference/index.md`](../concepts/inference/index.md). Symptom: [e.g. analyze slow on device]. Use `[PhathomPipeline]` logs. Propose checks in order; save root cause to agentmemory when fixed.
 
 **llama.cpp / xcframework**
 
