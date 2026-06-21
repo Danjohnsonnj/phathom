@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Phathom Notebook — Hairline feed + filters A</title>
+  <title>Phathom Notebook — Hairline feed + collapsible groups A</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
@@ -287,12 +287,20 @@
       padding-bottom: 8px;
     }
 
-    /* Gallery-adjacent group header — no chevron, no count */
+    /* Gallery group header — thumb + title row + expand chevron (44×44) */
     .group-header {
       display: flex;
       align-items: flex-start;
-      gap: 14px;
+      gap: 0;
       padding: 16px 0 14px;
+    }
+
+    .group-header-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
     }
 
     .group-header .thumb {
@@ -331,7 +339,17 @@
       padding-top: 2px;
     }
 
+    .group-title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 5px;
+      min-width: 0;
+    }
+
     .group-title {
+      flex: 1;
+      min-width: 0;
       font-size: 16px;
       font-weight: 500;
       line-height: 1.35;
@@ -341,7 +359,43 @@
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      margin-bottom: 5px;
+    }
+
+    .highlight-count-badge {
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      background: var(--chip-bg);
+      padding: 4px 8px;
+      border-radius: 999px;
+      line-height: 1.15;
+    }
+
+    .group-expand-chevron {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      margin-top: -2px;
+    }
+
+    .group-expand-chevron svg {
+      width: 11px;
+      height: 11px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .group-expand-chevron--expanded svg {
+      transform: rotate(180deg);
     }
 
     .group-source {
@@ -553,14 +607,14 @@
   </style>
 </head>
 <body>
-  <p class="page-label">Phathom Notebook — Hairline feed + filters A</p>
+  <p class="page-label">Phathom Notebook — Hairline feed + collapsible groups A</p>
 
   <p class="mock-legend">
     <strong>Empty</strong> — editorial <strong>Notebook</strong> title + shared <strong>LibraryFilterBar</strong> (Type / Status / Category at All) + “No highlights yet” copy; no card or hairline box.
-    <strong>Populated</strong> — same chrome + three item groups (gallery header → highlight stack); hairlines only <strong>between</strong> groups.
-    <strong>Filter empty</strong> — filters active (e.g. Status <strong>Filed</strong>) with no matching highlight groups; filter-specific empty copy (not “No highlights yet”).
-    Filters mirror Library §3.3 layout (27.5 / 27.5 / 45, 72pt bar); <strong>shared state</strong> with Library at implementation. <strong>No</strong> Notebook search or Settings.
-    Highlights: Detail A row material (4px paprika bar, italic quote, optional Note). Within item: 14px gap only. Tab bar: <strong>Notebook</strong> selected.
+    <strong>Collapsed</strong> — default at rest: gallery headers only (64×64 thumb, title, source line, highlight-count pill, trailing chevron); highlights hidden.
+    <strong>Expanded</strong> — first group expanded (chevron rotated 180°, highlight stack visible); other groups stay collapsed; list pushes down in unified scroll.
+    <strong>Filter empty</strong> — filters active (e.g. Status <strong>Filed</strong>) with no matching highlight groups; filter-specific empty copy.
+    Header tap → Detail; chevron tap → expand/collapse (separate 44×44 target). Count pill uses meta chip fill (#401F12). Filters mirror Library §3.3; <strong>shared state</strong> with Library. Tab bar: <strong>Notebook</strong> selected.
   </p>
 
   <div class="frames-row">
@@ -669,9 +723,9 @@
       </div>
     </div>
 
-    <!-- Populated -->
+    <!-- Collapsed (default) -->
     <div class="frame-unit">
-      <p class="frame-caption">Populated</p>
+      <p class="frame-caption">Collapsed</p>
       <div class="phone-shell">
         <div class="phone">
           <header class="status-bar" aria-hidden="true">
@@ -726,15 +780,188 @@
             </section>
 
             <div class="notebook-feed">
-              <!-- Group 1: web article, 2 highlights -->
+              <!-- Group 1: web article, 2 highlights — collapsed -->
               <section class="item-group">
                 <header class="group-header">
-                  <div class="thumb" aria-hidden="true">
-                    <div class="thumb-gradient"></div>
+                  <div class="group-header-main">
+                    <div class="thumb" aria-hidden="true">
+                      <div class="thumb-gradient"></div>
+                    </div>
+                    <div class="group-header-body">
+                      <div class="group-title-row">
+                        <h2 class="group-title">Apple's new AI features won't be coming to the EU this year</h2>
+                        <span class="highlight-count-badge">2</span>
+                      </div>
+                      <p class="group-source">www.theverge.com</p>
+                    </div>
                   </div>
-                  <div class="group-header-body">
-                    <h2 class="group-title">Apple's new AI features won't be coming to the EU this year</h2>
-                    <p class="group-source">www.theverge.com</p>
+                  <div class="group-expand-chevron" aria-hidden="true">
+                    <svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+                  </div>
+                </header>
+              </section>
+
+              <!-- Group 2: note, 1 highlight — collapsed -->
+              <section class="item-group">
+                <header class="group-header">
+                  <div class="group-header-main">
+                    <div class="thumb" aria-hidden="true">
+                      <div class="thumb-fallback">NT</div>
+                    </div>
+                    <div class="group-header-body">
+                      <div class="group-title-row">
+                        <h2 class="group-title">Research sprint ideas</h2>
+                        <span class="highlight-count-badge">1</span>
+                      </div>
+                      <p class="group-source">Note</p>
+                    </div>
+                  </div>
+                  <div class="group-expand-chevron" aria-hidden="true">
+                    <svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+                  </div>
+                </header>
+              </section>
+
+              <!-- Group 3: web, 1 highlight — collapsed -->
+              <section class="item-group">
+                <header class="group-header">
+                  <div class="group-header-main">
+                    <div class="thumb" aria-hidden="true">
+                      <div class="thumb-gradient"></div>
+                    </div>
+                    <div class="group-header-body">
+                      <div class="group-title-row">
+                        <h2 class="group-title">The case for local-first software</h2>
+                        <span class="highlight-count-badge">1</span>
+                      </div>
+                      <p class="group-source">localfirst.fm</p>
+                    </div>
+                  </div>
+                  <div class="group-expand-chevron" aria-hidden="true">
+                    <svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+                  </div>
+                </header>
+              </section>
+            </div>
+          </div>
+
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/>
+                    <path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/>
+                    <circle cx="14.8" cy="13.2" r="1.1"/>
+                    <path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/>
+                  </svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item tab-item--active">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/>
+                    <path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/>
+                    <rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/>
+                  </svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/>
+                    <path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/>
+                  </svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/>
+                  </svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expanded -->
+    <div class="frame-unit">
+      <p class="frame-caption">Expanded</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/>
+                <rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/>
+                <rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/>
+              </svg>
+              <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+                <path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/>
+                <path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/>
+                <circle cx="8" cy="10.5" r="1.5" fill="currentColor"/>
+              </svg>
+              <svg width="27" height="13" viewBox="0 0 27 13" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/>
+                <rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/>
+                <rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+              </svg>
+            </div>
+          </header>
+
+          <div class="screen-scroll">
+            <section class="editorial">
+              <h1 class="screen-title">Notebook</h1>
+
+              <div class="filter-bar" role="group" aria-label="Filters">
+                <div class="filter-column">
+                  <span class="filter-label">Type</span>
+                  <button type="button" class="filter-capsule" aria-label="Filter by type" aria-haspopup="listbox">
+                    <span class="filter-capsule-value">All</span>
+                    <svg class="filter-capsule-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+                  </button>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Status</span>
+                  <button type="button" class="filter-capsule" aria-label="Filter by status" aria-haspopup="listbox">
+                    <span class="filter-capsule-value">All</span>
+                    <svg class="filter-capsule-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+                  </button>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Category</span>
+                  <button type="button" class="filter-capsule" aria-label="Filter by category" aria-haspopup="listbox">
+                    <span class="filter-capsule-value">All</span>
+                    <svg class="filter-capsule-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div class="notebook-feed">
+              <!-- Group 1: expanded -->
+              <section class="item-group">
+                <header class="group-header">
+                  <div class="group-header-main">
+                    <div class="thumb" aria-hidden="true">
+                      <div class="thumb-gradient"></div>
+                    </div>
+                    <div class="group-header-body">
+                      <div class="group-title-row">
+                        <h2 class="group-title">Apple's new AI features won't be coming to the EU this year</h2>
+                        <span class="highlight-count-badge">2</span>
+                      </div>
+                      <p class="group-source">www.theverge.com</p>
+                    </div>
+                  </div>
+                  <div class="group-expand-chevron group-expand-chevron--expanded" aria-hidden="true">
+                    <svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
                   </div>
                 </header>
                 <div class="highlight-stack">
@@ -751,42 +978,46 @@
                 </div>
               </section>
 
-              <!-- Group 2: note, 1 highlight -->
+              <!-- Group 2: collapsed -->
               <section class="item-group">
                 <header class="group-header">
-                  <div class="thumb" aria-hidden="true">
-                    <div class="thumb-fallback">NT</div>
+                  <div class="group-header-main">
+                    <div class="thumb" aria-hidden="true">
+                      <div class="thumb-fallback">NT</div>
+                    </div>
+                    <div class="group-header-body">
+                      <div class="group-title-row">
+                        <h2 class="group-title">Research sprint ideas</h2>
+                        <span class="highlight-count-badge">1</span>
+                      </div>
+                      <p class="group-source">Note</p>
+                    </div>
                   </div>
-                  <div class="group-header-body">
-                    <h2 class="group-title">Research sprint ideas</h2>
-                    <p class="group-source">Note</p>
+                  <div class="group-expand-chevron" aria-hidden="true">
+                    <svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
                   </div>
                 </header>
-                <div class="highlight-stack">
-                  <article class="highlight-item highlight-item--feed">
-                    <p class="highlight-quote highlight-quote--clamp">“Batch local inference benchmarks on M-series chips — compare llama.cpp vs MLX for embedding + summarize pipeline latency on a 50-article library.”</p>
-                    <p class="highlight-note-label">Note</p>
-                    <p class="highlight-note highlight-note--clamp">Run after Notebook feed refactor lands; capture p50/p95 for scrape → embed → analyze.</p>
-                  </article>
-                </div>
               </section>
 
-              <!-- Group 3: web, quote only -->
+              <!-- Group 3: collapsed -->
               <section class="item-group">
                 <header class="group-header">
-                  <div class="thumb" aria-hidden="true">
-                    <div class="thumb-gradient"></div>
+                  <div class="group-header-main">
+                    <div class="thumb" aria-hidden="true">
+                      <div class="thumb-gradient"></div>
+                    </div>
+                    <div class="group-header-body">
+                      <div class="group-title-row">
+                        <h2 class="group-title">The case for local-first software</h2>
+                        <span class="highlight-count-badge">1</span>
+                      </div>
+                      <p class="group-source">localfirst.fm</p>
+                    </div>
                   </div>
-                  <div class="group-header-body">
-                    <h2 class="group-title">The case for local-first software</h2>
-                    <p class="group-source">localfirst.fm</p>
+                  <div class="group-expand-chevron" aria-hidden="true">
+                    <svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
                   </div>
                 </header>
-                <div class="highlight-stack">
-                  <article class="highlight-item highlight-item--feed">
-                    <p class="highlight-quote highlight-quote--clamp">“Local-first software keeps your data on your devices, syncs in the background when you choose, and still lets you collaborate. The goal isn't offline-only — it's ownership, speed, and resilience without surrendering the network.”</p>
-                  </article>
-                </div>
               </section>
             </div>
           </div>

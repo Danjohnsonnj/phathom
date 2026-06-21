@@ -4,8 +4,10 @@ import SwiftUI
 struct NotebookItemGroup: View {
     let item: ContentItem
     let highlights: [Highlight]
+    var isExpanded: Bool
     var showsBottomGroupHairline: Bool = true
     var onHeaderTap: () -> Void
+    var onToggleExpand: () -> Void
     var onHighlightTap: (Highlight) -> Void
 
     private static let thumbnailSize: CGFloat = 64
@@ -48,19 +50,43 @@ struct NotebookItemGroup: View {
                 .contentShape(Rectangle())
                 .accessibilityHint("Opens item detail")
                 .padding(.top, AppSpacing.notebookGroupHeaderTop)
-                .padding(.bottom, 14)
 
-                VStack(alignment: .leading, spacing: AppSpacing.highlightStackGap) {
-                    ForEach(highlights) { highlight in
-                        HairlineHighlightRow(
-                            quotedText: highlight.quotedText,
-                            userNote: highlight.userNote,
-                            quotedLineLimit: 3,
-                            noteLineLimit: 2,
-                            showsBottomHairline: false,
-                            verticalPadding: 0,
-                            onTap: { onHighlightTap(highlight) }
-                        )
+                if !highlights.isEmpty {
+                    Button(action: onToggleExpand) {
+                        HStack(spacing: 0) {
+                            Text(highlightsCountLabel)
+                                .appTypography(.addNewAccentLabel)
+                                .foregroundStyle(AppPalette.accent)
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.down")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppPalette.textSecondary)
+                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                                .frame(width: 44, height: 44)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 10)
+                    .padding(.top, 6)
+                    .padding(.bottom, 8)
+                    .accessibilityLabel(isExpanded ? "Collapse highlights" : "Expand highlights")
+                    .accessibilityHint("Double tap to expand or collapse.")
+                }
+
+                if isExpanded {
+                    VStack(alignment: .leading, spacing: AppSpacing.highlightStackGap) {
+                        ForEach(highlights) { highlight in
+                            HairlineHighlightRow(
+                                quotedText: highlight.quotedText,
+                                userNote: highlight.userNote,
+                                quotedLineLimit: 3,
+                                noteLineLimit: 2,
+                                showsBottomHairline: false,
+                                verticalPadding: 0,
+                                onTap: { onHighlightTap(highlight) }
+                            )
+                        }
                     }
                 }
             }
@@ -73,6 +99,11 @@ struct NotebookItemGroup: View {
                     .frame(height: 1)
             }
         }
+    }
+
+    private var highlightsCountLabel: String {
+        let count = highlights.count
+        return count == 1 ? "1 highlight" : "\(count) highlights"
     }
 
     private var subtitle: String {

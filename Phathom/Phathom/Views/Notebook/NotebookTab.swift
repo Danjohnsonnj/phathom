@@ -21,6 +21,7 @@ struct NotebookTab: View {
     @AppStorage(LibraryFilterStorage.kindKey) private var filterKindRaw: String = ""
     @AppStorage(LibraryFilterStorage.statusKey) private var filterStatusRaw: String = ""
     @AppStorage(LibraryFilterStorage.categoryKey) private var filterCategoryRaw: String = ""
+    @AppStorage(NotebookExpansionStorage.expandedIDsKey) private var expandedItemIDsRaw: String = ""
 
     @State private var navPath = NavigationPath()
     @State private var noteEditHighlight: Highlight?
@@ -67,8 +68,10 @@ struct NotebookTab: View {
                         NotebookItemGroup(
                             item: group.item,
                             highlights: group.highlights,
+                            isExpanded: isNotebookItemExpanded(group.id),
                             showsBottomGroupHairline: group.id != filteredGroups.last?.id,
                             onHeaderTap: { navPath.append(group.item.id) },
+                            onToggleExpand: { toggleNotebookItemExpanded(group.id) },
                             onHighlightTap: { noteEditHighlight = $0 }
                         )
                         .listRowInsets(EdgeInsets())
@@ -118,6 +121,22 @@ struct NotebookTab: View {
         let sanitized = LibraryFilterCodec.sanitizeCategoryRaw(filterCategoryRaw, validNames: sortedCategoryNames)
         if sanitized != filterCategoryRaw {
             filterCategoryRaw = sanitized
+        }
+    }
+
+    private func isNotebookItemExpanded(_ id: UUID) -> Bool {
+        NotebookExpansionStorage.decodeExpandedIDs(expandedItemIDsRaw).contains(id)
+    }
+
+    private func toggleNotebookItemExpanded(_ id: UUID) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            var ids = NotebookExpansionStorage.decodeExpandedIDs(expandedItemIDsRaw)
+            if ids.contains(id) {
+                ids.remove(id)
+            } else {
+                ids.insert(id)
+            }
+            expandedItemIDsRaw = NotebookExpansionStorage.encodeExpandedIDs(ids)
         }
     }
 

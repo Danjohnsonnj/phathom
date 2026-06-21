@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phathom Notebook — Expand row A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    a { text-decoration: none; color: inherit; }
+
+    :root {
+      --bg: #252422;
+      --surface: #403d39;
+      --accent: #eb5e28;
+      --text-primary: #fffcf2;
+      --text-secondary: #ccc5b9;
+      --hairline: rgba(255, 252, 242, 0.12);
+      --rhythm: 22px;
+      --phone-w: 393px;
+      --phone-h: 852px;
+      --radius-phone: 55px;
+      --radius-thumb: 6px;
+      --font: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1918;
+      font-family: var(--font);
+      padding: 72px 24px 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page-label {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.35);
+    }
+
+    .mock-legend {
+      width: min(960px, 100%);
+      margin-bottom: 36px;
+      padding: 14px 18px;
+      border: 1px solid rgba(255, 252, 242, 0.1);
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: rgba(255, 252, 242, 0.48);
+      text-align: center;
+    }
+
+    .mock-legend strong { color: rgba(255, 252, 242, 0.72); font-weight: 600; }
+
+    .frames-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 40px 48px;
+    }
+
+    .frame-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .frame-caption {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 252, 242, 0.5);
+    }
+
+    .phone-shell {
+      position: relative;
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      background: linear-gradient(145deg, #3a3835 0%, #2a2826 50%, #1f1e1c 100%);
+      border-radius: calc(var(--radius-phone) + 12px);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 40px 80px rgba(0,0,0,0.55);
+    }
+
+    .phone-shell::before {
+      content: "";
+      position: absolute;
+      top: 18px; left: 50%; transform: translateX(-50%);
+      width: 126px; height: 37px;
+      background: #0d0d0c; border-radius: 20px;
+      z-index: 10; pointer-events: none;
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: var(--bg);
+      border-radius: var(--radius-phone);
+      overflow: clip;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .status-bar {
+      flex-shrink: 0;
+      height: 54px;
+      padding: 14px var(--rhythm) 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .status-icons { display: flex; gap: 6px; }
+    .status-icons svg { display: block; }
+
+    .screen-scroll {
+      flex: 1;
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding-bottom: 104px;
+    }
+    .screen-scroll::-webkit-scrollbar { display: none; }
+
+    .editorial { padding: 8px var(--rhythm) 0; }
+    .screen-title {
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1.1;
+      margin: 12px 0 28px;
+    }
+
+    .filter-bar {
+      display: grid;
+      grid-template-columns: 27.5fr 27.5fr 45fr;
+      column-gap: 10px;
+      margin-bottom: 22px;
+    }
+    .filter-column { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .filter-label {
+      font-size: 15px; font-weight: 300;
+      color: var(--text-secondary);
+      padding-left: 14px;
+    }
+    .filter-capsule {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px;
+      background: var(--surface);
+      border-radius: 999px;
+      font-family: var(--font);
+    }
+    .filter-capsule-value {
+      flex: 1; min-width: 0;
+      font-size: 15px; font-weight: 600;
+      color: var(--text-primary);
+    }
+    .filter-capsule-chevron {
+      width: 11px; height: 11px;
+      stroke: var(--text-secondary); fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .item-group {
+      padding: 0 var(--rhythm) 20px;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .item-group:last-child { border-bottom: none; padding-bottom: 8px; }
+
+    /* Detail row — unchanged from pre-collapsible main (thumb + title + source → Detail) */
+    .group-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      width: 100%;
+      padding: 16px 0 0;
+      border: none;
+      background: none;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .thumb {
+      flex-shrink: 0;
+      width: 64px; height: 64px;
+      border-radius: var(--radius-thumb);
+      overflow: hidden;
+    }
+    .thumb-gradient {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #4a4743 0%, #353330 55%, #2a2826 100%);
+    }
+    .thumb-fallback {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600;
+      color: rgba(255, 252, 242, 0.25);
+      background: var(--surface);
+    }
+
+    .group-header-body {
+      flex: 1;
+      min-width: 0;
+      padding-top: 2px;
+    }
+
+    .group-title {
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 5px;
+    }
+
+    .group-source {
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Full-width expand row — tap toggles highlights */
+    .highlights-expand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 10px;
+      padding: 6px 0 8px;
+      border: none;
+      background: none;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .highlights-expand-label {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+
+    .highlights-expand-chevron {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: -6px -8px -6px 0;
+      color: var(--text-secondary);
+    }
+
+    .highlights-expand-chevron svg {
+      width: 11px; height: 11px;
+      stroke: currentColor; fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round; stroke-linejoin: round;
+      transition: transform 0.2s ease;
+    }
+
+    .highlights-expand-row--expanded .highlights-expand-chevron svg {
+      transform: rotate(180deg);
+    }
+
+    .highlight-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding-bottom: 6px;
+    }
+
+    .highlight-item {
+      position: relative;
+      padding-left: 14px;
+    }
+    .highlight-item::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 2px; bottom: 2px;
+      width: 4px; border-radius: 2px;
+      background: var(--accent);
+    }
+    .highlight-quote {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      font-style: italic;
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .highlight-note-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(204, 197, 185, 0.55);
+      margin-bottom: 4px;
+    }
+    .highlight-note {
+      font-size: 15px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .tab-bar-dock {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      z-index: 30;
+      padding: 0 8px 26px;
+      pointer-events: none;
+    }
+    .tab-bar {
+      height: 66px;
+      border-radius: 33px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(22, 21, 20, 0.58);
+      backdrop-filter: blur(50px);
+      border: 0.5px solid rgba(255, 252, 242, 0.22);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      pointer-events: auto;
+    }
+    .home-indicator {
+      position: absolute;
+      bottom: 8px; left: 50%;
+      transform: translateX(-50%);
+      width: 134px; height: 5px;
+      background: rgba(255, 252, 242, 0.22);
+      border-radius: 3px;
+      z-index: 40;
+    }
+  </style>
+</head>
+<body>
+  <p class="page-label">Phathom Notebook — Expand row A</p>
+
+  <p class="mock-legend">
+    <strong>Detail row</strong> matches pre-collapsible main: 64×64 thumb + title + source → Detail.
+    <strong>Expand row</strong> beneath: full-width “<em>N</em> highlights” (accent) + chevron; toggles highlight stack. Default collapsed.
+    Frames: <strong>Collapsed</strong> + <strong>Expanded</strong>.
+  </p>
+
+  <div class="frames-row">
+
+    <!-- Collapsed -->
+    <div class="frame-unit">
+      <p class="frame-caption">Collapsed</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+            </div>
+          </header>
+          <div class="screen-scroll">
+            <section class="editorial">
+              <h1 class="screen-title">Notebook</h1>
+              <div class="filter-bar" role="group" aria-label="Filters">
+                <div class="filter-column">
+                  <span class="filter-label">Type</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Status</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Category</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+              </div>
+            </section>
+
+            <div class="notebook-feed">
+              <section class="item-group">
+                <button type="button" class="group-header">
+                  <div class="thumb"><div class="thumb-gradient"></div></div>
+                  <div class="group-header-body">
+                    <h2 class="group-title">Apple's new AI features won't be coming to the EU this year</h2>
+                    <p class="group-source">www.theverge.com</p>
+                  </div>
+                </button>
+                <button type="button" class="highlights-expand-row" aria-expanded="false">
+                  <span class="highlights-expand-label">2 highlights</span>
+                  <span class="highlights-expand-chevron" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>
+                </button>
+              </section>
+
+              <section class="item-group">
+                <button type="button" class="group-header">
+                  <div class="thumb"><div class="thumb-fallback">NT</div></div>
+                  <div class="group-header-body">
+                    <h2 class="group-title">Research sprint ideas</h2>
+                    <p class="group-source">Note</p>
+                  </div>
+                </button>
+                <button type="button" class="highlights-expand-row" aria-expanded="false">
+                  <span class="highlights-expand-label">1 highlight</span>
+                  <span class="highlights-expand-chevron" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>
+                </button>
+              </section>
+
+              <section class="item-group">
+                <button type="button" class="group-header">
+                  <div class="thumb"><div class="thumb-gradient"></div></div>
+                  <div class="group-header-body">
+                    <h2 class="group-title">The case for local-first software</h2>
+                    <p class="group-source">localfirst.fm</p>
+                  </div>
+                </button>
+                <button type="button" class="highlights-expand-row" aria-expanded="false">
+                  <span class="highlights-expand-label">1 highlight</span>
+                  <span class="highlights-expand-chevron" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>
+                </button>
+              </section>
+            </div>
+          </div>
+          <div class="tab-bar-dock"><div class="tab-bar">Notebook</div></div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expanded -->
+    <div class="frame-unit">
+      <p class="frame-caption">Expanded</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+            </div>
+          </header>
+          <div class="screen-scroll">
+            <section class="editorial">
+              <h1 class="screen-title">Notebook</h1>
+              <div class="filter-bar" role="group" aria-label="Filters">
+                <div class="filter-column">
+                  <span class="filter-label">Type</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Status</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Category</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+              </div>
+            </section>
+
+            <div class="notebook-feed">
+              <section class="item-group">
+                <button type="button" class="group-header">
+                  <div class="thumb"><div class="thumb-gradient"></div></div>
+                  <div class="group-header-body">
+                    <h2 class="group-title">Apple's new AI features won't be coming to the EU this year</h2>
+                    <p class="group-source">www.theverge.com</p>
+                  </div>
+                </button>
+                <button type="button" class="highlights-expand-row highlights-expand-row--expanded" aria-expanded="true">
+                  <span class="highlights-expand-label">2 highlights</span>
+                  <span class="highlights-expand-chevron" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>
+                </button>
+                <div class="highlight-stack">
+                  <article class="highlight-item">
+                    <p class="highlight-quote">“Apple says it won't roll out AI features in the EU this year because of regulatory uncertainty around the Digital Markets Act. The company is concerned about requirements that could force it to compromise product integrity and data security.”</p>
+                    <p class="highlight-note-label">Note</p>
+                    <p class="highlight-note">Worth tracking how DMA enforcement shapes on-device AI shipping timelines across the bloc.</p>
+                  </article>
+                  <article class="highlight-item">
+                    <p class="highlight-quote">“Other US tech giants have made similar arguments, framing compliance costs and interoperability mandates as barriers to launching advanced AI tools in Europe.”</p>
+                    <p class="highlight-note-label">Note</p>
+                    <p class="highlight-note">Compare with Google's EU Gemini rollout — different risk posture.</p>
+                  </article>
+                </div>
+              </section>
+
+              <section class="item-group">
+                <button type="button" class="group-header">
+                  <div class="thumb"><div class="thumb-fallback">NT</div></div>
+                  <div class="group-header-body">
+                    <h2 class="group-title">Research sprint ideas</h2>
+                    <p class="group-source">Note</p>
+                  </div>
+                </button>
+                <button type="button" class="highlights-expand-row" aria-expanded="false">
+                  <span class="highlights-expand-label">1 highlight</span>
+                  <span class="highlights-expand-chevron" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>
+                </button>
+              </section>
+
+              <section class="item-group">
+                <button type="button" class="group-header">
+                  <div class="thumb"><div class="thumb-gradient"></div></div>
+                  <div class="group-header-body">
+                    <h2 class="group-title">The case for local-first software</h2>
+                    <p class="group-source">localfirst.fm</p>
+                  </div>
+                </button>
+                <button type="button" class="highlights-expand-row" aria-expanded="false">
+                  <span class="highlights-expand-label">1 highlight</span>
+                  <span class="highlights-expand-chevron" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>
+                </button>
+              </section>
+            </div>
+          </div>
+          <div class="tab-bar-dock"><div class="tab-bar">Notebook</div></div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
