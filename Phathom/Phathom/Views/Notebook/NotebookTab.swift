@@ -18,9 +18,9 @@ struct NotebookTab: View {
     @Query(sort: \PhathomCore.Category.name, order: .forward)
     private var categories: [PhathomCore.Category]
 
-    @AppStorage(LibraryFilterStorage.kindKey) private var filterKindRaw: String = ""
-    @AppStorage(LibraryFilterStorage.statusKey) private var filterStatusRaw: String = ""
-    @AppStorage(LibraryFilterStorage.categoryKey) private var filterCategoryRaw: String = ""
+    @AppStorage(NotebookFilterStorage.kindKey) private var filterKindRaw: String = ""
+    @AppStorage(NotebookFilterStorage.statusKey) private var filterStatusRaw: String = ""
+    @AppStorage(NotebookFilterStorage.categoryKey) private var filterCategoryRaw: String = ""
     @AppStorage(NotebookExpansionStorage.expandedIDsKey) private var expandedItemIDsRaw: String = ""
 
     @State private var navPath = NavigationPath()

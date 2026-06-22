@@ -1,6 +1,6 @@
 import Foundation
 
-/// Shared `@AppStorage` keys for Library + Notebook filter state.
+/// `@AppStorage` keys for Library filter state (Notebook uses ``NotebookFilterStorage``).
 enum LibraryFilterStorage {
     static let kindKey = "library.filter.kind"
     static let statusKey = "library.filter.status"

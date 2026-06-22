@@ -7,7 +7,7 @@ struct CategoryCapsuleLabelParts: Equatable, Sendable {
     let plusN: Int?
 }
 
-/// Encode/decode Library + Notebook multiselect filter state stored in `@AppStorage`.
+/// Encode/decode multiselect filter state stored in `@AppStorage` (Library and Notebook use separate keys).
 ///
 /// Sentinel `""` = pass-through (all values in dimension). Partial = comma-separated raw tokens.
 enum LibraryFilterCodec {

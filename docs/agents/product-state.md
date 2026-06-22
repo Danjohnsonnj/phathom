@@ -2,7 +2,7 @@
 
 **Canonical what-shipped-now summary.** Ground in **code + [`decisions.md`](../decisions.md) active index** — not delivery session logs. Update this file first when shipping or deferring features (append date + one line).
 
-**Last updated:** 2026-06-20 (OKF-lite Phase 0 baseline)
+**Last updated:** 2026-06-21 (Notebook filter persistence independent)
 
 ---
 
@@ -14,6 +14,7 @@
 | **Pipeline / ingest** | Scrape → embed → analyze; serialized **`withSession`** |
 | **Focus Stack v1** | Phases **A + B + A+** (Library long-press add/remove) |
 | **macOS v1** | Native Apple Silicon target shipped per **2026-06-13** decision — opt-in hand-offs: [`macos-v1-delivery.md`](../handoff/macos-v1-delivery.md) |
+| **Library / Notebook filters** | Independent **`@AppStorage`** per tab (`library.filter.*` vs `notebook.filter.*`); shared **`LibraryFilterBar`** UI — see **2026-06-21** decision |
 
 ## Not started / deferred
 
