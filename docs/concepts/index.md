@@ -40,6 +40,7 @@ Missing stub → fall back to [`CONTEXT.md`](../../CONTEXT.md) row.
 
 | Term | Source |
 |------|--------|
+| Library search (in-app + Spotlight) | [`library-search.md`](library-search.md) |
 | LibrarySearchService, Archive, LibraryBackupService, … | [`CONTEXT.md` § Library & UI services](../../CONTEXT.md#library--ui-services) |
 
 ## Explicit non-goals (v1)

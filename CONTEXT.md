@@ -50,7 +50,7 @@ Use these terms exactly in issue titles, PRDs, refactor proposals, and test name
 
 | Term | One-line definition | Anchor |
 |------|---------------------|--------|
-| **rawText** | Flattened plain text for LLM, library search, and Spotlight. | [sourceMarkdown decision](docs/decisions.md#decision-log) |
+| **rawText** | Flattened plain text for LLM and in-app library search (not indexed into Spotlight). | [sourceMarkdown decision](docs/decisions.md#decision-log) · [library search](docs/concepts/library-search.md) |
 | **sourceMarkdown** | Optional Markdown from generic web scrape; Detail Source Content; ~50 KB cap. | [2026-05-02 sourceMarkdown](docs/decisions.md#decision-log) |
 | **sourceContentHTML** | Themed HTML with span anchors for WKWebView highlight selection. | [2026-05-15 Source Content](docs/decisions.md#decision-log) |
 | **MainContentExtractor** | Readability-style main-content picker for generic web **`rawText`** + **`sourceMarkdown`**. | [2026-05-02 Readability](docs/decisions.md#decision-log) |
@@ -70,7 +70,7 @@ Concept stubs (**links only** — see [`docs/concepts/inference/index.md`](docs/
 
 | Term | One-line definition | Anchor |
 |------|---------------------|--------|
-| **LibrarySearchService** | Filters library by kind, **`ReadStatus`**, category, and search query. | [`LibrarySearchService.swift`](Phathom/Phathom/Services/LibrarySearchService.swift) |
+| **LibrarySearchService** | In-app library search bucketing (Stage 1 match + tag adjacency; Stage 2 Dive deeper). | [`library-search.md`](docs/concepts/library-search.md) · [`LibrarySearchService.swift`](Phathom/Phathom/Services/LibrarySearchService.swift) |
 | **filterCategory** | Category filter in library (All / Uncategorized / structural **`Category`**). | [decisions index](docs/decisions.md#active-invariants-index) |
 | **Archive** | Soft-delete: **`isArchived`** + **`archivedAt`**; 48h retention; Spotlight de-index. | [Archive decision](docs/decisions.md#decision-log) |
 | **phathomDidArchiveItem** | Notification for archive undo; batch payload **`itemIDs`** (`[String]` UUIDs). | [2026-05-12 bulk archive](docs/decisions.md#decision-log) |
