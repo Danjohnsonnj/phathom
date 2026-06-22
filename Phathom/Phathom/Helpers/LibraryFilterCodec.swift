@@ -227,7 +227,7 @@ enum LibraryFilterCodec {
         tokens.joined(separator: delimiter)
     }
 
-    private static func kindLabel(_ kind: ContentKind) -> String {
+    nonisolated private static func kindLabel(_ kind: ContentKind) -> String {
         switch kind {
         case .web: return "Web"
         case .media: return "Media"
@@ -235,12 +235,12 @@ enum LibraryFilterCodec {
         }
     }
 
-    private static func categoryTokenLabel(_ token: String) -> String {
+    nonisolated private static func categoryTokenLabel(_ token: String) -> String {
         if token == LibraryCategoryFilterStorage.uncategorizedRaw { return "Uncategorized" }
         return CategoryDisplayFormatter.displayName(token)
     }
 
-    private static func plusNLabel(first: String?, count: Int) -> String {
+    nonisolated private static func plusNLabel(first: String?, count: Int) -> String {
         guard let first, count > 0 else { return "All" }
         let remaining = count - 1
         if remaining == 0 { return first }

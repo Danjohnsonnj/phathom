@@ -2,8 +2,6 @@ import PhathomCore
 import SwiftData
 import SwiftUI
 
-extension ContentItem: @retroactive Identifiable {}
-
 /// Shared outcome sheet orchestration for Detail, Focus tab, and Library long-press.
 struct FocusOutcomeFlowModifier: ViewModifier {
     @Environment(\.modelContext) private var modelContext

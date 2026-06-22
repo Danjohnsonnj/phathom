@@ -7,8 +7,9 @@ import UIKit
 private enum PhathomSheetMetrics {
     static let navBarAllowance: CGFloat = 56
     static let minSheetHeight: CGFloat = 200
+    @MainActor
     static var maxSheetHeight: CGFloat {
-        UIScreen.main.bounds.height * 0.92
+        PhathomActiveScreen.bounds.height * 0.92
     }
 }
 

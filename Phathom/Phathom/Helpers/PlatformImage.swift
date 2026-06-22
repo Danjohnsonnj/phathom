@@ -22,7 +22,7 @@ extension Image {
 enum PlatformImageDecoding {
     private static let ingestMaxPixelSide: CGFloat = MediaImageEncoding.libraryStorageMaxDimension
 
-    static func image(from data: Data?) -> PlatformImage? {
+    nonisolated static func image(from data: Data?) -> PlatformImage? {
         guard let data, !data.isEmpty else { return nil }
         #if os(iOS)
         return UIImage(data: data)
@@ -34,8 +34,7 @@ enum PlatformImageDecoding {
     #if os(iOS)
     @MainActor
     static func displayMaxPixelSize() -> CGFloat {
-        let screen = UIScreen.main
-        let maxSide = max(screen.bounds.width, screen.bounds.height) * screen.scale
+        let maxSide = max(PhathomActiveScreen.bounds.width, PhathomActiveScreen.bounds.height) * PhathomActiveScreen.scale
         return min(max(maxSide, 1), ingestMaxPixelSide)
     }
     #elseif os(macOS)
@@ -55,7 +54,7 @@ enum PlatformImageDecoding {
 
     static func decodeOffMain(from data: Data?) async -> PlatformImage? {
         guard let data, !data.isEmpty else { return nil }
-        let maxPixelSize = await displayMaxPixelSize()
+        let maxPixelSize = displayMaxPixelSize()
         let cap = Int(maxPixelSize.rounded())
         return await Task.detached(priority: .userInitiated) {
             subsampled(from: data, maxPixelSize: cap)
