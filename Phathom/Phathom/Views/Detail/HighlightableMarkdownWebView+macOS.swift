@@ -92,6 +92,7 @@ struct HighlightableMarkdownWebView: NSViewRepresentable {
     var collapsed: Bool
     var onCreateHighlight: (String, Int?) -> Void
     var onTapHighlight: (Highlight) -> Void
+    var onTapLink: (URL) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -99,7 +100,8 @@ struct HighlightableMarkdownWebView: NSViewRepresentable {
             highlightApplyToken: $highlightApplyToken,
             highlights: highlights,
             onCreateHighlight: onCreateHighlight,
-            onTapHighlight: onTapHighlight
+            onTapHighlight: onTapHighlight,
+            onTapLink: onTapLink
         )
     }
 
@@ -134,6 +136,7 @@ struct HighlightableMarkdownWebView: NSViewRepresentable {
         context.coordinator.highlights = highlights
         context.coordinator.onCreateHighlight = onCreateHighlight
         context.coordinator.onTapHighlight = onTapHighlight
+        context.coordinator.onTapLink = onTapLink
 
         if let intrinsicWebView = webView as? IntrinsicHeightWebView {
             intrinsicWebView.highlightCoordinator = context.coordinator
@@ -224,6 +227,7 @@ struct HighlightableMarkdownWebView: NSViewRepresentable {
         var highlights: [Highlight]
         var onCreateHighlight: (String, Int?) -> Void
         var onTapHighlight: (Highlight) -> Void
+        var onTapLink: (URL) -> Void
 
         weak var webView: WKWebView?
         /// Fingerprint for wrapped HTML body + collapsed flag; reload WKWebView only when this changes.
@@ -242,13 +246,15 @@ struct HighlightableMarkdownWebView: NSViewRepresentable {
             highlightApplyToken: Binding<Int>,
             highlights: [Highlight],
             onCreateHighlight: @escaping (String, Int?) -> Void,
-            onTapHighlight: @escaping (Highlight) -> Void
+            onTapHighlight: @escaping (Highlight) -> Void,
+            onTapLink: @escaping (URL) -> Void
         ) {
             self.selectionActive = selectionActive
             self.highlightApplyTokenBinding = highlightApplyToken
             self.highlights = highlights
             self.onCreateHighlight = onCreateHighlight
             self.onTapHighlight = onTapHighlight
+            self.onTapLink = onTapLink
         }
 
         static func highlightKey(for highlights: [Highlight]) -> String {
@@ -386,6 +392,21 @@ struct HighlightableMarkdownWebView: NSViewRepresentable {
                 self.pendingHighlightOverlayKey = nil
                 self.scheduleRemeasure(webView: webView)
             }
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            if navigationAction.navigationType == .linkActivated,
+               let url = navigationAction.request.url,
+               let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+                decisionHandler(.cancel)
+                DispatchQueue.main.async { [weak self] in self?.onTapLink(url) }
+                return
+            }
+            decisionHandler(.allow)
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

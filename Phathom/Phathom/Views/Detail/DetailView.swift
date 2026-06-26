@@ -32,6 +32,9 @@ struct DetailView: View {
     @State private var noteEditHighlight: Highlight?
     @State private var sourceWebSelectionActive = false
     @State private var sourceWebHighlightApplyToken = 0
+    #if os(iOS)
+    @State private var browserURL: IdentifiableURL?
+    #endif
     @State private var pendingFileCategorySheet = false
     @State private var detailCategoryPickHandled = false
     @State private var isCategoryPickerPresented = false
@@ -246,6 +249,9 @@ struct DetailView: View {
                 onDismiss: { noteEditHighlight = nil }
             )
         }
+        #if os(iOS)
+        .sheet(item: $browserURL) { SafariSheetView(url: $0.url) }
+        #endif
         .sheet(isPresented: $pendingFileCategorySheet, onDismiss: detailFileCategoryOnDismiss) {
             CategoryPicker { picked in
                 detailCategoryPickHandled = true
@@ -1122,7 +1128,14 @@ struct DetailView: View {
                                 hintOffset: hintOffset
                             )
                         },
-                        onTapHighlight: { noteEditHighlight = $0 }
+                        onTapHighlight: { noteEditHighlight = $0 },
+                        onTapLink: { url in
+                            #if os(iOS)
+                            browserURL = IdentifiableURL(url: url)
+                            #else
+                            NSWorkspace.shared.open(url)
+                            #endif
+                        }
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
