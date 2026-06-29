@@ -1,0 +1,26 @@
+# Progress log (append-only, newest last)
+
+## 2026-06-28 - Session 1: Effort setup
+
+- Happened: Stood up the tag-consistency plan-build tree (`docs/_handoff/*`) + AGENTS.md pointer. Explored tag pipeline + export schema (read-only). Wrote `tools/tag_audit.py` and gitignored `tag-audit-work/`.
+- Learned: Tags are open-vocabulary (`Tag` `@Model`, format-only `TagNameNormalizer`, no controlled vocabulary or global merge). Export is `formatVersion 4` JSON with `items[].tags: [String]`; archived items excluded. Root cause of drift = no semantic canonicalization.
+- Overwrote: none (initial).
+
+## 2026-06-28 - Session 1: Export received
+
+- Happened: User exported full library backup (28MB) to `~/Downloads/phathom-library-backup-2026-06-29T00-44-53Z.json`. Path recorded in HANDOFF.md; ran `tools/tag_audit.py`.
+- Learned: 115 items, 656 tag uses, 564 distinct tags, **527 singletons (93% used once)**, avg 5.70 tags/item. Dominant problem is NOT subtle near-dups but hyper-specific one-off tags (`ai-nuclear-lessons`, `park-development`, `ai-executive-disconnection`). Real morphology dups exist but are few (llm/llms, code-review/code-reviews, open-weight/open-weights, context-window-limitation(s), human-in/on-the-loop). Top reused tags: agentic-coding x17, llm x10, software-development x8, artificial-intelligence x8.
+- Overwrote: HANDOFF.md phase -> in progress + export-file pointer + next action. Fixed a defect in `tools/tag_audit.py`: removed transitive whole-token containment merge (short tags like `ai`/`development` chained everything into one 170-member blob). Clusterer is now high-precision: plural/singular + tight fuzzy only; conceptual grouping deferred to LLM pass.
+
+## 2026-06-28 - Session 1: LLM semantic pass
+
+- Happened: Ran LLM semantic clustering over `tag_vocab.json` -> `tag-audit-work/canonical-map.json` (16 confident merges, 8 borderline groups, proposed 26-tag "spine", junk-drop list).
+- Learned: Top reused tags (agentic-coding x17, llm x10, artificial-intelligence x8, software-development x8) form a clear spine. Confident merges only shave ~25 tags off 564 - confirming the problem is generation-side proliferation, not cleanable drift. Found a pipeline BUG: unicode escape artifacts (`x201c`=", `x201d`=", `x2019`='`, `x1f517`=link-emoji) leaked into tags despite TagNameNormalizer; worth a Phase 2/3 fix.
+- Overwrote: HANDOFF.md phase/next action -> findings ready, awaiting user review.
+
+## 2026-06-28 - Session 1: Wrap-up / cold-start handoff prepared
+
+- Happened: Closed Phase 1. Promoted durable design inputs (metrics, reused-spine, confident merge canonicals, junk-tag bug, proposed Phase 2 architecture with file paths) from gitignored `tag-audit-work/` into committed `tech-brief.md`. Refreshed HANDOFF (Phase 2 - Design not started; next action = spec seed/spine-vocabulary tag prompt) and `phases.md` (Phase 1 COMPLETE).
+- Learned: Detailed findings are gitignored, so resumability requires the summary live in a committed brief; added a "Findings location" + regeneration note to HANDOFF so a cold-start agent can rebuild `tag-audit-work/` from the export + script + semantic-pass prompt.
+- Overwrote: HANDOFF current phase / next action / required reading / open decisions; phases.md Phase 1 status; tech-brief Proposed architecture + new Phase 1 results section.
+- Not committed (user said "commit later"). Open: confirm committing the spine/summary in tech-brief vs keeping fully local.

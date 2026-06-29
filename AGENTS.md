@@ -1,5 +1,10 @@
 # Phathom: Agent Context & Efficiency Map
 
+## Active work (handoff)
+
+Before doing anything else, read `docs/_handoff/HANDOFF.md` and follow its
+"Required reading (this phase)" list. Read `docs/_handoff/process.md` before committing.
+
 ## System Role & Identity
 
 Expert iOS engineer: local-first systems, on-device LLM, Metal-accelerated performance, privacy-first.
@@ -12,17 +17,17 @@ Swift 6 (strict concurrency) · SwiftData (local-only) · `llama.cpp` via `llama
 
 Read **minimal files per task:**
 
-| Priority | Source | Purpose |
-|:--------:|--------|---------|
-| 1 | **`Phathom/`** | Shipped behavior, schema, Swift paths |
-| 2 | **[`docs/agents/product-state.md`](docs/agents/product-state.md)** | What shipped / deferred now (cold-start after this file) |
-| 3 | **[`CONTEXT.md`](CONTEXT.md)** | Domain glossary (names); links to decisions |
-| 4 | **[`docs/concepts/index.md`](docs/concepts/index.md)** | Term lookup; inference stubs (**links only**) |
-| 5 | **[`docs/decisions.md`](docs/decisions.md)** | Invariants and rationale |
-| 6 | **[`docs/design-tokens.md`](docs/design-tokens.md)** | Cross-surface spacing, palette, material, button matrix |
-| 7 | **Hand-offs (opt-in)** | [`docs/handoff/index.md`](docs/handoff/index.md) — not default cold-start |
-| — | **UI evolution reference (archived, opt-in)** | [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) (locked §3) · [`ui-evolution-implementation-plan.md`](docs/archive/ui-evolution-implementation-plan.md) · [`design-mocks/`](docs/archive/design-mocks/) — Phases **0–4b shipped**; invariants in [`decisions.md`](docs/decisions.md) UI rows |
-| 8 | **[`README.md`](README.md)** | Human orientation |
+| Priority | Source                                                             | Purpose                                                                                                                                                                                                                                                                                                        |
+| :------: | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|    1     | **`Phathom/`**                                                     | Shipped behavior, schema, Swift paths                                                                                                                                                                                                                                                                          |
+|    2     | **[`docs/agents/product-state.md`](docs/agents/product-state.md)** | What shipped / deferred now (cold-start after this file)                                                                                                                                                                                                                                                       |
+|    3     | **[`CONTEXT.md`](CONTEXT.md)**                                     | Domain glossary (names); links to decisions                                                                                                                                                                                                                                                                    |
+|    4     | **[`docs/concepts/index.md`](docs/concepts/index.md)**             | Term lookup; inference stubs (**links only**)                                                                                                                                                                                                                                                                  |
+|    5     | **[`docs/decisions.md`](docs/decisions.md)**                       | Invariants and rationale                                                                                                                                                                                                                                                                                       |
+|    6     | **[`docs/design-tokens.md`](docs/design-tokens.md)**               | Cross-surface spacing, palette, material, button matrix                                                                                                                                                                                                                                                        |
+|    7     | **Hand-offs (opt-in)**                                             | [`docs/handoff/index.md`](docs/handoff/index.md) — not default cold-start                                                                                                                                                                                                                                      |
+|    —     | **UI evolution reference (archived, opt-in)**                      | [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) (locked §3) · [`ui-evolution-implementation-plan.md`](docs/archive/ui-evolution-implementation-plan.md) · [`design-mocks/`](docs/archive/design-mocks/) — Phases **0–4b shipped**; invariants in [`decisions.md`](docs/decisions.md) UI rows |
+|    8     | **[`README.md`](README.md)**                                       | Human orientation                                                                                                                                                                                                                                                                                              |
 
 **Archive:** [`docs/archive/`](docs/archive/) — opt-in only; not for cold start.
 
@@ -81,9 +86,9 @@ After touching [`MediaPhotoViewer.swift`](Phathom/Phathom/Views/Detail/MediaPhot
 
 ## Read next (on demand)
 
-| Topic | Doc |
-|-------|-----|
-| Cold start, file paths, verify ladder | [`docs/agents/onboarding.md`](docs/agents/onboarding.md) |
-| Verify policy (canonical) | [`.cursor/rules/simulator-verify.mdc`](.cursor/rules/simulator-verify.mdc) |
-| Doc migration assessment | [`docs/agents/assessment-doc-migration.md`](docs/agents/assessment-doc-migration.md) |
-| OKF-lite conventions | [`docs/agents/doc-structure.md`](docs/agents/doc-structure.md) |
+| Topic                                 | Doc                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------ |
+| Cold start, file paths, verify ladder | [`docs/agents/onboarding.md`](docs/agents/onboarding.md)                             |
+| Verify policy (canonical)             | [`.cursor/rules/simulator-verify.mdc`](.cursor/rules/simulator-verify.mdc)           |
+| Doc migration assessment              | [`docs/agents/assessment-doc-migration.md`](docs/agents/assessment-doc-migration.md) |
+| OKF-lite conventions                  | [`docs/agents/doc-structure.md`](docs/agents/doc-structure.md)                       |

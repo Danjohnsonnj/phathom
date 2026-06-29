@@ -42,3 +42,6 @@ fastlane/test_output
 
 # Cursor workspace
 phathom.code-workspace
+
+# Tag-consistency audit scratch (local-only; raw findings stay out of git)
+tag-audit-work/
