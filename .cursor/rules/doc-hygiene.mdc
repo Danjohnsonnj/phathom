@@ -1,0 +1,15 @@
+---
+description: Phathom doc-hygiene reminder when editing agent-facing docs (product-state first, staleness sweep, archive frozen).
+globs: AGENTS.md,README.md,CONTEXT.md,docs/agents/**,docs/handoff/**
+alwaysApply: false
+---
+
+# Doc hygiene — on touch
+
+Editing an agent-facing doc. Before finishing:
+
+- **Product state first:** ship/defer/priority change → update [`docs/agents/product-state.md`](../../docs/agents/product-state.md) before other agent docs.
+- **Sweep on touch:** run the canonical staleness sweep and fix stale banners/headers in this same edit.
+- **Archive frozen:** do not rewrite `docs/archive/**` bodies.
+
+Canonical sweep command and fix tiers: [`docs/agents/doc-structure.md`](../../docs/agents/doc-structure.md).

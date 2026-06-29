@@ -70,4 +70,4 @@ _Note:_ `ChatTab.swift` in implementation reference prose may remain if marked h
 | **Remove vs de-emphasize** | Remove duplicate routing; de-emphasize large historical specs; never delete decision rows or delivery session history |
 | **Pitfalls** | agentmemory tags first; stub link second; [`product-state.md`](product-state.md) § Common agent pitfalls only if same mistake hits twice without memory |
 
-Full playbook [`docs-hygiene.md`](docs-hygiene.md) — **deferred** until Phase 0–1 UAT shows repeated stale routing.
+A lightweight auto-attach rule ([`.cursor/rules/doc-hygiene.mdc`](../../.cursor/rules/doc-hygiene.mdc)) now surfaces the product-state-first + staleness-sweep reminder when editing agent-facing docs. Full playbook [`docs-hygiene.md`](docs-hygiene.md) remains **deferred** until Phase 0–1 UAT shows repeated stale routing.
