@@ -56,13 +56,24 @@ Durable summary so a cold-start agent has the numbers without the gitignored `ta
 - Borderline (defer to user): software-development vs software-engineering; human-in vs on-the-loop; ai-assisted vs agentic-coding; local-first cluster.
 - BUG: unicode-escape artifacts leaked into tags despite `TagNameNormalizer`: `x201c` (left double-quote), `x201d` (right double-quote), `x2019` (apostrophe), `x1f517` (link emoji). Investigate where raw `\uXXXX`-style tokens enter tagging (LLM output decode or `mergePlatformHashtagTags`).
 
-## Proposed architecture (Phase 2 leading direction - not yet approved)
+## Locked architecture (Phase 2 Increment 1) - approved 2026-06-28
 
-1. Generation-side (primary lever): give the tagger a seed/spine vocabulary and instruct "reuse an existing tag when it fits; only invent when nothing matches." Spine candidates in `canonical-map.json.proposed_spine` (~26 tags). Edit `tagsFromDerivedTaskSuffix()` / `tagsTaskSuffix()` in `LlamaContentAnalyzer.swift`; must preserve `SharedLlamaInference.withSession` serialization + KV reuse.
-2. Backlog cleanup (one-time): apply `canonical-map.json` confident merges to existing items - re-point `Tag` relationships, GC orphan `Tag` rows. Likely a new global merge service (none exists today).
-3. Junk-tag fix: harden tag intake so `\uXXXX` artifacts can't become tags.
+Decisions reached via grill; plan reviewed (gates 1-5 pass). Scope = generation-side fix + junk-tag fix only. Three landable sub-increments, smallest-first. No SwiftData schema change. Preserve `SharedLlamaInference.withSession` serialization + KV reuse (seed/enum live only in the tags task suffix, after the shared prefix).
 
-Alternatives considered/secondary: post-processing canonicalization map applied in `upsertTagsOnItem`; a user-facing tag merge/rename UI. Decide scope in Phase 2.
+**1a - Junk-tag fix (ship first, independent).** Root cause confirmed: undecoded HTML hex entities in scraped text reach tag intake (`&#x201C;`->`x201c`, `&#x2019;`->`x2019`, `&#x1F517;`->`x1f517`); `&`/`#`/`;` map to hyphens but the hex payload survives. Fix (defense-in-depth):
+- New `HTMLEntityDecoder` in `PhathomCore` (numeric `&#NNN;`, hex `&#xHHHH;`, common named).
+- Backstop: decode entities at top of `TagNameNormalizer.normalize` (`PhathomCore/.../TagNameNormalizer.swift`) - the single chokepoint all tags pass through.
+- Source: decode `item.rawText` before `HashtagParser.tagNames(in:)` in `mergePlatformHashtagTags` (`BackgroundPipeline.swift` ~L1301). Confirm/handle article-body path during build if it also carries entities.
+
+**1b - Strict-closed content-type enum (prompt-only).** Add `contentTypeVocabulary = [news, opinion, analysis, guide, tutorial, review, interview, explainer, reference, recipe, social-media]` (revisit vs audit data) in `LlamaContentAnalyzer.swift`. Rewrite content-type CONSTRAINT in `tagsFromDerivedTaskSuffix()` (L197) and `tagsTaskSuffix()` (L163): pick 1-2 content-type tags ONLY from the list; if none fit, omit (never invent). NOTE: `tagsTaskSuffix()`/`generateTags()` full-article path is currently uncalled (pipeline tags only via `tagsFromDerived`); update for parity, expect no runtime effect.
+
+**1c - Dynamic subject seed.** Pure selector `TagSeedBuilder.select(from:[(name,count)], floor: 3, cap: 15) -> [String]` (exclude < floor, sort count desc then shorter/kebab; floor/cap named constants). `buildSubjectSeed(context:)` fetch wrapper reads `Tag` + `t.items.count`. Thread `subjectSeed` through `ModelSession.tagsFromDerived` (L41) -> `sessionGenerateTagsFromDerived` (L312) -> `generateTagsFromDerived` (L317) -> `tagsFromDerivedTaskSuffix(subjectSeed:)`. Build seed at the two call sites: `applyMediaTaggingForPipelineItem` (L1187) + `applyDerivedTaggingForPipelineItem` (L1233); `performRetag` (L906) covered transitively. Suffix adds `<VOCABULARY>` block "prefer reusing a subject tag when it genuinely fits; only invent when none apply"; empty seed -> omit block (cold start). Rationale: local single-user library, so the user's own frequently-reused tags ARE the correct spine; the floor excludes the 527 singletons (the disease), breaking the proliferation loop. Borderline merges become moot (both variants coexist in seed if frequent, else fade).
+
+**Tests (Swift Testing, `Phathom/PhathomTests/`):** `TagSeedBuilderTests`, `TagNameNormalizerTests` (entity cases), `HTMLEntityDecoderTests`. Plus 3-step manual UAT (reuse / content-type / no-artifacts).
+
+**Deferred by decision:**
+- Increment 2 (next, before backlog): tag provenance. Additive `ContentItem.userAddedTagNames: [String]` (lightweight migration); user-added tags bypass the floor and can expand the content-type set. Captured at `TagEditSheet` save. Rationale: intentional curation is a stronger signal than frequency and is the principled escape hatch for content-type rigidity - but needs schema, so it rides on top of a proven base mechanism.
+- Phase C: one-time backlog merge (new global merge service: re-point `Tag` rels, GC orphans) applying `canonical-map.json` confident merges; resolve borderline merges then. Possible human-gated content-type enum-gap flagging via the audit.
 
 ## Hard invariants
 

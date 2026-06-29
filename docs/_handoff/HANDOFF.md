@@ -2,8 +2,9 @@
 
 **Goal:** Reduce semantic drift across Phathom library tags (e.g. `ai` vs `artificial-intelligence`, `recipe` vs `recipes`) so similar items share canonical tags.
 
-**Current phase:** Phase 1 - Audit - COMPLETE. Phase 2 - Design - not started.
-**Next action:** Spec the Phase 2 generation-side fix: give the tagger a seed/spine vocabulary (~26 tags in `tech-brief.md` Phase 1 results) and instruct "reuse an existing tag when it fits; only invent when nothing matches." Resolve the 4 borderline merge groups with the user, then write the design into `tech-brief.md` "Proposed architecture". No app code until the user approves the design.
+**Current phase:** Phase 1 - Audit - COMPLETE. Phase 2 - Design - COMPLETE (decisions locked, plan approved). Phase 2 - Build - NOT STARTED.
+**Branch:** `tag-consistency` (off `main`). Unrelated doc/tooling hygiene already on `main`; handoff tree + `tag_audit.py` committed on this branch. Neither pushed.
+**Next action:** Implement Phase 2 Increment 1 on branch `tag-consistency`, smallest-first: (1a) junk-tag fix, (1b) content-type enum, (1c) dynamic subject seed. Full step-by-step plan with file paths/line numbers + decision rationale is in `tech-brief.md` "Locked architecture (Phase 2 Increment 1)". Start with Increment 1a.
 
 **Hard invariants:** Audit reads exported JSON only - never the live SwiftData store. Export JSON + detailed findings stay OUT of git (`tag-audit-work/` gitignored). Any pipeline change must preserve `SharedLlamaInference.withSession` serialization + KV reuse.
 
@@ -23,5 +24,5 @@
 - process.md - how we work (read before committing)
 - progress-log.md - dated history of decisions/learnings/overwrites
 
-**Open decisions:** (1) Final spine vocabulary contents. (2) 4 borderline merges: software-development vs software-engineering; human-in vs on-the-loop; ai-assisted vs agentic-coding; local-first cluster. (3) Phase 2 scope - generation fix only, or also one-time backlog merge + junk-tag fix. (4) Whether to commit the spine/findings summary (user chose detailed findings stay untracked; tech-brief currently holds the generic summary - confirm before committing).
-**Last updated:** 2026-06-28, Phase 1 complete (audit + semantic pass), handoff prepared.
+**Open decisions:** RESOLVED via grill (see tech-brief "Locked architecture"). Deferred by decision: Increment 2 = tag provenance (`userAddedTagNames`); Phase C = one-time backlog merge + borderline-merge calls. Content-type enum word list may be revisited against audit data during build.
+**Last updated:** 2026-06-28, Session 2: Phase 2 design grilled + locked, plan approved + reviewed, work split to `tag-consistency` branch. Ready to build.
