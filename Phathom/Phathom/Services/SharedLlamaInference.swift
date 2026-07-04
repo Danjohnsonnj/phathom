@@ -42,13 +42,15 @@ public struct ModelSession: Sendable {
         summaryBullets: [String],
         extracts: [Extract],
         highlights: [DerivedTagHighlight],
-        subjectSeed: [String] = []
+        subjectSeed: [String] = [],
+        promotedContentTypeTags: [String] = []
     ) async throws -> [String] {
         try await inference.sessionGenerateTagsFromDerived(
             summaryBullets: summaryBullets,
             extracts: extracts,
             highlights: highlights,
-            subjectSeed: subjectSeed
+            subjectSeed: subjectSeed,
+            promotedContentTypeTags: promotedContentTypeTags
         )
     }
 
@@ -315,13 +317,15 @@ public actor SharedLlamaInference {
         summaryBullets: [String],
         extracts: [Extract],
         highlights: [DerivedTagHighlight],
-        subjectSeed: [String] = []
+        subjectSeed: [String] = [],
+        promotedContentTypeTags: [String] = []
     ) async throws -> [String] {
         try await analyzer.generateTagsFromDerived(
             summaryBullets: summaryBullets,
             extracts: extracts,
             highlights: highlights,
-            subjectSeed: subjectSeed
+            subjectSeed: subjectSeed,
+            promotedContentTypeTags: promotedContentTypeTags
         )
     }
 

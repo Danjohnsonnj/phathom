@@ -460,9 +460,11 @@ struct DetailView: View {
             tagEditorErrorMessage = "Tag format invalid."
             return
         }
+        var provenance = item.userAddedTagNames
         switch sheet {
         case .add:
             attachTagIfNeeded(named: normalized)
+            provenance = TagProvenanceNormalizer.applyAdd(current: provenance, added: normalized)
         case let .edit(originalTagName):
             if normalized == originalTagName {
                 dismissTagEditor()
@@ -470,7 +472,13 @@ struct DetailView: View {
             }
             item.tags.removeAll(where: { $0.name == originalTagName })
             attachTagIfNeeded(named: normalized)
+            provenance = TagProvenanceNormalizer.applyRename(
+                current: provenance,
+                from: originalTagName,
+                to: normalized
+            )
         }
+        item.userAddedTagNames = TagProvenanceNormalizer.normalizeMany(provenance)
         do {
             try modelContext.save()
         } catch {
@@ -485,6 +493,9 @@ struct DetailView: View {
     private func deleteTag(for sheet: TagEditSheetMode) {
         guard case let .edit(originalTagName) = sheet else { return }
         item.tags.removeAll(where: { $0.name == originalTagName })
+        item.userAddedTagNames = TagProvenanceNormalizer.normalizeMany(
+            TagProvenanceNormalizer.applyDelete(current: item.userAddedTagNames, removed: originalTagName)
+        )
         do {
             try modelContext.save()
         } catch {

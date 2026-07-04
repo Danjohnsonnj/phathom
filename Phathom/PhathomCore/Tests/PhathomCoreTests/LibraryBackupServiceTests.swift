@@ -174,7 +174,7 @@ final class LibraryBackupServiceTests: XCTestCase {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let envelope = try decoder.decode(LibraryBackupService.ExportEnvelope.self, from: data)
-        XCTAssertEqual(envelope.formatVersion, 4)
+        XCTAssertEqual(envelope.formatVersion, 5)
         XCTAssertEqual(envelope.items.count, 1)
         XCTAssertEqual(envelope.items.first?.highlights.count, 1)
 
@@ -297,7 +297,7 @@ final class LibraryBackupServiceTests: XCTestCase {
     func testFutureFormatVersionThrows() throws {
         let json = """
         {
-          "formatVersion": 5,
+          "formatVersion": 6,
           "exportedAt": "2020-05-15T12:00:00.000Z",
           "appBuild": null,
           "items": []
@@ -317,8 +317,123 @@ final class LibraryBackupServiceTests: XCTestCase {
                 XCTFail("expected unsupportedFormatVersion, got \(backupError)")
                 return
             }
-            XCTAssertEqual(v, 5)
+            XCTAssertEqual(v, 6)
         }
+    }
+
+    func testV4JSONWithoutUserAddedTagNamesDefaultsEmpty() throws {
+        let itemID = "00000000-0000-4000-8000-000000000099"
+        let json = """
+        {
+          "formatVersion": 4,
+          "exportedAt": "2020-05-15T12:00:00.000Z",
+          "appBuild": null,
+          "items": [
+            {
+              "id": "\(itemID)",
+              "createdAt": "1970-01-01T00:00:10.000Z",
+              "title": "v4",
+              "titleUserSet": false,
+              "originalURL": "https://example.com/v4",
+              "displayHost": "example.com",
+              "contentKind": "web",
+              "rawText": "body",
+              "sourceMarkdown": null,
+              "thumbnailData": null,
+              "thumbnailColorHex": null,
+              "mediaDescription": null,
+              "summaryBullets": null,
+              "extracts": null,
+              "processingStatus": "completed",
+              "processingDetail": null,
+              "lastProcessedChunk": 0,
+              "failureReason": null,
+              "isArchived": false,
+              "archivedAt": null,
+              "tags": [],
+              "highlights": []
+            }
+          ]
+        }
+        """
+        let data = try XCTUnwrap(json.data(using: .utf8))
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: context)
+        XCTAssertEqual(result.importedCount, 1)
+        let imported = try context.fetch(FetchDescriptor<ContentItem>())
+        XCTAssertTrue(imported.first?.userAddedTagNames.isEmpty ?? false)
+    }
+
+    func testProvenanceExportImportRoundTrip() throws {
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+
+        let item = makeItem(id: UUID(), createdAt: Date(timeIntervalSince1970: 150), archived: false)
+        item.userAddedTagNames = ["podcast", "ai"]
+        item.tags = [Tag(name: "news")]
+        context.insert(item)
+        try context.save()
+
+        let data = try LibraryBackupService.exportData(from: context, appBuild: "prov-test")
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let envelope = try decoder.decode(LibraryBackupService.ExportEnvelope.self, from: data)
+        XCTAssertEqual(envelope.formatVersion, 5)
+        let record = try XCTUnwrap(envelope.items.first)
+        XCTAssertEqual(record.userAddedTagNames, ["podcast", "ai"])
+
+        let importContainer = try makeInMemoryContainer()
+        let importContext = ModelContext(importContainer)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: importContext)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let imported = try importContext.fetch(FetchDescriptor<ContentItem>())
+        let restored = try XCTUnwrap(imported.first)
+        XCTAssertEqual(restored.userAddedTagNames, ["podcast", "ai"])
+        XCTAssertEqual(Set(restored.tagNames), Set(["news", "podcast", "ai"]))
+    }
+
+    func testUnionRestoreAttachesProvenanceNamesMissingFromTags() throws {
+        let itemID = UUID()
+        let incoming = LibraryBackupService.ItemRecord(
+            id: itemID,
+            createdAt: Date(timeIntervalSince1970: 160),
+            title: "union",
+            titleUserSet: false,
+            originalURL: URL(string: "https://example.com/union"),
+            displayHost: "example.com",
+            contentKind: ContentKind.web.rawValue,
+            rawText: "body",
+            sourceMarkdown: nil,
+            thumbnailData: nil,
+            thumbnailColorHex: nil,
+            mediaDescription: nil,
+            summaryBullets: nil,
+            extracts: nil,
+            processingStatus: ProcessingStatus.completed.rawValue,
+            processingDetail: nil,
+            lastProcessedChunk: 0,
+            failureReason: nil,
+            isArchived: false,
+            archivedAt: nil,
+            tags: ["news"],
+            userAddedTagNames: ["podcast", "news"]
+        )
+        let envelope = LibraryBackupService.ExportEnvelope(appBuild: "union-test", items: [incoming])
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(envelope)
+
+        let container = try makeInMemoryContainer()
+        let context = ModelContext(container)
+        let result = try LibraryBackupService.importData(data, policy: .replace, into: context)
+        XCTAssertEqual(result.importedCount, 1)
+
+        let imported = try context.fetch(FetchDescriptor<ContentItem>())
+        let item = try XCTUnwrap(imported.first)
+        XCTAssertEqual(item.userAddedTagNames, ["podcast", "news"])
+        XCTAssertEqual(Set(item.tagNames), Set(["news", "podcast"]))
     }
 
     func testFocusExportImportRoundTrip() throws {
@@ -350,7 +465,7 @@ final class LibraryBackupServiceTests: XCTestCase {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let envelope = try decoder.decode(LibraryBackupService.ExportEnvelope.self, from: data)
-        XCTAssertEqual(envelope.formatVersion, 4)
+        XCTAssertEqual(envelope.formatVersion, 5)
 
         let inFocusRecord = try XCTUnwrap(envelope.items.first { $0.id == inFocus.id })
         let entryRecord = try XCTUnwrap(inFocusRecord.focusEntry)
@@ -422,7 +537,7 @@ final class LibraryBackupServiceTests: XCTestCase {
                 )
             )
         }
-        let envelope = LibraryBackupService.ExportEnvelope(formatVersion: 4, appBuild: "cap-test", items: items)
+        let envelope = LibraryBackupService.ExportEnvelope(formatVersion: 5, appBuild: "cap-test", items: items)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(envelope)

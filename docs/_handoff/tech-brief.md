@@ -8,7 +8,7 @@
 - **Persistence gate** - `upsertTagsOnItem` normalizes + dedups + reuses existing `Tag` rows; `mergePlatformHashtagTags` appends IG/TikTok caption hashtags (`Phathom/Phathom/Services/BackgroundPipeline.swift`).
 - **Manual edit** - Detail tag editing (`DetailView.swift`, `TagEditSheet.swift`, `TagChipsView.swift`); edit re-points one item, does NOT rename the shared `Tag` row; "Regenerate tags" re-runs LLM.
 - **Tag relatedness** - `TagRelationService` / `TagAdjacency` compute Jaccard adjacency + LLM semantic expansion (read-only; never mutates tags).
-- **Backup/export** - `LibraryBackupService` (`PhathomCore`), `formatVersion 4`, single pretty-printed JSON (`.prettyPrinted, .sortedKeys`, iso8601). Excludes archived items (`isArchived == false`).
+- **Backup/export** - `LibraryBackupService` (`PhathomCore`), `formatVersion 5`, single pretty-printed JSON (`.prettyPrinted, .sortedKeys`, iso8601). Excludes archived items (`isArchived == false`). v5 adds `items[].userAddedTagNames`.
 
 ## Verified findings / gaps
 
@@ -20,8 +20,8 @@
 ## Export schema (audit input)
 
 ```json
-{ "formatVersion": 4, "exportedAt": "iso8601", "appBuild": "optional",
-  "items": [ { "id": "...", "title": "...", "tags": ["climate-change","news"], "categoryName": "optional", "contentKind": "web", ... } ] }
+{ "formatVersion": 5, "exportedAt": "iso8601", "appBuild": "optional",
+  "items": [ { "id": "...", "title": "...", "tags": ["climate-change","news"], "userAddedTagNames": ["podcast"], "categoryName": "optional", "contentKind": "web", ... } ] }
 ```
 
 Audit needs only `items[].tags`. File may be large (full article text dominates size); tags themselves are tiny.
@@ -72,8 +72,26 @@ Decisions reached via grill; plan reviewed (gates 1-5 pass). Scope = generation-
 **Tests (Swift Testing, `Phathom/PhathomTests/`):** `TagSeedBuilderTests`, `TagNameNormalizerTests` (entity cases), `HTMLEntityDecoderTests`. Plus 3-step manual UAT (reuse / content-type / no-artifacts).
 
 **Deferred by decision:**
-- Increment 2 (next, before backlog): tag provenance. Additive `ContentItem.userAddedTagNames: [String]` (lightweight migration); user-added tags bypass the floor and can expand the content-type set. Captured at `TagEditSheet` save. Rationale: intentional curation is a stronger signal than frequency and is the principled escape hatch for content-type rigidity - but needs schema, so it rides on top of a proven base mechanism.
 - Phase C: one-time backlog merge (new global merge service: re-point `Tag` rels, GC orphans) applying `canonical-map.json` confident merges; resolve borderline merges then. Possible human-gated content-type enum-gap flagging via the audit.
+
+## Locked architecture (Phase 2 Increment 2) - approved 2026-07-04
+
+Grill-locked tag provenance on branch `tag-consistency`. Additive `userAddedTagNames` only (SwiftData stays `PhathomSchemaV5`; backup `formatVersion` 5 is separate).
+
+| ID | Rule |
+| --- | --- |
+| D1 | `userAddedTagNames` maintained on Add / Edit / Delete via Detail `saveTagChanges` / `deleteTag` only |
+| D2 | Sticky retag: LLM output ∪ provenance names; provenance array unchanged by pipeline |
+| D3 | Subject seed: deduped provenance from active items first (user-added tier lex ascending), then frequency tags (floor 3) until cap 15 |
+| D4 | Format promotion: provenance names on ≥2 active items, not in base enum → append to content-type list |
+| D5 | Migration: property default `[]`; no backfill from existing `item.tags` |
+| D6 | Import replace: normalize provenance; union-attach every provenance name to `item.tags` |
+| D7 | Provenance aggregation: `!isArchived` items only |
+| D8 | Merge import unchanged (skip duplicate IDs). **Provenance sync requires Replace import or manual re-edit.** |
+| D9 | Promoted format cap: +5 max; order by cross-item provenance count desc |
+| D10 | Store only `TagNameNormalizer` output; dedupe on every write boundary |
+
+**Key files:** `TagProvenanceNormalizer`, `TagPipelineMerge`, `TagRelationshipUpsert`, `TagSeedBuilder.selectSubjectSeed` / `selectPromotedContentTypes`, `BackgroundPipeline.buildTaggingPromptInputs`, `LibraryBackupService` v5.
 
 ## Hard invariants
 

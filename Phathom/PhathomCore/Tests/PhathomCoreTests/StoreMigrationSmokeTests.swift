@@ -70,5 +70,6 @@ final class StoreMigrationSmokeTests: XCTestCase {
         XCTAssertNotNil(item.focusEntry)
         XCTAssertEqual(item.focusEntry?.sortOrder, 0)
         XCTAssertEqual(item.focusEntry?.lastTouchedAt, item.focusEntry?.addedAt)
+        XCTAssertTrue(item.userAddedTagNames.isEmpty)
     }
 }

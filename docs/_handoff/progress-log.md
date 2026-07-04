@@ -45,3 +45,10 @@
 - Happened: User signed off 3-step manual UAT (seed reuse, content-type enum/omit, no entity-artifact tags). Committed Increment 1 code + handoff doc updates on `tag-consistency`.
 - Learned: none new.
 - Overwrote: HANDOFF phase/next action/UAT status/last-updated (-> Increment 1 shipped).
+
+## 2026-07-04 - Session 5: Increment 2 design grill + implementation
+
+- Happened: Grilled tag provenance decisions (D1–D10). Implemented Increment 2 on `tag-consistency`: `userAddedTagNames`, provenance normalizer/merge/upsert helpers, Detail capture, `buildTaggingPromptInputs` + sticky retag + promoted content types in prompts, backup `formatVersion` 5 with union restore. PhathomCore (148 tests) + PhathomTests + sim build pass.
+- Learned: `LlamaContentAnalyzer.contentTypeVocabulary` must be `public` for `BackgroundPipeline` (PhathomInference module boundary). `tagsTaskSuffix` needs explicit `return` when building `contentTypeList` first.
+- Overwrote: HANDOFF + tech-brief Increment 2 locked section; HANDOFF -> code complete awaiting UAT.
+- Not committed. Open: 5-step manual UAT, then commit.

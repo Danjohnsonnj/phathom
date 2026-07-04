@@ -28,6 +28,9 @@ public final class ContentItem {
     /// User-facing triage status (`new` / `read` / `filed`). Stored as raw string so SwiftData can
     /// apply a lightweight migration on existing rows: missing values materialize as `"new"`.
     public var readStatus: String = ReadStatus.new.rawValue
+    /// Tag names the user added/edited/deleted via Detail TagEditSheet (normalized kebab-case).
+    /// Default `[]` — lightweight migration; no backfill from LLM tags.
+    public var userAddedTagNames: [String] = []
     @Relationship(deleteRule: .nullify) public var tags: [Tag] = []
     @Relationship(deleteRule: .nullify) public var category: Category? = nil
     @Relationship(deleteRule: .cascade) public var highlights: [Highlight] = []

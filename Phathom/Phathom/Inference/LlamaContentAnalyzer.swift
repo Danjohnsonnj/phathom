@@ -27,13 +27,29 @@ public actor LlamaContentAnalyzer {
     /// Strict-closed vocabulary for the 0-2 content-type ("format") tags. The model must pick content-type
     /// tags ONLY from this list; if none fit, it emits no content-type tag (omit-if-none, never invent).
     /// Subject-matter tags remain open-vocabulary. Revisit contents against tag-audit findings.
-    nonisolated static let contentTypeVocabulary = [
+    nonisolated public static let contentTypeVocabulary = [
         "news", "opinion", "analysis", "guide", "tutorial", "review",
         "interview", "explainer", "reference", "recipe", "social-media",
     ]
 
     private nonisolated static var contentTypeVocabularyList: String {
         contentTypeVocabulary.map { "\"\($0)\"" }.joined(separator: ", ")
+    }
+
+    nonisolated static func effectiveContentTypeList(promoted: [String]) -> [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        out.reserveCapacity(contentTypeVocabulary.count + promoted.count)
+        for name in contentTypeVocabulary + promoted {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
+            out.append(trimmed)
+        }
+        return out
+    }
+
+    private nonisolated static func contentTypeVocabularyList(promoted: [String]) -> String {
+        effectiveContentTypeList(promoted: promoted).map { "\"\($0)\"" }.joined(separator: ", ")
     }
 
     /// Character caps for fitting (token budget is enforced separately); avoids tokenizing megabyte notes.
@@ -172,8 +188,9 @@ public actor LlamaContentAnalyzer {
         """
     }
 
-    nonisolated static func tagsTaskSuffix() -> String {
-        """
+    nonisolated static func tagsTaskSuffix(promotedContentTypes: [String] = []) -> String {
+        let contentTypeList = contentTypeVocabularyList(promoted: promotedContentTypes)
+        return """
 
         <TASK>tag</TASK>
 
@@ -183,7 +200,7 @@ public actor LlamaContentAnalyzer {
         1. Analyze the core themes and overarching arguments of the article above.
         2. Select 2-5 tags that categorize it based on those themes and novel insights.
         3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
-        4. Choose 0-2 content-type tags ONLY from this exact list: [\(Self.contentTypeVocabularyList)]. If none genuinely fit, output no content-type tag at all — never invent one.
+        4. Choose 0-2 content-type tags ONLY from this exact list: [\(contentTypeList)]. If none genuinely fit, output no content-type tag at all — never invent one.
         5. Verify all tags against the CONSTRAINTS before outputting.
         </INSTRUCTIONS>
 
@@ -192,7 +209,7 @@ public actor LlamaContentAnalyzer {
         - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
         - Allowed characters: a-z, 0-9, hyphen.
         - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
-        - Content-type tags: pick 0-2 strictly from [\(Self.contentTypeVocabularyList)]; omit entirely when none apply. Never emit a content-type tag outside this list.
+        - Content-type tags: pick 0-2 strictly from [\(contentTypeList)]; omit entirely when none apply. Never emit a content-type tag outside this list.
         - No duplicates, no hashtags, no commentary.
         
         Example:
@@ -206,7 +223,11 @@ public actor LlamaContentAnalyzer {
         """
     }
 
-    nonisolated static func tagsFromDerivedTaskSuffix(subjectSeed: [String] = []) -> String {
+    nonisolated static func tagsFromDerivedTaskSuffix(
+        subjectSeed: [String] = [],
+        promotedContentTypes: [String] = []
+    ) -> String {
+        let contentTypeList = contentTypeVocabularyList(promoted: promotedContentTypes)
         let vocabularyBlock: String = {
             let seed = subjectSeed.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
             guard !seed.isEmpty else { return "" }
@@ -237,7 +258,7 @@ public actor LlamaContentAnalyzer {
         1. Analyze the summary bullets, extracts, and any user highlights in the derived block.
         2. Select 2-5 tags that categorize it based on themes and concrete takeaways.
         3. Prioritize subject-matter tags that capture the specific content (e.g., "quantum-computing" rather than just "tech").
-        4. Choose 0-2 content-type tags ONLY from this exact list: [\(Self.contentTypeVocabularyList)]. If none genuinely fit, output no content-type tag at all — never invent one.
+        4. Choose 0-2 content-type tags ONLY from this exact list: [\(contentTypeList)]. If none genuinely fit, output no content-type tag at all — never invent one.
         5. Verify all tags against the CONSTRAINTS before outputting.
         </INSTRUCTIONS>
 
@@ -246,7 +267,7 @@ public actor LlamaContentAnalyzer {
         - Each tag is lowercase ASCII, words joined with hyphens (e.g. "climate-change").
         - Allowed characters: a-z, 0-9, hyphen.
         - Include 2-5 subject-matter tags (e.g. "web-development", "art-history", "dark-money").
-        - Content-type tags: pick 0-2 strictly from [\(Self.contentTypeVocabularyList)]; omit entirely when none apply. Never emit a content-type tag outside this list.
+        - Content-type tags: pick 0-2 strictly from [\(contentTypeList)]; omit entirely when none apply. Never emit a content-type tag outside this list.
         - No duplicates, no hashtags, no commentary.
         </CONSTRAINTS>
 
@@ -344,7 +365,8 @@ public actor LlamaContentAnalyzer {
         summaryBullets: [String],
         extracts: [Extract],
         highlights: [DerivedTagHighlight],
-        subjectSeed: [String] = []
+        subjectSeed: [String] = [],
+        promotedContentTypeTags: [String] = []
     ) async throws -> [String] {
         let encoder = JSONEncoder()
         let summaryJSON = String(data: (try? encoder.encode(summaryBullets)) ?? Data(), encoding: .utf8) ?? "[]"
@@ -367,7 +389,10 @@ public actor LlamaContentAnalyzer {
             maxArticleChars: Self.tagsFromDerivedArticleCharCap,
             maxTokens: 96
         ) { body in
-            "\(body)\n" + Self.tagsFromDerivedTaskSuffix(subjectSeed: subjectSeed)
+            "\(body)\n" + Self.tagsFromDerivedTaskSuffix(
+                subjectSeed: subjectSeed,
+                promotedContentTypes: promotedContentTypeTags
+            )
         }
         let tags = LLMJSONExtractor.decodeStringArray(out) ?? []
         return tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }

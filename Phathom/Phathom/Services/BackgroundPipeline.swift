@@ -1184,12 +1184,13 @@ enum BackgroundPipeline: Sendable {
         }
 
         let tagsLLMStart = Date()
-        let subjectSeed = buildSubjectSeed(context: context)
+        let promptInputs = buildTaggingPromptInputs(context: context)
         let tagNames = try await session.tagsFromDerived(
             summaryBullets: [description],
             extracts: [],
             highlights: [],
-            subjectSeed: subjectSeed
+            subjectSeed: promptInputs.subjectSeed,
+            promotedContentTypeTags: promptInputs.promotedContentTypes
         )
         PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: tagsLLMStart)
 
@@ -1201,7 +1202,8 @@ enum BackgroundPipeline: Sendable {
 
         let tagDbStart = Date()
         item.tags.removeAll()
-        upsertTagsOnItem(tagNames: tagNames, item: item, context: context)
+        let merged = TagPipelineMerge.mergedForUpsert(llmTags: tagNames, stickyTags: item.userAddedTagNames)
+        upsertTagsOnItem(tagNames: merged, item: item, context: context)
         PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
         saveAndNotify(context)
         item.processingDetail = nil
@@ -1232,12 +1234,13 @@ enum BackgroundPipeline: Sendable {
         let tagsLLMStart = Date()
         let highlightInputs = item.highlightsSortedByOffset
             .map { DerivedTagHighlight.forTaggingPrompt(quote: $0.quotedText, note: $0.userNote) }
-        let subjectSeed = buildSubjectSeed(context: context)
+        let promptInputs = buildTaggingPromptInputs(context: context)
         let tagNames = try await session.tagsFromDerived(
             summaryBullets: summaryBullets,
             extracts: extracts,
             highlights: highlightInputs,
-            subjectSeed: subjectSeed
+            subjectSeed: promptInputs.subjectSeed,
+            promotedContentTypeTags: promptInputs.promotedContentTypes
         )
         PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: tagsLLMStart)
 
@@ -1249,7 +1252,8 @@ enum BackgroundPipeline: Sendable {
 
         let tagDbStart = Date()
         item.tags.removeAll()
-        upsertTagsOnItem(tagNames: tagNames, item: item, context: context)
+        let merged = TagPipelineMerge.mergedForUpsert(llmTags: tagNames, stickyTags: item.userAddedTagNames)
+        upsertTagsOnItem(tagNames: merged, item: item, context: context)
         mergePlatformHashtagTags(item: item, context: context)
         PipelineMetrics.logSyncElapsed("tag_db", itemID: itemID, start: tagDbStart)
         saveAndNotify(context)
@@ -1270,12 +1274,37 @@ enum BackgroundPipeline: Sendable {
         item.processingDetail = "Paused — will resume when resources allow"
     }
 
-    /// Builds the dynamic subject-tag seed from the user's existing library so the tagging prompt can
-    /// prefer reusing frequent tags instead of minting near-duplicates. Empty on a cold-start library.
-    nonisolated private static func buildSubjectSeed(context: ModelContext) -> [String] {
+    /// Builds subject seed and promoted content-type names from active items' provenance + library frequency.
+    nonisolated private static func buildTaggingPromptInputs(
+        context: ModelContext
+    ) -> (subjectSeed: [String], promotedContentTypes: [String]) {
+        let activeDescriptor = FetchDescriptor<ContentItem>(
+            predicate: #Predicate<ContentItem> { !$0.isArchived }
+        )
+        let activeItems = (try? context.fetch(activeDescriptor)) ?? []
+
+        var provenanceCounts: [String: Int] = [:]
+        var userAddedPool = Set<String>()
+        for item in activeItems {
+            let normalizedProvenance = TagProvenanceNormalizer.normalizeMany(item.userAddedTagNames)
+            for name in normalizedProvenance {
+                provenanceCounts[name, default: 0] += 1
+                userAddedPool.insert(name)
+            }
+        }
+
         let allTags = (try? context.fetch(FetchDescriptor<Tag>())) ?? []
-        let candidates = allTags.map { (name: $0.name, count: $0.items.count) }
-        return TagSeedBuilder.select(from: candidates)
+        let frequencyCandidates = allTags.map { (name: $0.name, count: $0.items.count) }
+
+        let subjectSeed = TagSeedBuilder.selectSubjectSeed(
+            userAdded: Array(userAddedPool),
+            frequencyCandidates: frequencyCandidates
+        )
+        let promotedContentTypes = TagSeedBuilder.selectPromotedContentTypes(
+            provenanceCounts: provenanceCounts.map { (name: $0.key, count: $0.value) },
+            baseVocabulary: LlamaContentAnalyzer.contentTypeVocabulary
+        )
+        return (subjectSeed, promotedContentTypes)
     }
 
     nonisolated private static func upsertTagsOnItem(

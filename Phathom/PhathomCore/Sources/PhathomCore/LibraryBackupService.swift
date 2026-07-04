@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 public enum LibraryBackupService {
-    public static let currentFormatVersion = 4
+    public static let currentFormatVersion = 5
 
     public enum ImportPolicy: Sendable {
         case replace
@@ -117,6 +117,7 @@ public enum LibraryBackupService {
         public var isArchived: Bool
         public var archivedAt: Date?
         public var tags: [String]
+        public var userAddedTagNames: [String]
         public var highlights: [HighlightRecord]
         public var categoryName: String?
         public var focusEntry: FocusEntryRecord?
@@ -144,6 +145,7 @@ public enum LibraryBackupService {
             case isArchived
             case archivedAt
             case tags
+            case userAddedTagNames
             case highlights
             case categoryName
             case focusEntry
@@ -172,6 +174,7 @@ public enum LibraryBackupService {
             isArchived: Bool,
             archivedAt: Date?,
             tags: [String],
+            userAddedTagNames: [String] = [],
             highlights: [HighlightRecord] = [],
             categoryName: String? = nil,
             focusEntry: FocusEntryRecord? = nil,
@@ -198,6 +201,7 @@ public enum LibraryBackupService {
             self.isArchived = isArchived
             self.archivedAt = archivedAt
             self.tags = tags
+            self.userAddedTagNames = userAddedTagNames
             self.highlights = highlights
             self.categoryName = categoryName
             self.focusEntry = focusEntry
@@ -227,6 +231,7 @@ public enum LibraryBackupService {
             try container.encode(isArchived, forKey: .isArchived)
             try container.encodeIfPresent(archivedAt, forKey: .archivedAt)
             try container.encode(tags, forKey: .tags)
+            try container.encode(userAddedTagNames, forKey: .userAddedTagNames)
             try container.encode(highlights, forKey: .highlights)
             try container.encodeIfPresent(categoryName, forKey: .categoryName)
             try container.encodeIfPresent(focusEntry, forKey: .focusEntry)
@@ -256,6 +261,7 @@ public enum LibraryBackupService {
             isArchived = try container.decode(Bool.self, forKey: .isArchived)
             archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
             tags = try container.decode([String].self, forKey: .tags)
+            userAddedTagNames = try container.decodeIfPresent([String].self, forKey: .userAddedTagNames) ?? []
             highlights = try container.decodeIfPresent([HighlightRecord].self, forKey: .highlights) ?? []
             categoryName = try container.decodeIfPresent(String.self, forKey: .categoryName)
             focusEntry = try container.decodeIfPresent(FocusEntryRecord.self, forKey: .focusEntry)
@@ -393,6 +399,7 @@ public enum LibraryBackupService {
                 isArchived: item.isArchived,
                 archivedAt: item.archivedAt,
                 tags: item.tags.map(\.name),
+                userAddedTagNames: TagProvenanceNormalizer.normalizeMany(item.userAddedTagNames),
                 highlights: hlRecords,
                 categoryName: item.category?.name,
                 focusEntry: focusEntryRecord,
@@ -626,6 +633,14 @@ public enum LibraryBackupService {
             tagIndex[normalized] = newTag
             return newTag
         }
+
+        item.userAddedTagNames = TagProvenanceNormalizer.normalizeMany(record.userAddedTagNames)
+        TagRelationshipUpsert.attachMissingTagNames(
+            item.userAddedTagNames,
+            to: item,
+            tagIndex: &tagIndex,
+            context: modelContext
+        )
 
         if let rawCat = record.categoryName?.trimmingCharacters(in: .whitespacesAndNewlines),
            !rawCat.isEmpty,
