@@ -32,3 +32,16 @@
 - Learned: `tagsTaskSuffix()`/`generateTags()` full-article path has no live caller (pipeline tags only via `tagsFromDerived`). Two tagging call sites (`applyMediaTaggingForPipelineItem` L1187, `applyDerivedTaggingForPipelineItem` L1233); `performRetag` L906 routes through them. PhathomTests use Swift Testing (`@Test`/`#expect`), not XCTest. Tagging runs under optional `.taggingPreferred` GGUF (decisions.md L67) but seed is library-derived/model-agnostic, so no conflict.
 - Overwrote: HANDOFF phase/next action/open decisions (-> design complete, build not started, branch noted); tech-brief Proposed architecture -> Locked architecture.
 - Next session: build Increment 1a (junk-tag fix) first on branch `tag-consistency`. Plan file (host-local, optional): `~/.cursor/plans/tag_consistency_generation_fix_97587f9b.plan.md`.
+
+## 2026-06-28 - Session 3: Phase 2 Increment 1 implemented (1a+1b+1c)
+
+- Happened: Built all three sub-increments on `tag-consistency`. 1a: added `HTMLEntityDecoder` (`PhathomCore`; numeric decimal, hex, common named entities, malformed passthrough), decode at top of `TagNameNormalizer.normalize`, decode `rawText` before `HashtagParser` in `mergePlatformHashtagTags`. 1b: `LlamaContentAnalyzer.contentTypeVocabulary` (11 words) + rewrote content-type CONSTRAINT in both `tagsTaskSuffix()` and `tagsFromDerivedTaskSuffix()` to strict-closed/omit-if-none. 1c: `TagSeedBuilder.select` (`PhathomCore`; floor/cap named constants, count-desc → shorter → lexicographic ordering) + `BackgroundPipeline.buildSubjectSeed(context:)`, threaded `subjectSeed` through the session chain into `tagsFromDerivedTaskSuffix(subjectSeed:)` (injects `<VOCABULARY>` block when non-empty), wired both pipeline call sites. Added 3 Swift Testing suites to `PhathomTests.swift`. Build (sim) clean; full `PhathomTests` passed.
+- Learned: PhathomCore is a SwiftPM target → new source files auto-compile (no `.pbxproj` edit); appended tests to the existing `PhathomTests.swift` to avoid registering a new file in the Xcode project. Confirmed no separate article-body entity-decode needed: derived path is LLM-generated, and the `TagNameNormalizer` backstop catches any stray entity. KV-reuse invariant preserved (tags suffixes are not part of `analyzeArticle`'s shared `<ARTICLE>` prefix).
+- Overwrote: HANDOFF phase/next action/last-updated (→ Increment 1 code complete, awaiting UAT + commit), open-decisions (content-type list shipped as specced).
+- Not committed (user said "resume work and build", not commit). Open: run 3-step manual UAT, then commit code + docs.
+
+## 2026-07-04 - Session 4: Increment 1 UAT + commit
+
+- Happened: User signed off 3-step manual UAT (seed reuse, content-type enum/omit, no entity-artifact tags). Committed Increment 1 code + handoff doc updates on `tag-consistency`.
+- Learned: none new.
+- Overwrote: HANDOFF phase/next action/UAT status/last-updated (-> Increment 1 shipped).

@@ -1573,3 +1573,95 @@ struct MediaDisplayImageLoaderCoalesceTests {
     }
 }
 #endif
+
+@Suite("HTMLEntityDecoder")
+struct HTMLEntityDecoderTests {
+    @Test func decodesHexReferences() {
+        #expect(HTMLEntityDecoder.decode("&#x201C;") == "\u{201C}")
+        #expect(HTMLEntityDecoder.decode("&#X201D;") == "\u{201D}")
+        #expect(HTMLEntityDecoder.decode("&#x1F517;") == "\u{1F517}")
+    }
+
+    @Test func decodesDecimalReferences() {
+        #expect(HTMLEntityDecoder.decode("&#8220;") == "\u{201C}")
+        #expect(HTMLEntityDecoder.decode("&#39;") == "'")
+    }
+
+    @Test func decodesNamedEntities() {
+        #expect(HTMLEntityDecoder.decode("&amp;") == "&")
+        #expect(HTMLEntityDecoder.decode("a &quot;b&quot; c") == "a \"b\" c")
+        #expect(HTMLEntityDecoder.decode("AT&amp;T") == "AT&T")
+    }
+
+    @Test func passesThroughMalformedOrUnknown() {
+        #expect(HTMLEntityDecoder.decode("Tom & Jerry") == "Tom & Jerry")
+        #expect(HTMLEntityDecoder.decode("&#xZZ;") == "&#xZZ;")
+        #expect(HTMLEntityDecoder.decode("&unknown;") == "&unknown;")
+        #expect(HTMLEntityDecoder.decode("&;") == "&;")
+        #expect(HTMLEntityDecoder.decode("plain text") == "plain text")
+    }
+}
+
+@Suite("TagNameNormalizer HTML entities")
+struct TagNameNormalizerEntityTests {
+    @Test func pureEntityTagsDrop() {
+        #expect(TagNameNormalizer.normalize("&#x201C;") == nil)
+        #expect(TagNameNormalizer.normalize("&#x2019;") == nil)
+        #expect(TagNameNormalizer.normalize("&#x1F517;") == nil)
+        #expect(TagNameNormalizer.normalize("&amp;") == nil)
+    }
+
+    @Test func entitiesInsideTagsNormalize() {
+        #expect(TagNameNormalizer.normalize("caf&#233;") == "cafe")
+        #expect(TagNameNormalizer.normalize("AT&amp;T") == "at-t")
+    }
+
+    @Test func legitimateTagsUnaffected() {
+        #expect(TagNameNormalizer.normalize("climate-change") == "climate-change")
+        #expect(TagNameNormalizer.normalize("artificial-intelligence") == "artificial-intelligence")
+    }
+}
+
+@Suite("TagSeedBuilder")
+struct TagSeedBuilderTests {
+    @Test func excludesTagsBelowFloor() {
+        let seed = TagSeedBuilder.select(
+            from: [("singleton", 1), ("pair", 2), ("frequent", 3)],
+            floor: 3,
+            cap: 15
+        )
+        #expect(seed == ["frequent"])
+    }
+
+    @Test func capsResultCount() {
+        let candidates = (0..<20).map { (name: "tag-\($0)", count: 5) }
+        let seed = TagSeedBuilder.select(from: candidates, floor: 1, cap: 15)
+        #expect(seed.count == 15)
+    }
+
+    @Test func ordersByCountDescending() {
+        let seed = TagSeedBuilder.select(
+            from: [("low", 3), ("high", 10), ("mid", 6)],
+            floor: 1,
+            cap: 15
+        )
+        #expect(seed == ["high", "mid", "low"])
+    }
+
+    @Test func breaksTiesByLengthThenLexicographically() {
+        let seed = TagSeedBuilder.select(
+            from: [("bbb", 5), ("aa", 5), ("cc", 5)],
+            floor: 1,
+            cap: 15
+        )
+        #expect(seed == ["aa", "cc", "bbb"])
+    }
+
+    @Test func emptyInputReturnsEmpty() {
+        #expect(TagSeedBuilder.select(from: [], floor: 3, cap: 15).isEmpty)
+    }
+
+    @Test func nonPositiveCapReturnsEmpty() {
+        #expect(TagSeedBuilder.select(from: [("a", 9)], floor: 1, cap: 0).isEmpty)
+    }
+}

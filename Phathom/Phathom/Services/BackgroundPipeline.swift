@@ -1184,10 +1184,12 @@ enum BackgroundPipeline: Sendable {
         }
 
         let tagsLLMStart = Date()
+        let subjectSeed = buildSubjectSeed(context: context)
         let tagNames = try await session.tagsFromDerived(
             summaryBullets: [description],
             extracts: [],
-            highlights: []
+            highlights: [],
+            subjectSeed: subjectSeed
         )
         PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: tagsLLMStart)
 
@@ -1230,10 +1232,12 @@ enum BackgroundPipeline: Sendable {
         let tagsLLMStart = Date()
         let highlightInputs = item.highlightsSortedByOffset
             .map { DerivedTagHighlight.forTaggingPrompt(quote: $0.quotedText, note: $0.userNote) }
+        let subjectSeed = buildSubjectSeed(context: context)
         let tagNames = try await session.tagsFromDerived(
             summaryBullets: summaryBullets,
             extracts: extracts,
-            highlights: highlightInputs
+            highlights: highlightInputs,
+            subjectSeed: subjectSeed
         )
         PipelineMetrics.logSyncElapsed("tags_llm", itemID: itemID, start: tagsLLMStart)
 
@@ -1264,6 +1268,14 @@ enum BackgroundPipeline: Sendable {
             item.processingStatus = ProcessingStatus.pending.rawValue
         }
         item.processingDetail = "Paused — will resume when resources allow"
+    }
+
+    /// Builds the dynamic subject-tag seed from the user's existing library so the tagging prompt can
+    /// prefer reusing frequent tags instead of minting near-duplicates. Empty on a cold-start library.
+    nonisolated private static func buildSubjectSeed(context: ModelContext) -> [String] {
+        let allTags = (try? context.fetch(FetchDescriptor<Tag>())) ?? []
+        let candidates = allTags.map { (name: $0.name, count: $0.items.count) }
+        return TagSeedBuilder.select(from: candidates)
     }
 
     nonisolated private static func upsertTagsOnItem(
@@ -1303,7 +1315,10 @@ enum BackgroundPipeline: Sendable {
         guard let host = item.displayHost?.lowercased() else { return }
         guard host.contains("instagram") || host.contains("tiktok") else { return }
         guard let raw = item.rawText else { return }
-        let names = TagNameNormalizer.normalize(many: HashtagParser.tagNames(in: raw))
+        // Decode HTML entities before hashtag scanning so `&#x201C;`-style escapes don't masquerade as
+        // `#hashtag` tokens (the leading `#` would otherwise spawn junk tags like `x201c`).
+        let decodedRaw = HTMLEntityDecoder.decode(raw)
+        let names = TagNameNormalizer.normalize(many: HashtagParser.tagNames(in: decodedRaw))
         upsertTagsOnItem(tagNames: names, item: item, context: context)
     }
 

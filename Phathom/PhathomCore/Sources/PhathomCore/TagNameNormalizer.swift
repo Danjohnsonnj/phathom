@@ -4,7 +4,9 @@ import Foundation
 public enum TagNameNormalizer {
     /// Returns `nil` if the string is empty or does not meet length constraints after cleanup.
     public static func normalize(_ raw: String) -> String? {
-        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Decode HTML entities first so escape artifacts (e.g. `&#x201C;`) collapse to punctuation/emoji
+        // and then drop, instead of leaking their hex payload (`x201c`) as a bogus tag.
+        var s = HTMLEntityDecoder.decode(raw).trimmingCharacters(in: .whitespacesAndNewlines)
         if s.hasPrefix("#") {
             s = String(s.dropFirst())
             s = s.trimmingCharacters(in: .whitespacesAndNewlines)
