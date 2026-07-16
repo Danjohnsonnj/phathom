@@ -1,31 +1,24 @@
-# Product brief - Tag Consistency
+# Product brief — Annotated Markdown Export
 
-## Background
+## Problem
 
-Phathom auto-tags every saved article via the LLM Analyze step. Tags are open-vocabulary: the only gate is `TagNameNormalizer` (format - lowercase, ASCII-fold, kebab-case, 2-40 chars). There is no controlled vocabulary, allow-list, or semantic canonicalization, and no global tag merge/rename. Result: the live library accumulates subtle near-duplicate tags that fragment otherwise-similar items.
+Users highlight articles and add notes in Phathom Detail, but can only share the **original URL**. Colleagues cannot see annotations; users cannot easily harvest quotes + commentary into their own writing.
 
-## Goal
+## Use cases (v1)
 
-Make tags more consistent across items so semantically equivalent concepts collapse to one canonical tag. Success bar: a documented audit of real-library tag drift plus an agreed intervention that measurably reduces distinct near-duplicate clusters.
+1. **Share with colleagues** — annotated article markdown with source attribution.
+2. **Draft stockpile** — export many articles as `.md` files for later synthesis.
 
-## Rationale
+## Solution
 
-The user observes wide tag variation across a representative sample of saved articles. Consistent tags improve library filtering, related-items (`TagRelationService` Jaccard adjacency), and Focus Stack navigation. Doing this now, before the library grows larger, limits future cleanup cost.
+Detail `…` menu → **Export markdown**: standard header + `sourceMarkdown` body with `==highlight==` inline and `[^n]` footnotes (note text only) when a highlight has a `userNote`.
 
-## Non-goals
+## In scope v1
 
-- Not redesigning Category (separate `@Model`, one-per-item) in this effort.
-- Not building open RAG / Chat (out of scope per repo invariants).
-- Not changing the on-device, privacy-first model - audit runs offline on an exported file.
+- Web items with non-empty `sourceMarkdown`.
+- Export even when zero highlights (header + pristine body).
+- iOS share sheet + macOS file exporter.
 
-## Boundaries
+## Out of scope v1
 
-- Always: audit from exported JSON; keep export + findings out of git.
-- Ask first: any app code change (prompt, pipeline, schema, new merge UI) - that is Phase 2+, gated on Phase 1 findings.
-- Never: read or mutate the live SwiftData store from the audit; never commit the user's backup data.
-
-## Success criteria
-
-- Phase 1: a findings report quantifying tag drift (frequency, near-dup clusters, co-occurrence) plus a draft canonical map, reviewed by the user.
-- Phase 2: a chosen intervention with rationale tied to the findings.
-- Phase 3: intervention implemented and verified per simulator-verify policy.
+- Note/media export, clipboard copy, batch/multi-item export, re-import, format toggles, Phathom branding line.

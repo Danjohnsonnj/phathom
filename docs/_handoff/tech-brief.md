@@ -1,100 +1,50 @@
-# Tech brief - current state and gaps
+# Tech brief — Annotated Markdown Export
 
-## Current architecture (verified)
+## Architecture
 
-- **Tag model** - separate normalized `@Model`, `name` is `.unique`, many-to-many with `ContentItem`; deduped globally (`Phathom/PhathomCore/Sources/PhathomCore/Tag.swift`).
-- **TagNameNormalizer** - canonical format gate: trim, strip leading `#`, diacritic-fold, lowercase, map non-`[a-z0-9-]` to `-`, collapse/trim hyphens, require 2-40 chars else drop (`Phathom/PhathomCore/Sources/PhathomCore/TagNameNormalizer.swift`).
-- **Tag generation** - LLM emits a JSON string array; `tagsFromDerivedTaskSuffix()` (derived path, primary) and `tagsTaskSuffix()` (full-article path) in `Phathom/Phathom/Inference/LlamaContentAnalyzer.swift`. Optional separate tagging GGUF (`phathom.selectedGGUFBookmark.tagging`), silent fallback to primary model.
-- **Persistence gate** - `upsertTagsOnItem` normalizes + dedups + reuses existing `Tag` rows; `mergePlatformHashtagTags` appends IG/TikTok caption hashtags (`Phathom/Phathom/Services/BackgroundPipeline.swift`).
-- **Manual edit** - Detail tag editing (`DetailView.swift`, `TagEditSheet.swift`, `TagChipsView.swift`); edit re-points one item, does NOT rename the shared `Tag` row; "Regenerate tags" re-runs LLM.
-- **Tag relatedness** - `TagRelationService` / `TagAdjacency` compute Jaccard adjacency + LLM semantic expansion (read-only; never mutates tags).
-- **Backup/export** - `LibraryBackupService` (`PhathomCore`), `formatVersion 5`, single pretty-printed JSON (`.prettyPrinted, .sortedKeys`, iso8601). Excludes archived items (`isArchived == false`). v5 adds `items[].userAddedTagNames`.
+| Layer | Path | Role |
+| ----- | ---- | ---- |
+| Exporter | `Phathom/PhathomCore/Sources/PhathomCoreMarkdown/AnnotatedMarkdownExporter.swift` | Pure transform: markdown + highlight inputs → export string + filename |
+| Tests | `Phathom/PhathomCore/Tests/PhathomCoreTests/AnnotatedMarkdownExporterTests.swift` | Format contract tests |
+| UI | `Phathom/Phathom/Views/Shared/DetailBackBarButton.swift` | `DetailOverflowMenu` — Share link + Export markdown |
+| Wiring | `Phathom/Phathom/Views/Detail/DetailView.swift` | Mapper `Highlight` → `HighlightExportInput`, share/export actions |
 
-## Verified findings / gaps
+Anchor data reuses existing `Highlight.sourceMarkdownOffset`, `sourceMarkdownLength`, `sourceMarkdownSegmentsJSON` (same JSON shape as `HighlightMarkdownAnchor.Segment`).
 
-1. No controlled vocabulary / allow-list anywhere - tags are open-vocabulary; only format is enforced, not semantics. ROOT CAUSE of drift. (verified)
-2. No global tag merge/rename - only per-item re-pointing; orphan `Tag` rows not GC'd on edit. (verified)
-3. Export tag shape: each item has `tags: [String]` at `items[].tags` (`LibraryBackupService.swift` `ItemRecord.tags = item.tags.map(\.name)`). Category is separate: `categoryName: String?`. (verified)
-4. Import re-normalizes with `lowercased().trimmingCharacters` only (not full `TagNameNormalizer`); seed/older data may contain spaces -> audit must treat tags as arbitrary strings, not assume kebab-case. (verified)
+## Locked format spec
 
-## Export schema (audit input)
+**Eligibility:** `item.kind == .web` and non-empty `sourceMarkdown`.
 
-```json
-{ "formatVersion": 5, "exportedAt": "iso8601", "appBuild": "optional",
-  "items": [ { "id": "...", "title": "...", "tags": ["climate-change","news"], "userAddedTagNames": ["podcast"], "categoryName": "optional", "contentKind": "web", ... } ] }
+**Header** (before body):
+
+```markdown
+# {displayTitle}
+
+**Source:** {originalURL or —}
+**Exported:** {YYYY-MM-DD}
+**Highlights:** {n} ({m} with notes)
 ```
 
-Audit needs only `items[].tags`. File may be large (full article text dominates size); tags themselves are tiny.
+`en_US_POSIX` date. Nil URL → `**Source:** —`.
 
-## Audit script contract (`tools/tag_audit.py`)
+**Body:** `sourceMarkdown` with `\r\n` → `\n`.
 
-- Input: path to export JSON. Output dir: `tag-audit-work/` (default; gitignored).
-- Memory-safe for huge files: prefers `ijson` streaming if installed; falls back to `json.load` with a warning. Stdlib-only otherwise (uses `difflib`).
-- Produces:
-  - `frequency.tsv` - tag, count (items using it).
-  - `clusters.md` - deterministic near-dup clusters: plural/singular, substring/containment, fuzzy (difflib ratio >= threshold), shared-token groups.
-  - `cooccurrence.tsv` - top tag pairs that co-occur on items.
-  - `tag_vocab.json` - compact `[{tag,count}]`, the small artifact handed to the LLM semantic pass.
-  - `summary.md` - headline metrics (total items, total tag uses, distinct tags, singletons, largest clusters).
+**Highlights** (apply reverse offset order):
 
-## LLM semantic clustering pass (Phase 1 stage 2)
+| Case | Markup |
+| ---- | ------ |
+| Non-empty segments JSON | `==` per `{start,end}` segment |
+| No segments / `[]` / decode failure | single `==` on envelope |
+| `userNote` | `[^k]` after last closing `==` (or envelope end if wrap skipped) |
+| No note | no footnote ref |
 
-Deterministic clustering misses synonyms (`ml` ~ `machine-learning`, `llm` ~ `large-language-models`). After running the script, feed `tag_vocab.json` to an LLM with this instruction, producing a canonical map `{variant -> canonical}`:
+**Footnotes** (after body): `[^k]: {userNote}` only; numbers in forward offset order among highlights-with-notes. Multiline notes: indented continuation lines.
 
-> Given this list of `{tag, count}` from a personal article library, group tags that refer to the same concept (synonyms, abbreviations, singular/plural, broader/narrower where a merge is clearly safe). For each group choose ONE canonical tag (prefer the most frequent, most specific, kebab-case form). Output JSON: a list of groups, each `{canonical, variants:[...], rationale}`. Do NOT merge genuinely distinct concepts; when unsure, leave a tag in its own group. Flag ambiguous borderline merges separately for human review.
+**Overlaps:** skip `==` when span ⊆ already-wrapped region; still emit footnote. Partial overlaps: accept nested/adjacent `==` for v1.
 
-Output saved to `tag-audit-work/canonical-map.json` (untracked). This map is the input to the Phase 2 design decision.
+**Filename:** `{title-slug}.md` (~80 char kebab from `displayTitle`).
 
-## Phase 1 audit results (2026-06-28, export `phathom-library-backup-2026-06-29T00-44-53Z.json`)
+## Verify
 
-Durable summary so a cold-start agent has the numbers without the gitignored `tag-audit-work/`. Raw findings (full 564-tag vocab, per-item data) are local-only; regenerate by re-running `tools/tag_audit.py <export>` then the LLM semantic pass (prompt below).
-
-- 115 items, 656 tag uses, **564 distinct tags, 527 singletons (93% used once)**, avg 5.70 tags/item.
-- Diagnosis: problem is generation-side PROLIFERATION (LLM mints hyper-specific one-off tags), not cleanable near-dup drift. Confident semantic merges only shave ~25 tags.
-- Reused spine (top): agentic-coding x17, llm x10, software-development x8, artificial-intelligence x8, software-engineering x6, productivity x6, opinion x5.
-- Confident merge canonicals (from `canonical-map.json`): ai/ai-tool->artificial-intelligence; llms/ai-llm/language-models->llm; coding-agent/ai-coding-agents->coding-agents; agentic-programming->agentic-coding; agent-generated-code->ai-generated-code; code-reviews->code-review; open-weight/llm-open-weights->open-weights; foodreview->food-review; opinion-piece->opinion; tech->technology; new-jersey-park/state-park->new-jersey-state-park.
-- Borderline (defer to user): software-development vs software-engineering; human-in vs on-the-loop; ai-assisted vs agentic-coding; local-first cluster.
-- BUG: unicode-escape artifacts leaked into tags despite `TagNameNormalizer`: `x201c` (left double-quote), `x201d` (right double-quote), `x2019` (apostrophe), `x1f517` (link emoji). Investigate where raw `\uXXXX`-style tokens enter tagging (LLM output decode or `mergePlatformHashtagTags`).
-
-## Locked architecture (Phase 2 Increment 1) - approved 2026-06-28
-
-Decisions reached via grill; plan reviewed (gates 1-5 pass). Scope = generation-side fix + junk-tag fix only. Three landable sub-increments, smallest-first. No SwiftData schema change. Preserve `SharedLlamaInference.withSession` serialization + KV reuse (seed/enum live only in the tags task suffix, after the shared prefix).
-
-**1a - Junk-tag fix (ship first, independent).** Root cause confirmed: undecoded HTML hex entities in scraped text reach tag intake (`&#x201C;`->`x201c`, `&#x2019;`->`x2019`, `&#x1F517;`->`x1f517`); `&`/`#`/`;` map to hyphens but the hex payload survives. Fix (defense-in-depth):
-- New `HTMLEntityDecoder` in `PhathomCore` (numeric `&#NNN;`, hex `&#xHHHH;`, common named).
-- Backstop: decode entities at top of `TagNameNormalizer.normalize` (`PhathomCore/.../TagNameNormalizer.swift`) - the single chokepoint all tags pass through.
-- Source: decode `item.rawText` before `HashtagParser.tagNames(in:)` in `mergePlatformHashtagTags` (`BackgroundPipeline.swift` ~L1301). Confirm/handle article-body path during build if it also carries entities.
-
-**1b - Strict-closed content-type enum (prompt-only).** Add `contentTypeVocabulary = [news, opinion, analysis, guide, tutorial, review, interview, explainer, reference, recipe, social-media]` (revisit vs audit data) in `LlamaContentAnalyzer.swift`. Rewrite content-type CONSTRAINT in `tagsFromDerivedTaskSuffix()` (L197) and `tagsTaskSuffix()` (L163): pick 1-2 content-type tags ONLY from the list; if none fit, omit (never invent). NOTE: `tagsTaskSuffix()`/`generateTags()` full-article path is currently uncalled (pipeline tags only via `tagsFromDerived`); update for parity, expect no runtime effect.
-
-**1c - Dynamic subject seed.** Pure selector `TagSeedBuilder.select(from:[(name,count)], floor: 3, cap: 15) -> [String]` (exclude < floor, sort count desc then shorter/kebab; floor/cap named constants). `buildSubjectSeed(context:)` fetch wrapper reads `Tag` + `t.items.count`. Thread `subjectSeed` through `ModelSession.tagsFromDerived` (L41) -> `sessionGenerateTagsFromDerived` (L312) -> `generateTagsFromDerived` (L317) -> `tagsFromDerivedTaskSuffix(subjectSeed:)`. Build seed at the two call sites: `applyMediaTaggingForPipelineItem` (L1187) + `applyDerivedTaggingForPipelineItem` (L1233); `performRetag` (L906) covered transitively. Suffix adds `<VOCABULARY>` block "prefer reusing a subject tag when it genuinely fits; only invent when none apply"; empty seed -> omit block (cold start). Rationale: local single-user library, so the user's own frequently-reused tags ARE the correct spine; the floor excludes the 527 singletons (the disease), breaking the proliferation loop. Borderline merges become moot (both variants coexist in seed if frequent, else fade).
-
-**Tests (Swift Testing, `Phathom/PhathomTests/`):** `TagSeedBuilderTests`, `TagNameNormalizerTests` (entity cases), `HTMLEntityDecoderTests`. Plus 3-step manual UAT (reuse / content-type / no-artifacts).
-
-**Deferred by decision:**
-- Phase C: one-time backlog merge (new global merge service: re-point `Tag` rels, GC orphans) applying `canonical-map.json` confident merges; resolve borderline merges then. Possible human-gated content-type enum-gap flagging via the audit.
-
-## Locked architecture (Phase 2 Increment 2) - approved 2026-07-04
-
-Grill-locked tag provenance on branch `tag-consistency`. Additive `userAddedTagNames` only (SwiftData stays `PhathomSchemaV5`; backup `formatVersion` 5 is separate).
-
-| ID | Rule |
-| --- | --- |
-| D1 | `userAddedTagNames` maintained on Add / Edit / Delete via Detail `saveTagChanges` / `deleteTag` only |
-| D2 | Sticky retag: LLM output ∪ provenance names; provenance array unchanged by pipeline |
-| D3 | Subject seed: deduped provenance from active items first (user-added tier lex ascending), then frequency tags (floor 3) until cap 15 |
-| D4 | Format promotion: provenance names on ≥2 active items, not in base enum → append to content-type list |
-| D5 | Migration: property default `[]`; no backfill from existing `item.tags` |
-| D6 | Import replace: normalize provenance; union-attach every provenance name to `item.tags` |
-| D7 | Provenance aggregation: `!isArchived` items only |
-| D8 | Merge import unchanged (skip duplicate IDs). **Provenance sync requires Replace import or manual re-edit.** |
-| D9 | Promoted format cap: +5 max; order by cross-item provenance count desc |
-| D10 | Store only `TagNameNormalizer` output; dedupe on every write boundary |
-
-**Key files:** `TagProvenanceNormalizer`, `TagPipelineMerge`, `TagRelationshipUpsert`, `TagSeedBuilder.selectSubjectSeed` / `selectPromotedContentTypes`, `BackgroundPipeline.buildTaggingPromptInputs`, `LibraryBackupService` v5.
-
-## Hard invariants
-
-- Audit never touches the live SwiftData store; reads exported JSON only.
-- Export + findings (`tag-audit-work/`) never committed.
-- Any pipeline change must preserve `SharedLlamaInference.withSession` serialization + KV reuse (repo invariants).
+- 2a: `cd Phathom/PhathomCore && swift test --filter AnnotatedMarkdownExporterTests`
+- 2b: `bash scripts/build-phathom.sh sim` + `bash scripts/build-phathom.sh macos`

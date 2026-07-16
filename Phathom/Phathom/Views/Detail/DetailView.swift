@@ -4,6 +4,7 @@ import PhathomInference
 import SwiftData
 import SwiftUI
 import MarkdownUI
+import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
 #endif
@@ -50,6 +51,15 @@ struct DetailView: View {
     @State private var cachedMediaUIImage: PlatformImage?
     @State private var mediaImageLoadAppearGeneration: Int = 0
     @State private var loadedMediaThumbnailCacheKey: String?
+    #if os(iOS)
+    @State private var isPresentingLinkShare = false
+    @State private var isPresentingMarkdownShare = false
+    @State private var markdownShareURL: URL?
+    #else
+    @State private var showMarkdownExporter = false
+    @State private var markdownExportDocument = MarkdownExportDocument()
+    @State private var markdownExportFilename = "article.md"
+    #endif
     @FocusState private var titleFocused: Bool
 
     private static let timestampFormat = Date.FormatStyle()
@@ -63,6 +73,17 @@ struct DetailView: View {
 
     private var shareURL: URL? {
         item.originalURL
+    }
+
+    private var canExportMarkdown: Bool {
+        guard item.kind == .web else { return false }
+        guard let md = item.sourceMarkdown else { return false }
+        return !md.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var linkShareItems: [Any] {
+        if let shareURL { return [shareURL] }
+        return [item.displayTitle]
     }
 
     private var itemUUID: UUID {
@@ -185,7 +206,13 @@ struct DetailView: View {
         .phathomHideNavigationBar()
         .safeAreaInset(edge: .top, spacing: 0) {
             DetailPushNavBar {
-                DetailShareBarButton(shareURL: shareURL, fallbackTitle: item.displayTitle)
+                DetailOverflowMenu(
+                    shareURL: shareURL,
+                    fallbackTitle: item.displayTitle,
+                    canExportMarkdown: canExportMarkdown,
+                    onShareLink: presentLinkShare,
+                    onExportMarkdown: prepareMarkdownExport
+                )
             }
         }
         .onAppear {
@@ -288,6 +315,29 @@ struct DetailView: View {
                 }
             )
         }
+        #if os(iOS)
+        .sheet(isPresented: $isPresentingLinkShare) {
+            ShareActivityViewController(items: linkShareItems) {
+                isPresentingLinkShare = false
+            }
+            .ignoresSafeArea()
+        }
+        .sheet(isPresented: $isPresentingMarkdownShare) {
+            if let markdownShareURL {
+                ShareActivityViewController(items: [markdownShareURL]) {
+                    isPresentingMarkdownShare = false
+                }
+                .ignoresSafeArea()
+            }
+        }
+        #else
+        .fileExporter(
+            isPresented: $showMarkdownExporter,
+            document: markdownExportDocument,
+            contentType: UTType(filenameExtension: "md") ?? .plainText,
+            defaultFilename: markdownExportFilename
+        ) { _ in }
+        #endif
     }
 
     private var headerBlock: some View {
@@ -1043,6 +1093,47 @@ struct DetailView: View {
         guard !segments.isEmpty else { return nil }
         guard let data = try? JSONEncoder().encode(segments) else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+
+    private func presentLinkShare() {
+        #if os(iOS)
+        isPresentingLinkShare = true
+        #endif
+    }
+
+    private func prepareMarkdownExport() {
+        guard canExportMarkdown, let md = item.sourceMarkdown else { return }
+        let highlights = item.highlightsSortedByOffset.map {
+            HighlightExportInput(
+                sourceMarkdownOffset: $0.sourceMarkdownOffset,
+                sourceMarkdownLength: $0.sourceMarkdownLength,
+                sourceMarkdownSegmentsJSON: $0.sourceMarkdownSegmentsJSON,
+                userNote: $0.userNote
+            )
+        }
+        guard let export = AnnotatedMarkdownExporter.export(
+            title: item.displayTitle,
+            sourceURL: item.originalURL,
+            sourceMarkdown: md,
+            highlights: highlights
+        ) else {
+            return
+        }
+
+        #if os(iOS)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(export.suggestedFilename)
+        do {
+            try export.markdown.write(to: url, atomically: true, encoding: .utf8)
+            markdownShareURL = url
+            isPresentingMarkdownShare = true
+        } catch {
+            print("[DetailView] markdown export write failed: \(error)")
+        }
+        #else
+        markdownExportDocument = MarkdownExportDocument(text: export.markdown)
+        markdownExportFilename = export.suggestedFilename
+        showMarkdownExporter = true
+        #endif
     }
 
     /// Backfills or refreshes `sourceContentHTML` when markdown exists but HTML is missing or indexer version is stale.

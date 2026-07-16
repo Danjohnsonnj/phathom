@@ -2,7 +2,7 @@
 
 **Canonical what-shipped-now summary.** Ground in **code + [`decisions.md`](../decisions.md) active index** — not delivery session logs. Update this file first when shipping or deferring features (append date + one line).
 
-**Last updated:** 2026-06-21 (Notebook filter persistence independent)
+**Last updated:** 2026-07-08 (Detail annotated markdown export)
 
 ---
 
@@ -13,6 +13,7 @@
 | **Tab bar** | **Library · Notebook · Focus · Add New** — no Chat tab (`FocusTab` replaced deleted Chat placeholder). Verify: [`MainTabView.swift`](../../Phathom/Phathom/Views/MainTabView.swift) |
 | **Pipeline / ingest** | Scrape → embed → analyze; serialized **`withSession`** |
 | **Focus Stack v1** | Phases **A + B + A+** (Library long-press add/remove) |
+| **Detail export** | Web articles: `…` menu → **Export markdown** (`==highlight==` + footnotes); **Share link** unchanged — 2026-07-08 |
 | **macOS v1** | Native Apple Silicon target shipped per **2026-06-13** decision — opt-in hand-offs: [`macos-v1-delivery.md`](../handoff/macos-v1-delivery.md) |
 | **Library / Notebook filters** | Independent **`@AppStorage`** per tab (`library.filter.*` vs `notebook.filter.*`); shared **`LibraryFilterBar`** UI — see **2026-06-21** decision |
 

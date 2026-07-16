@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 /// Detail / Settings push back affordance — accent chevron only (mock `detail-nav-back` parity).
 struct DetailBackBarButton: View {
@@ -24,7 +27,49 @@ struct DetailBackBarButton: View {
     }
 }
 
-/// Trailing Detail share — flat secondary icon (mock `detail-nav-share`).
+/// Trailing Detail overflow — Share link + optional annotated markdown export.
+struct DetailOverflowMenu: View {
+    let shareURL: URL?
+    let fallbackTitle: String
+    let canExportMarkdown: Bool
+    let onShareLink: () -> Void
+    let onExportMarkdown: () -> Void
+
+    var body: some View {
+        Menu {
+            #if os(macOS)
+            if let shareURL {
+                ShareLink(item: shareURL) {
+                    Label("Share link", systemImage: "link")
+                }
+            } else {
+                ShareLink(item: fallbackTitle) {
+                    Label("Share link", systemImage: "link")
+                }
+            }
+            #else
+            Button(action: onShareLink) {
+                Label("Share link", systemImage: "link")
+            }
+            #endif
+
+            if canExportMarkdown {
+                Button(action: onExportMarkdown) {
+                    Label("Export markdown", systemImage: "doc.text")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(AppPalette.textSecondary)
+                .padding(8)
+                .accessibilityLabel("More")
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Trailing Detail share — flat secondary icon (mock `detail-nav-share`). Prefer ``DetailOverflowMenu``.
 struct DetailShareBarButton: View {
     let shareURL: URL?
     let fallbackTitle: String
@@ -155,14 +200,27 @@ struct DetailBackBarToolbarItem: ToolbarContent {
     }
 }
 
-/// Trailing toolbar slot — prefer ``DetailPushNavBar`` + ``DetailShareBarButton`` for 22pt alignment.
+/// Trailing toolbar slot — prefer ``DetailPushNavBar`` + ``DetailOverflowMenu`` for 22pt alignment.
 struct DetailShareToolbarItem: ToolbarContent {
     let shareURL: URL?
     let fallbackTitle: String
+    var canExportMarkdown: Bool = false
+    var onShareLink: (() -> Void)?
+    var onExportMarkdown: (() -> Void)?
 
     var body: some ToolbarContent {
         ToolbarItem(placement: PhathomToolbarPlacement.trailing) {
-            DetailShareBarButton(shareURL: shareURL, fallbackTitle: fallbackTitle)
+            if let onShareLink, let onExportMarkdown {
+                DetailOverflowMenu(
+                    shareURL: shareURL,
+                    fallbackTitle: fallbackTitle,
+                    canExportMarkdown: canExportMarkdown,
+                    onShareLink: onShareLink,
+                    onExportMarkdown: onExportMarkdown
+                )
+            } else {
+                DetailShareBarButton(shareURL: shareURL, fallbackTitle: fallbackTitle)
+            }
         }
         .phathomSharedToolbarBackgroundHidden()
     }
@@ -179,7 +237,13 @@ struct DetailShareToolbarItem: ToolbarContent {
         .phathomHideNavigationBar()
         .safeAreaInset(edge: .top, spacing: 0) {
             DetailPushNavBar {
-                DetailShareBarButton(shareURL: nil, fallbackTitle: "Example")
+                DetailOverflowMenu(
+                    shareURL: nil,
+                    fallbackTitle: "Example",
+                    canExportMarkdown: true,
+                    onShareLink: {},
+                    onExportMarkdown: {}
+                )
             }
         }
     }

@@ -1,19 +1,35 @@
-# Phases
+# Phases — Annotated Markdown Export
 
-## Phase 1 - Audit (discovery) - COMPLETE 2026-06-28
+## Phase 1 — Design
 
-- Objective: quantify real-library tag drift from an exported backup and produce a draft canonical map.
-- Steps: (1) user exports non-archived backup JSON; (2) run `python3 tools/tag_audit.py <export.json>`; (3) review `summary.md` / `clusters.md`; (4) LLM semantic pass over `tag_vocab.json` -> `canonical-map.json`; (5) user reviews findings.
-- Verify: `summary.md` + `clusters.md` + `canonical-map.json` generated in `tag-audit-work/`. DONE.
-- Result (see tech-brief.md): 564 distinct tags / 527 singletons (93%) across 115 items -> proliferation, not drift. Confident merges shave ~25. Spine + junk-tag bug identified.
+- **Status:** COMPLETE (grill 2026-07-08).
+- **Output:** Locked format spec in tech-brief.md.
 
-## Phase 2 - Design
+## Phase 2 — Build
 
-- Objective: choose intervention(s) tied to Phase 1 data and write the proposed architecture into tech-brief.md.
-- Candidates: seed/controlled vocabulary, tightened tag prompt, post-processing canonical map in `upsertTagsOnItem`, global tag merge/rename feature.
-- Verify: tech-brief.md "Proposed architecture" filled; user approves direction; UAT smoke tests defined where relevant.
+### Increment 1a — Exporter + tests
 
-## Phase 3 - Deliver
+- Implement `AnnotatedMarkdownExporter` + `HighlightExportInput`.
+- Tests: zero highlights, highlight±note, segments, envelope, footnote numbering, overlap, filename slug.
+- **Verify:** `cd Phathom/PhathomCore && swift test --filter AnnotatedMarkdownExporterTests`
 
-- Objective: implement the chosen intervention with tests.
-- Verify: simulator build clean per `.cursor/rules/simulator-verify.mdc`; PhathomTests pass; manual QA for any filing/tag UI touched; preserves inference serialization + KV reuse.
+### Increment 1b — Detail UI + share
+
+- `DetailOverflowMenu` (Share link + Export markdown).
+- iOS: `ShareActivityViewController` (separate sheet state for URL vs file).
+- macOS: `fileExporter` + `MarkdownExportDocument`.
+- **Verify:** `bash scripts/build-phathom.sh sim` + `bash scripts/build-phathom.sh macos`
+
+## Phase 3 — UAT + ship
+
+1. Web article, no highlights → header + body only.
+2. Highlight, no note → `==quoted==`.
+3. Highlight + note → `==quoted==[^1]` + footnote.
+4. Cross-format highlight → per-segment `==`.
+5. Share link → URL only.
+6. Note/photo Detail → no Export item.
+7. macOS smoke.
+8. Filename slug readable.
+
+- Update `docs/agents/product-state.md` on pass.
+- Commit when user asks.

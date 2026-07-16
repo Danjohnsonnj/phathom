@@ -52,3 +52,9 @@
 - Learned: `LlamaContentAnalyzer.contentTypeVocabulary` must be `public` for `BackgroundPipeline` (PhathomInference module boundary). `tagsTaskSuffix` needs explicit `return` when building `contentTypeList` first.
 - Overwrote: HANDOFF + tech-brief Increment 2 locked section; HANDOFF -> code complete awaiting UAT.
 - Not committed. Open: 5-step manual UAT, then commit.
+
+## 2026-07-08 - Annotated markdown export: Increment 1 code complete
+
+- Happened: Implemented `AnnotatedMarkdownExporter`, 9 unit tests, `DetailOverflowMenu`, iOS share + macOS fileExporter. PhathomCore tests + sim + macOS builds pass.
+- Learned: Overlap skip requires ascending offset when computing wraps (all insertions use original UTF-16 indices). macOS `onShareLink` unused — ShareLink lives in Menu; guard iOS-only sheet state.
+- Overwrote: HANDOFF status -> code complete awaiting UAT.
