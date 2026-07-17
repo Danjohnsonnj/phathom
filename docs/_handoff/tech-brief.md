@@ -13,6 +13,8 @@ Anchor data reuses existing `Highlight.sourceMarkdownOffset`, `sourceMarkdownLen
 
 ## Locked format spec
 
+**Dialect (reaffirmed 2026-07-17):** Obsidian-style **`==highlight==`** + GFM **`[^n]`** footnotes. Not a portable CommonMark/GFM highlight; optimized for note apps (Obsidian / Bear / Typora / etc.). Alternatives (`<mark>`, `^^`, bold-only, dual profiles) considered and rejected for v1 — see **2026-07-17** row in [`docs/decisions.md`](../decisions.md).
+
 **Eligibility:** `item.kind == .web` and non-empty `sourceMarkdown`.
 
 **Header** (before body):

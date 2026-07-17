@@ -24,5 +24,5 @@
 
 **Index (load on demand):** product-brief.md · tech-brief.md · phases.md · process.md · progress-log.md · lessons.md
 
-**Open decisions:** None — locked via grill 2026-07-08.
-**Last updated:** 2026-07-08 — Increment 1 code complete; awaiting manual UAT.
+**Open decisions:** None — format locked via grill 2026-07-08; dialect reaffirmed 2026-07-17 (`==` + footnotes; portable/`<mark>`/dual profiles deferred) — [`docs/decisions.md`](../decisions.md).
+**Last updated:** 2026-07-17 — Dialect decision recorded; still awaiting manual UAT.

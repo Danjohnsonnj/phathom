@@ -58,3 +58,8 @@
 - Happened: Implemented `AnnotatedMarkdownExporter`, 9 unit tests, `DetailOverflowMenu`, iOS share + macOS fileExporter. PhathomCore tests + sim + macOS builds pass.
 - Learned: Overlap skip requires ascending offset when computing wraps (all insertions use original UTF-16 indices). macOS `onShareLink` unused — ShareLink lives in Menu; guard iOS-only sheet state.
 - Overwrote: HANDOFF status -> code complete awaiting UAT.
+
+## 2026-07-17 - Export dialect reaffirmed
+
+- Happened: After researching `==` / footnote renderer support (Obsidian strong; Cursor/VS Code/GitHub weak on `==`), recorded decision to **keep** Obsidian-style `==` + GFM footnotes for v1. Rejected `<mark>`, `^^`, bold-only, and dual export profiles for now.
+- Overwrote: `docs/decisions.md` (2026-07-17 row); tech-brief dialect note; HANDOFF open-decisions / last-updated.
