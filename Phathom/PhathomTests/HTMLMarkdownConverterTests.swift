@@ -115,4 +115,31 @@ struct HTMLMarkdownConverterTests {
         #expect(md!.contains("**Bold**"))
         #expect(md!.contains("*italic*"))
     }
+
+    @Test func boldLabelPreservesFollowingSpace() {
+        let html = """
+        <body><p><strong><span>1. Weakness mining:</span></strong><span> The agent runs.</span></p></body>
+        """
+        let md = HTMLMarkdownConverter.convert(html: html, baseURL: nil)
+        #expect(md != nil)
+        #expect(md!.contains("**1. Weakness mining:** The agent"))
+    }
+
+    @Test func commaSpaceBeforeLink() {
+        let html = """
+        <body><p><span>For most engineers, </span><a href="https://example.com/x"><span>the harness</span></a><span>.</span></p></body>
+        """
+        let md = HTMLMarkdownConverter.convert(html: html, baseURL: nil)
+        #expect(md != nil)
+        #expect(md!.contains("engineers, [the harness](https://example.com/x)"))
+    }
+
+    @Test func spaceAfterLinkBeforeWord() {
+        let html = """
+        <body><p><span>framework called </span><a href="https://example.org/s"><span>Self-Harness</span></a><span> introduces</span></p></body>
+        """
+        let md = HTMLMarkdownConverter.convert(html: html, baseURL: nil)
+        #expect(md != nil)
+        #expect(md!.contains("[Self-Harness](https://example.org/s) introduces"))
+    }
 }

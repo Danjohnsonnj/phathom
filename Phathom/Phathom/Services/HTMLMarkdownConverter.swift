@@ -232,7 +232,7 @@ enum HTMLMarkdownConverter {
                 }
             }
         }
-        return collapseInlineSpacing(parts.joined()).trimmingCharacters(in: .whitespacesAndNewlines)
+        return collapseInlineSpacing(parts.joined())
     }
 
     private static func resolveHref(_ href: String, baseURL: URL?) -> String {
