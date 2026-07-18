@@ -345,7 +345,7 @@ Llama.cpp supports token-by-token streaming natively. Use this for chat response
 
 - Show a typing indicator while the model processes the prompt
 - As each token is generated, append it to `ChatMessage.text` — SwiftUI will re-render progressively
-- Implement streaming in **first-party** Swift on top of **`import llama`** (decode loop + `AsyncStream` / `yield` pattern — same class as **Intrai** `LlamaCppInferenceEngine`)
+- Implement streaming in **first-party** Swift on top of **`import llama`** (decode loop + `AsyncStream` / `yield` pattern)
 
 Use the exact streaming API and cancellation hooks established in Phase 2 (`LlamaCppBridge` / inference actor); Phase 3 only consumes that seam.
 

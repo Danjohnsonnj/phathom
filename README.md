@@ -61,13 +61,19 @@ The repo expects a vendored framework at:
 
 **`Phathom/vendor/llama/llama.xcframework`**
 
-If that folder is missing in your checkout, you need a compatible **llama.cpp** build packaged as an **XCFramework** (device + simulator slices). This repo includes a helper script that **copies** a framework from another local checkout (paths inside the script are editable):
+If that folder is missing in your checkout, produce a compatible **llama.cpp** **XCFramework** (device + simulator slices) with the in-repo rebuild script (requires a local **llama.cpp** clone at `~/Local Documents/repos/llama.cpp`, or edit the path in the script):
 
 ```bash
-bash scripts/setup-llama-xcframework.sh
+bash scripts/rebuild-llama-xcframework-with-mtmd.sh
 ```
 
-The script’s comments point at a typical source (`intrai-llama`); you can also produce **`llama.xcframework`** from upstream **llama.cpp** using the same packaging approach your team uses for iOS static libraries + headers. **Bridging expectation:** statically link **`llama.xcframework`**, **`import llama`** from Swift, toolchain links **`-lc++`** — no alternate Swift wrappers. More detail: [AGENTS.md](AGENTS.md).
+To **copy** an existing prebuilt **`llama.xcframework`** into vendor instead:
+
+```bash
+SOURCE_XCF=/path/to/llama.xcframework bash scripts/setup-llama-xcframework.sh
+```
+
+**Bridging expectation:** statically link **`llama.xcframework`**, **`import llama`** from Swift, toolchain links **`-lc++`** — no alternate Swift wrappers. More detail: [AGENTS.md](AGENTS.md).
 
 ## Llama.cpp: setup and use
 

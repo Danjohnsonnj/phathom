@@ -20,7 +20,7 @@ SIM_COMBINED_LIB="${BUILD_SIM_DIR}/llama-ios-sim-mtmd.a"
 DEVICE_COMBINED_LIB="${BUILD_DEVICE_DIR}/llama-ios-device-mtmd.a"
 MAC_COMBINED_LIB="${BUILD_MAC_DIR}/llama-macos-arm64-mtmd.a"
 
-# Match intrai-llama / Phathom simulator baseline where possible.
+# Match Phathom simulator baseline where possible.
 # iOS 18 = legacy sim/device floor; macOS 26 = Mac v1 product floor (grill-me Jun 2026).
 IOS_MIN_OS_VERSION="${IOS_MIN_OS_VERSION:-18.0}"
 MACOS_MIN_OS_VERSION="${MACOS_MIN_OS_VERSION:-26.0}"

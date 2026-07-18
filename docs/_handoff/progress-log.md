@@ -63,3 +63,9 @@
 
 - Happened: After researching `==` / footnote renderer support (Obsidian strong; Cursor/VS Code/GitHub weak on `==`), recorded decision to **keep** Obsidian-style `==` + GFM footnotes for v1. Rejected `<mark>`, `^^`, bold-only, and dual export profiles for now.
 - Overwrote: `docs/decisions.md` (2026-07-17 row); tech-brief dialect note; HANDOFF open-decisions / last-updated.
+
+## 2026-07-18 - Session A llama.cpp upgrade shipped + tagging UAT note
+
+- Happened: Vendored `llama.xcframework` upgraded to upstream `b10068` (`571d0d540`, PR #20306). Device UAT: text analyze pass; vision pass after correct GGUF/mmproj pairing; Settings tests pass; background step partial (Jetsam under Debug). Committed/pushed `1c24c1f`.
+- Learned (tagging, **follow-up — not Session A scope**): On unique vision content, 5 tags with 3 accurate and 2 clearly off-topic. Likely cause: `TagSeedBuilder` injects high-frequency library subject tags (`floor` 3, `cap` 15) and `LlamaContentAnalyzer` prompts prefer reusing `<VOCABULARY>` — on sparse/novel content the model may over-pick popular seed tags. Candidate fix: tighten reuse guard when content is weakly related to seed, or bias toward novel subject tags when seed fit is poor (tag-consistency / prompt increment, not llama upgrade).
+- Follow-up (inference): UAT background Jetsam ≠ PR #20306 validation; optional Release retest — see `docs/ideas/siri_update/05-background-inference-feasibility.md` §UAT follow-up.
