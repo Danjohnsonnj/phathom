@@ -1,5 +1,9 @@
 import PhathomCore
+import SwiftData
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 /// Expects `highlights` sorted by offset (pass `ContentItem.highlightsSortedByOffset`).
 struct HighlightsNotesSection: View {
@@ -8,17 +12,57 @@ struct HighlightsNotesSection: View {
     var showsEmptyPlaceholder: Bool = false
     var onTapHighlight: (Highlight) -> Void
 
+    @Environment(\.typographyScale) private var typographyScale
     @State private var isExpanded = false
 
     private static let sectionTitle = "Highlights & Notes"
 
     private var collapsedHighlightsPreviewMaxHeight: CGFloat {
+        let size = typographyScale.scaled(15)
         #if os(iOS)
-        let lineHeight = UIFont.preferredFont(forTextStyle: .subheadline).lineHeight
+        let lineHeight = UIFont.systemFont(ofSize: size).lineHeight
         #else
-        let lineHeight = NSFont.preferredFont(forTextStyle: .subheadline).boundingRectForFont.size.height
+        let lineHeight = NSFont.systemFont(ofSize: size).boundingRectForFont.size.height
         #endif
         return ceil(lineHeight) + 4
+    }
+
+    @ViewBuilder
+    private var sectionHeader: some View {
+        if highlights.isEmpty {
+            Text(Self.sectionTitle)
+                .appTypography(.zoneHeader)
+                .foregroundStyle(AppPalette.textPrimary)
+        } else {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(Self.sectionTitle)
+                        .appTypography(.zoneHeader)
+                        .foregroundStyle(AppPalette.textPrimary)
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Text(isExpanded ? "show less" : "show more")
+                            .appTypography(.addNewAccentLabel)
+                            .foregroundStyle(AppPalette.accent)
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(AppPalette.accent)
+                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                isExpanded
+                    ? "\(Self.sectionTitle), expanded"
+                    : "\(Self.sectionTitle), collapsed preview"
+            )
+            .accessibilityHint("Double tap to expand or collapse.")
+        }
     }
 
     @ViewBuilder
@@ -34,10 +78,12 @@ struct HighlightsNotesSection: View {
                     HairlineHighlightRow(
                         quotedText: highlight.quotedText,
                         userNote: highlight.userNote,
+                        quotedLineLimit: isExpanded ? nil : 1,
                         showsBottomHairline: index != highlights.count - 1,
-                        verticalPadding: isExpanded ? 16 : 8,
+                        verticalPadding: isExpanded ? 16 : 0,
                         onTap: { onTapHighlight(highlight) }
                     )
+                    .accessibilityHidden(!isExpanded && index > 0)
                 }
             }
         }
@@ -48,40 +94,17 @@ struct HighlightsNotesSection: View {
             EmptyView()
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isExpanded.toggle()
-                    }
-                } label: {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(Self.sectionTitle)
-                            .appTypography(.zoneHeader)
-                            .foregroundStyle(AppPalette.textPrimary)
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Text(isExpanded ? "show less" : "show more")
-                                .appTypography(.addNewAccentLabel)
-                                .foregroundStyle(AppPalette.accent)
-                            Image(systemName: "chevron.down")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(AppPalette.accent)
-                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(
-                    isExpanded
-                        ? "\(Self.sectionTitle), expanded"
-                        : "\(Self.sectionTitle), collapsed preview"
-                )
-                .accessibilityHint("Double tap to expand or collapse.")
+                sectionHeader
 
-                highlightsBody
-                    .modifier(CollapsedPreviewClipModifier(
-                        isExpanded: isExpanded,
-                        maxHeight: collapsedHighlightsPreviewMaxHeight
-                    ))
+                if highlights.isEmpty {
+                    highlightsBody
+                } else {
+                    highlightsBody
+                        .modifier(CollapsedPreviewClipModifier(
+                            isExpanded: isExpanded,
+                            maxHeight: collapsedHighlightsPreviewMaxHeight
+                        ))
+                }
             }
         }
     }
@@ -106,6 +129,7 @@ private struct CollapsedPreviewClipModifier: ViewModifier {
     HighlightsNotesSection(highlights: [], showsEmptyPlaceholder: true) { _ in }
         .padding(.horizontal, AppSpacing.screenHorizontal)
         .background(AppPalette.background)
+        .modelContainer(PreviewModel.makeContainer())
 }
 
 #Preview("Collapsed — highlights") {
@@ -126,4 +150,5 @@ private struct CollapsedPreviewClipModifier: ViewModifier {
     ) { _ in }
     .padding(.horizontal, AppSpacing.screenHorizontal)
     .background(AppPalette.background)
+    .modelContainer(PreviewModel.makeContainer())
 }
