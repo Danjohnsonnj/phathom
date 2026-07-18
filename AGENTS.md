@@ -38,9 +38,6 @@ Read **minimal files per task:**
 - **`SharedLlamaInference.withSession`** — serialized inference; **no parallel Llama calls** (detail: [`docs/concepts/inference/`](docs/concepts/inference/index.md))
 - **KV reuse** — maintain `llama_memory_seq_cp` summarize → tags → extracts path in pipeline refactors
 - **Scope** — **Focus Stack v1 shipped** (Phases A + B + **A+**). Do **not** implement open **RAG / Chat tab** unless explicitly directed. Optional follow-up: **Phase C** (Connect / Thread) — gates in [`focus-stack-delivery.md`](docs/handoff/focus-stack-delivery.md); **wrap-up** = update [`product-state.md`](docs/agents/product-state.md) + delivery log
-- **Response style** — see [`.cursor/rules/caveman.mdc`](.cursor/rules/caveman.mdc) (always applied)
-
-## Agent skills
 
 ### Issue tracker
 

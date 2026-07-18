@@ -11,18 +11,18 @@ Sources: [agents.md](https://agents.md/), [Cursor rules docs](https://cursor.com
 | **README vs AGENTS** | README = humans; AGENTS = agent ops (build, test, boundaries). Complement, don't duplicate product prose. | Partial overlap (build, Llama) — README human, AGENTS repeats bootstrap |
 | **Root file size** | Lean root: **~60–100 lines** high-signal (HumanLayer); **≤300** ceiling — above that use progressive disclosure (`agent_docs/`, `@imports`, nested AGENTS). Healthy file = **dozens of lines that change behavior**. | **~185 lines** — above lean target; agentmemory block ≈40% |
 | **Progressive disclosure** | Task/domain detail in linked files; root = index + invariants + copy-paste commands. Monorepos: nested AGENTS.md. | Phase 3 added `CONTEXT.md`; Phase 1 added `docs/agents/*` — **same pattern should extend to onboarding/verify/agentmemory** |
-| **`.cursor/rules` vs AGENTS** | **Don't duplicate.** `alwaysApply: true` sparingly (foundational only). Scoped/requestable rules for verify, style, domain. AGENTS = plain markdown index. | **Duplicate:** caveman (alwaysApply rule + AGENTS §), verify ladder (requestable rule + 15 lines in AGENTS) |
+| **`.cursor/rules` vs AGENTS** | **Don't duplicate.** `alwaysApply: true` sparingly (foundational only). Scoped/requestable rules for verify, style, domain. AGENTS = plain markdown index. | **Duplicate:** verify ladder (requestable rule + 15 lines in AGENTS) |
 | **What belongs in AGENTS** | Non-inferable: exact commands, never-do boundaries, arch constraints agents get wrong. **Delete** lines where removal wouldn't change behavior. | UI paragraph + agentmemory templates + verify detail are candidates to move |
 | **Matt Pocock pattern** | Thin `## Agent skills` block in AGENTS/CLAUDE — **one-liner per topic → `docs/agents/*.md`**. | ✅ Done (issue tracker, triage, domain, cheatsheet) |
 | **Treat as code** | PR-review AGENTS changes; prune to prevent context rot. | Matches Phase 4 goal |
 
-**Research-backed default for Phathom:** **Outcome C** — lean always-on AGENTS (~50–80 lines) + split playbooks under `docs/agents/`; drop duplicated caveman/verify bodies; verify canonical in `simulator-verify.mdc`.
+**Research-backed default for Phathom:** **Outcome C** — lean always-on AGENTS (~50–80 lines) + split playbooks under `docs/agents/`; drop duplicated verify body; verify canonical in `simulator-verify.mdc`.
 
 ---
 
 ## Executive summary
 
-**`AGENTS.md`** is ~185 lines and loaded as a workspace rule on every agent session. After Phase 3, **`CONTEXT.md`** and **`docs/agents/domain.md`** own glossary + skill consumer rules — but **`AGENTS.md`** still carries substantial overlap with README, requestable **`.cursor/rules/simulator-verify.mdc`**, always-on **`caveman.mdc`**, and its own **`docs/agents/*`** pointers.
+**`AGENTS.md`** is ~185 lines and loaded as a workspace rule on every agent session. After Phase 3, **`CONTEXT.md`** and **`docs/agents/domain.md`** own glossary + skill consumer rules — but **`AGENTS.md`** still carries substantial overlap with README, requestable **`.cursor/rules/simulator-verify.mdc`**, and its own **`docs/agents/*`** pointers.
 
 **No rewrite until you pick an outcome below.**
 
@@ -37,7 +37,7 @@ Sources: [agents.md](https://agents.md/), [Cursor rules docs](https://cursor.com
 | Source of truth | ~12 | Yes | Overlaps `CONTEXT.md`, `domain.md`; **needed** as single index |
 | Context Entry Points | ~12 | Yes | UI shell paragraph duplicates agentmemory topic table + `CONTEXT.md` anchors |
 | Efficiency Rules | ~7 | Yes | **Must-keep** — `withSession`, KV reuse, minimal read |
-| Getting Up to Speed | ~16 | Yes | Overlaps README build/requirements; caveman duplicates **`caveman.mdc`** (alwaysApply) |
+| Getting Up to Speed | ~16 | Yes | Overlaps README build/requirements |
 | Verification ladder | ~15 | Yes | **~80% duplicate** of `simulator-verify.mdc` (requestable, not alwaysApply) |
 | Agent skills | ~18 | Yes | Thin pointers — **keep** (Phase 1 investment) |
 | Agentmemory | ~75 | Yes | Largest block: obligations, 12-row topic table, phrase map, 6 session templates, save/skip |
@@ -48,7 +48,6 @@ Sources: [agents.md](https://agents.md/), [Cursor rules docs](https://cursor.com
 | File | Lines | Role |
 |------|-------|------|
 | `README.md` | ~109 | Human onboarding, product, build, Llama perf |
-| `.cursor/rules/caveman.mdc` | ~23 | alwaysApply — response style |
 | `.cursor/rules/simulator-verify.mdc` | ~49 | on-demand — full verify policy |
 | `docs/agents/domain.md` | ~50 | Skill domain consumer rules |
 | `CONTEXT.md` | ~90 | Glossary (Phase 3) |
@@ -63,7 +62,7 @@ Sources: [agents.md](https://agents.md/), [Cursor rules docs](https://cursor.com
 
 | Approach | Token impact | Risk |
 |----------|--------------|------|
-| **Keep full file** | Highest | Agents may skim less; redundant verify/caveman text burns budget |
+| **Keep full file** | Highest | Agents may skim less; redundant verify text burns budget |
 | **Trim in place** (~80–100 lines) | Medium savings (~30–40%) | Must not drop `withSession`, source-of-truth order, scope guardrails |
 | **Split + lean `AGENTS.md`** (~40–60 lines) | Largest savings | Agents must follow pointers; cold agents might miss split files unless linked clearly |
 | **Defer** | None | Status quo; Phase 3 glossary already helped issue skills |
@@ -82,7 +81,6 @@ What **must** load every session vs pull when relevant?
 | `withSession`, no parallel LLM, no RAG unless directed | **Always-on** (invariants) |
 | UI shell file map (long paragraph) | **On-demand** → `docs/agents/onboarding.md` or agentmemory UI topic |
 | Verification ladder (15 lines) | **On-demand** → pointer to `simulator-verify.mdc` only |
-| Caveman instructions | **Remove from AGENTS** — already in `caveman.mdc` alwaysApply |
 | Agentmemory topic table + templates | **On-demand** → `docs/agents/agentmemory.md` |
 | PR checklist | **On-demand** or trim to 3 bullets + pointer |
 | Agent skills block | **Always-on** (short) |
@@ -96,7 +94,7 @@ What **must** load every session vs pull when relevant?
 | `README.md` | Humans (+ “read first” for agents) | Build, Llama setup, product — agents told to read README in AGENTS |
 | `AGENTS.md` | Agents | Should not re-teach human-oriented Llama QA steps |
 | `CONTEXT.md` | Agents + issue skills | Terms only |
-| `.cursor/rules/*` | Agents (Cursor injection) | Caveman + verify policies |
+| `.cursor/rules/*` | Agents (Cursor injection) | Verify policies |
 
 **Productivity trade-off:** One **`AGENTS.md`** is discoverable. Split files need a **table of pointers** at top so humans editing repo know where to add rules.
 
@@ -106,7 +104,6 @@ What **must** load every session vs pull when relevant?
 
 | Duplication | Resolution options |
 |-------------|-------------------|
-| Caveman in AGENTS §Getting Up to Speed | **Drop from AGENTS** — rule always applies |
 | Verification ladder vs `simulator-verify.mdc` | **Replace AGENTS body with 2-line pointer** to rule + `scripts/build-phathom.sh` |
 | Plan-mode / PR checklist vs user rules | Keep minimal invariant bullets in AGENTS; detailed plan workflow stays in Cursor user rules |
 
@@ -132,7 +129,7 @@ These must survive any outcome:
 | ID | Name | What changes | Est. AGENTS size |
 |----|------|--------------|------------------|
 | **A** | **Defer** | No structural change; optional tiny fixes (broken links) | ~185 lines |
-| **B** | **Trim in place** | Remove caveman + shorten verify to pointer; compress UI paragraph; keep agentmemory inline | ~110–130 lines |
+| **B** | **Trim in place** | Shorten verify to pointer; compress UI paragraph; keep agentmemory inline | ~110–130 lines |
 | **C** | **Split files** | Lean `AGENTS.md` + `docs/agents/onboarding.md` + `docs/agents/agentmemory.md`; verify = pointer to rule only | ~50–65 lines always-on |
 | **D** | **Aggressive split** | Same as C + move PR checklist to `docs/agents/checklist.md`; README cross-link “agents start here” | ~40–50 lines always-on |
 
@@ -140,7 +137,6 @@ These must survive any outcome:
 
 **Research already decides (no interview needed):**
 
-- Remove caveman prose from AGENTS → `caveman.mdc` is alwaysApply canonical
 - Replace verify ladder body with 2-line pointer → `simulator-verify.mdc` canonical
 - Don't duplicate README product/Llama essays in AGENTS → pointer to README for human-oriented detail
 - Keep thin **Agent skills** block + source-of-truth table always-on
