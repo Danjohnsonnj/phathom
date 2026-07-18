@@ -132,10 +132,13 @@ public nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBri
         }
         let formatted = makeFormattedChatPrompt(userText: userBody, model: mdl)
 
-        guard let bitmap = resizedJPEG.withUnsafeBytes({ raw -> OpaquePointer? in
-            guard let base = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
-            return mtmd_helper_bitmap_init_from_buf(vision, base, raw.count)
-        }) else {
+        let bitmapWrapper = resizedJPEG.withUnsafeBytes { raw -> mtmd_helper_bitmap_wrapper in
+            guard let base = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                return mtmd_helper_bitmap_wrapper(bitmap: nil, video_ctx: nil)
+            }
+            return mtmd_helper_bitmap_init_from_buf(vision, base, raw.count, false)
+        }
+        guard let bitmap = bitmapWrapper.bitmap else {
             throw VisionInferenceError.imageDecodeFailed
         }
         defer { mtmd_bitmap_free(bitmap) }
@@ -146,15 +149,17 @@ public nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBri
         defer { mtmd_input_chunks_free(chunks) }
 
         let tokenizeResult: Int32 = formatted.withCString { formattedC in
+            let textLen = strlen(formattedC)
             var text = mtmd_input_text(
                 text: formattedC,
+                text_len: textLen,
                 add_special: true,
                 parse_special: true
             )
-            var bmpPtr: OpaquePointer? = bitmap
+            var bitmapPtr: OpaquePointer? = bitmap
             return withUnsafePointer(to: &text) { textPtr in
-                withUnsafeMutablePointer(to: &bmpPtr) { bmpArray in
-                    mtmd_tokenize(vision, chunks, textPtr, bmpArray, 1)
+                withUnsafeMutablePointer(to: &bitmapPtr) { bitmapArray in
+                    mtmd_tokenize(vision, chunks, textPtr, bitmapArray, 1)
                 }
             }
         }
