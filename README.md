@@ -61,7 +61,11 @@ The repo expects a vendored framework at:
 
 **`Phathom/vendor/llama/llama.xcframework`**
 
-If that folder is missing in your checkout, produce a compatible **llama.cpp** **XCFramework** (device + simulator slices) with the in-repo rebuild script (requires a local **llama.cpp** clone at `~/Local Documents/repos/llama.cpp`, or edit the path in the script):
+Slices: **ios-arm64**, **ios-arm64-simulator**, and **macos-arm64** (multimodal **libmtmd** linked in).
+
+If that folder is missing or you need to refresh it, build with the in-repo script:
+
+**Prerequisites:** `cmake`, Xcode/`xcrun`, and a local clone of upstream [llama.cpp](https://github.com/ggml-org/llama.cpp) at `~/Local Documents/repos/llama.cpp`. To use another location, edit the `LLAMA_CPP_DIR` assignment inside the script (there is no env override).
 
 ```bash
 bash scripts/rebuild-llama-xcframework-with-mtmd.sh
@@ -73,7 +77,9 @@ To **copy** an existing prebuilt **`llama.xcframework`** into vendor instead:
 SOURCE_XCF=/path/to/llama.xcframework bash scripts/setup-llama-xcframework.sh
 ```
 
-**Bridging expectation:** statically link **`llama.xcframework`**, **`import llama`** from Swift, toolchain links **`-lc++`** — no alternate Swift wrappers. More detail: [AGENTS.md](AGENTS.md).
+After a refresh: `bash scripts/build-phathom.sh all`.
+
+**Bridging expectation:** statically link **`llama.xcframework`**, **`import llama`** from Swift, toolchain links **`-lc++`** — no alternate Swift wrappers. Runtime invariants: [docs/concepts/inference/](docs/concepts/inference/index.md). Engine decisions: [docs/decisions.md](docs/decisions.md).
 
 ## Llama.cpp: setup and use
 

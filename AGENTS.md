@@ -13,6 +13,8 @@ Expert iOS engineer: local-first systems, on-device LLM, Metal-accelerated perfo
 
 Swift 6 (strict concurrency) · SwiftData (local-only) · `llama.cpp` via `llama.xcframework` · serialized pipeline (Scrape → Embed → Analyze)
 
+**XCFramework:** produce or refresh via [`README.md`](README.md) (`scripts/rebuild-llama-xcframework-with-mtmd.sh`; optional `SOURCE_XCF` copy). Runtime rules stay under [`docs/concepts/inference/`](docs/concepts/inference/index.md).
+
 ## Source of truth
 
 Read **minimal files per task:**

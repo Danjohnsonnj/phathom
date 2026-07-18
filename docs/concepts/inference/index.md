@@ -2,6 +2,8 @@
 
 Thin stubs — **links only**. Full glossary table: [`CONTEXT.md`](../../../CONTEXT.md#inference--pipeline).
 
+**Vendored engine:** `Phathom/vendor/llama/llama.xcframework` — build or copy: [`README.md`](../../../README.md) (XCFramework section).
+
 | Term | Description |
 |------|-------------|
 | [withSession](./with-session.md) | Serialized GGUF access; no parallel Llama calls |

@@ -43,7 +43,7 @@ Structural categories: **`PhathomCore.Category`**, **`LibraryCategoryFilterStora
 ## Environment bootstrap
 
 - **README:** [`README.md`](../../README.md) — product overview for humans; build + Llama detail when needed.
-- **xcframework:** `Phathom/vendor/llama/llama.xcframework` — if missing: `bash scripts/setup-llama-xcframework.sh`
+- **xcframework:** `Phathom/vendor/llama/llama.xcframework` — if missing or refreshing: preferred `bash scripts/rebuild-llama-xcframework-with-mtmd.sh` (local llama.cpp + cmake; see [`README.md`](../../README.md)). Optional copy of an existing framework: `SOURCE_XCF=/path/to/llama.xcframework bash scripts/setup-llama-xcframework.sh`
 - **Build:** `bash scripts/build-phathom.sh sim` (routine); `device` for signing; `all` for xcframework refresh / pre-release only. iPhone **16 Pro+** sim or device. `EXCLUDED_ARCHS[sdk=iphonesimulator*]=x86_64` for arm64-only xcframework.
 - **Tests:** `bash scripts/test-phathom.sh` (`--grep`, `--test`, `--list`; skips UITests).
 - **Simulator:** CPU-only Llama; don't optimize for GPU/ANE unless on device.
