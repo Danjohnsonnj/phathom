@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Locked reference — summary progress</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    a { text-decoration: none; color: inherit; }
+
+    :root {
+      --bg: #252422;
+      --surface: #403d39;
+      --surface-nested: #353330;
+      --accent: #eb5e28;
+      --text-primary: #fffcf2;
+      --text-secondary: #ccc5b9;
+      --chip-bg: #401F12;
+      --hairline: rgba(255, 252, 242, 0.12);
+      --rhythm: 22px;
+      --phone-w: 393px;
+      --phone-h: 852px;
+      --radius-phone: 55px;
+      --radius-thumb: 6px;
+      --font: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: #1a1918;
+      font-family: var(--font);
+      padding: 88px 24px 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page-label {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      padding: 16px 24px 12px;
+      background: #1a1918;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      color: rgba(255, 252, 242, 0.72);
+    }
+
+    .page-label span {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: rgba(255, 252, 242, 0.38);
+    }
+
+    .frames-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 40px 48px;
+      max-width: 100%;
+    }
+
+    .frame-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .frame-caption {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: rgba(255, 252, 242, 0.5);
+      text-align: center;
+    }
+
+    .phone-shell {
+      position: relative;
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      background: linear-gradient(145deg, #3a3835 0%, #2a2826 50%, #1f1e1c 100%);
+      border-radius: calc(var(--radius-phone) + 12px);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 40px 80px rgba(0, 0, 0, 0.55),
+        0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .phone-shell::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 126px;
+      height: 37px;
+      background: #0d0d0c;
+      border-radius: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      background: var(--bg);
+      border-radius: var(--radius-phone);
+      overflow: clip;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .status-bar {
+      flex-shrink: 0;
+      height: 54px;
+      padding: 14px var(--rhythm) 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-icons svg { display: block; }
+
+    .screen-scroll {
+      flex: 1;
+      overflow: hidden;
+      padding-bottom: 104px;
+    }
+
+    .screen-scroll--detail { padding-bottom: 28px; }
+
+    .top-chrome {
+      flex-shrink: 0;
+      min-height: 44px;
+      padding: 4px var(--rhythm) 0;
+    }
+
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .top-nav-right {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin-right: -8px;
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: var(--font);
+      font-size: 17px;
+      font-weight: 400;
+      cursor: default;
+      padding: 8px 0;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-btn--icon {
+      color: var(--text-secondary);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-btn--icon svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .editorial { padding: 8px var(--rhythm) 0; }
+
+    .screen-title {
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1.1;
+      margin-top: 12px;
+      margin-bottom: 28px;
+    }
+
+    .filter-bar {
+      display: grid;
+      grid-template-columns: 27.5fr 27.5fr 45fr;
+      column-gap: 10px;
+      margin-bottom: 22px;
+      min-height: 72px;
+      width: 100%;
+    }
+
+    .filter-column {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .filter-label {
+      font-size: 15px;
+      font-weight: 300;
+      color: var(--text-secondary);
+      line-height: 1.2;
+      padding-left: 14px;
+    }
+
+    .filter-capsule {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      min-width: 0;
+      padding: 8px 14px;
+      background: var(--surface);
+      border: none;
+      border-radius: 999px;
+      font-family: var(--font);
+      text-align: left;
+    }
+
+    .filter-capsule-value {
+      flex: 1;
+      min-width: 0;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .filter-capsule-chevron {
+      flex-shrink: 0;
+      width: 11px;
+      height: 11px;
+      stroke: var(--text-secondary);
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .gallery-list { padding-bottom: 8px; }
+
+    .gallery-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 19px var(--rhythm);
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .gallery-row:last-child { border-bottom: none; }
+
+    .thumb {
+      flex-shrink: 0;
+      width: 64px;
+      height: 64px;
+      border-radius: var(--radius-thumb);
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .thumb-fallback {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 252, 242, 0.25);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .row-body {
+      flex: 1;
+      min-width: 0;
+      padding-top: 2px;
+    }
+
+    .title-line { margin-bottom: 5px; }
+
+    .row-title {
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .row-source {
+      font-size: 13px;
+      color: var(--text-secondary);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+
+    .row-date {
+      font-size: 12px;
+      color: rgba(204, 197, 185, 0.65);
+      letter-spacing: 0.02em;
+    }
+
+    .status-progress {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: var(--chip-bg);
+      color: var(--text-primary);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+
+    .status-chip svg {
+      width: 12px;
+      height: 12px;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 4px;
+      margin-top: 8px;
+      border-radius: 999px;
+      background: var(--surface-nested);
+      box-shadow: inset 0 0 0 1px var(--hairline);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: inherit;
+    }
+
+    .progress-fill--35 { width: 35%; }
+    .progress-fill--70 { width: 70%; }
+
+    .progress-fill--indeterminate {
+      width: 40%;
+      animation: progress-slide 1.35s ease-in-out infinite;
+    }
+
+    @keyframes progress-slide {
+      0% { transform: translateX(-110%); }
+      100% { transform: translateX(260%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .progress-fill--indeterminate {
+        animation: none;
+        transform: translateX(70%);
+      }
+    }
+
+    .tab-bar-dock {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 30;
+      padding: 0 8px 26px;
+      pointer-events: none;
+    }
+
+    .tab-bar {
+      position: relative;
+      height: 66px;
+      border-radius: 33px;
+      display: flex;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 0.5px rgba(255, 252, 242, 0.2),
+        0 10px 28px rgba(0, 0, 0, 0.38);
+    }
+
+    .tab-bar-glass {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: rgba(22, 21, 20, 0.58);
+      backdrop-filter: blur(50px) saturate(1.85);
+      -webkit-backdrop-filter: blur(50px) saturate(1.85);
+      border: 0.5px solid rgba(255, 252, 242, 0.22);
+      box-shadow: inset 0 1px 0 rgba(255, 252, 242, 0.14);
+    }
+
+    .tab-bar-items {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      padding: 5px;
+      gap: 2px;
+    }
+
+    .tab-item {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
+      padding: 6px 2px 5px;
+      color: var(--text-primary);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border-radius: 28px;
+    }
+
+    .tab-item--active { color: var(--accent); }
+
+    .tab-item--active::before {
+      content: "";
+      position: absolute;
+      inset: 2px 1px;
+      border-radius: 28px;
+      background: rgba(255, 252, 242, 0.17);
+      z-index: -1;
+    }
+
+    .tab-item svg {
+      width: 25px;
+      height: 25px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .tab-item svg.tab-icon-plus { width: 22px; height: 22px; }
+
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(255, 252, 242, 0.22);
+      border-radius: 3px;
+      z-index: 40;
+    }
+
+    .detail-nav {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px var(--rhythm) 8px;
+      min-height: 44px;
+    }
+
+    .detail-nav-back,
+    .detail-nav-share {
+      background: none;
+      border: none;
+      box-shadow: none;
+      cursor: default;
+    }
+
+    .detail-nav-back {
+      display: flex;
+      align-items: center;
+      color: var(--accent);
+      padding: 8px 0;
+    }
+
+    .detail-nav-back svg {
+      width: 13px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .detail-nav-share {
+      color: var(--text-secondary);
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .detail-nav-share svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .hero {
+      width: 100%;
+      height: 148px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .hero-image {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(145deg, #4a3d38 0%, #352c28 55%, #2a2422 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-image span {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 242, 0.2);
+    }
+
+    .detail-header {
+      padding: 20px var(--rhythm) 20px;
+    }
+
+    .detail-header .status-progress { margin-bottom: 16px; }
+
+    .detail-host {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+
+    .detail-title {
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  <p class="page-label">
+    Locked reference — summary progress. Not an implementation spec. Do not port this CSS.
+    <span>Geist is mock-only. The app uses SF Pro.</span>
+  </p>
+
+  <div class="frames-row">
+
+    <div class="frame-unit">
+      <p class="frame-caption">Library · Generating summary</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+          <div class="top-chrome">
+            <nav class="top-nav" aria-label="Library actions">
+              <button type="button" class="nav-btn">Select</button>
+              <div class="top-nav-right">
+                <button type="button" class="nav-btn nav-btn--icon" aria-label="Search">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>
+                </button>
+                <button type="button" class="nav-btn nav-btn--icon" aria-label="Settings">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </button>
+              </div>
+            </nav>
+          </div>
+          <div class="screen-scroll">
+            <section class="editorial">
+              <h1 class="screen-title">Library</h1>
+              <div class="filter-bar" role="group" aria-label="Filters">
+                <div class="filter-column">
+                  <span class="filter-label">Type</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">Web</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Status</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Category</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+              </div>
+            </section>
+            <ul class="gallery-list" role="list">
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #4a4540 0%, #353230 100%);">RG</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">When everyone has AI and the company still learns nothing</h2></div>
+                  <p class="row-source">www.robert-glaser.de</p>
+                  <p class="row-date">May 6</p>
+                </div>
+              </li>
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #4a3d38 0%, #352c28 100%);">BB</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">agents need control flow, not more prompts</h2></div>
+                  <p class="row-source">bsuh.bearblog.dev</p>
+                  <div class="status-progress">
+                    <span class="status-chip">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5 5.1 4.3h1.8a4.3 4.3 0 0 0-2.7 6.1l-1.4.8A5.8 5.8 0 0 1 8.4 2.9H10L8 1.5Zm0 13-2.9-2.8h1.8a4.3 4.3 0 0 0 2.7-6.1l1.4-.8A5.8 5.8 0 0 1 7.6 13.1H6L8 14.5Z"/></svg>
+                      Generating summary
+                    </span>
+                    <div class="progress-track" role="progressbar" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100" aria-label="Generating summary">
+                      <div class="progress-fill progress-fill--35"></div>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #45403a 0%, #322e2a 100%);">SS</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">How Google made their Gemma LLM 3x faster</h2></div>
+                  <p class="row-source">stacksweep.substack.com</p>
+                  <p class="row-date">May 6</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item tab-item--active">
+                  <svg viewBox="0 0 24 24"><path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/><path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/><circle cx="14.8" cy="13.2" r="1.1"/><path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/></svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24"><path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/><path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/><rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/></svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24"><path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/><path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/></svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24"><path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/></svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-unit">
+      <p class="frame-caption">Library · Extracting details</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+          <div class="top-chrome">
+            <nav class="top-nav" aria-label="Library actions">
+              <button type="button" class="nav-btn">Select</button>
+              <div class="top-nav-right">
+                <button type="button" class="nav-btn nav-btn--icon" aria-label="Search">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>
+                </button>
+                <button type="button" class="nav-btn nav-btn--icon" aria-label="Settings">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </button>
+              </div>
+            </nav>
+          </div>
+          <div class="screen-scroll">
+            <section class="editorial">
+              <h1 class="screen-title">Library</h1>
+              <div class="filter-bar" role="group" aria-label="Filters">
+                <div class="filter-column">
+                  <span class="filter-label">Type</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">Web</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Status</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Category</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+              </div>
+            </section>
+            <ul class="gallery-list" role="list">
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #4a4540 0%, #353230 100%);">RG</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">When everyone has AI and the company still learns nothing</h2></div>
+                  <p class="row-source">www.robert-glaser.de</p>
+                  <p class="row-date">May 6</p>
+                </div>
+              </li>
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #4a3d38 0%, #352c28 100%);">BB</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">agents need control flow, not more prompts</h2></div>
+                  <p class="row-source">bsuh.bearblog.dev</p>
+                  <div class="status-progress">
+                    <span class="status-chip">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5 5.1 4.3h1.8a4.3 4.3 0 0 0-2.7 6.1l-1.4.8A5.8 5.8 0 0 1 8.4 2.9H10L8 1.5Zm0 13-2.9-2.8h1.8a4.3 4.3 0 0 0 2.7-6.1l1.4-.8A5.8 5.8 0 0 1 7.6 13.1H6L8 14.5Z"/></svg>
+                      Extracting details
+                    </span>
+                    <div class="progress-track" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" aria-label="Extracting details">
+                      <div class="progress-fill progress-fill--70"></div>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #45403a 0%, #322e2a 100%);">SS</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">How Google made their Gemma LLM 3x faster</h2></div>
+                  <p class="row-source">stacksweep.substack.com</p>
+                  <p class="row-date">May 6</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item tab-item--active">
+                  <svg viewBox="0 0 24 24"><path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/><path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/><circle cx="14.8" cy="13.2" r="1.1"/><path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/></svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24"><path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/><path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/><rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/></svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24"><path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/><path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/></svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24"><path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/></svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-unit">
+      <p class="frame-caption">Library · Creating tags</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+          <div class="top-chrome">
+            <nav class="top-nav" aria-label="Library actions">
+              <button type="button" class="nav-btn">Select</button>
+              <div class="top-nav-right">
+                <button type="button" class="nav-btn nav-btn--icon" aria-label="Search">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>
+                </button>
+                <button type="button" class="nav-btn nav-btn--icon" aria-label="Settings">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </button>
+              </div>
+            </nav>
+          </div>
+          <div class="screen-scroll">
+            <section class="editorial">
+              <h1 class="screen-title">Library</h1>
+              <div class="filter-bar" role="group" aria-label="Filters">
+                <div class="filter-column">
+                  <span class="filter-label">Type</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">Web</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Status</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+                <div class="filter-column">
+                  <span class="filter-label">Category</span>
+                  <div class="filter-capsule"><span class="filter-capsule-value">All</span><svg class="filter-capsule-chevron" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></div>
+                </div>
+              </div>
+            </section>
+            <ul class="gallery-list" role="list">
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #4a4540 0%, #353230 100%);">RG</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">When everyone has AI and the company still learns nothing</h2></div>
+                  <p class="row-source">www.robert-glaser.de</p>
+                  <p class="row-date">May 6</p>
+                </div>
+              </li>
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #4a3d38 0%, #352c28 100%);">BB</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">agents need control flow, not more prompts</h2></div>
+                  <p class="row-source">bsuh.bearblog.dev</p>
+                  <div class="status-progress">
+                    <span class="status-chip">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5 5.1 4.3h1.8a4.3 4.3 0 0 0-2.7 6.1l-1.4.8A5.8 5.8 0 0 1 8.4 2.9H10L8 1.5Zm0 13-2.9-2.8h1.8a4.3 4.3 0 0 0 2.7-6.1l1.4-.8A5.8 5.8 0 0 1 7.6 13.1H6L8 14.5Z"/></svg>
+                      Creating tags
+                    </span>
+                    <div class="progress-track" role="progressbar" aria-label="Creating tags">
+                      <div class="progress-fill progress-fill--indeterminate"></div>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li class="gallery-row">
+                <div class="thumb"><div class="thumb-fallback" style="background: linear-gradient(135deg, #45403a 0%, #322e2a 100%);">SS</div></div>
+                <div class="row-body">
+                  <div class="title-line"><h2 class="row-title">How Google made their Gemma LLM 3x faster</h2></div>
+                  <p class="row-source">stacksweep.substack.com</p>
+                  <p class="row-date">May 6</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div class="tab-bar-dock">
+            <nav class="tab-bar" aria-label="Main">
+              <div class="tab-bar-glass" aria-hidden="true"></div>
+              <div class="tab-bar-items">
+                <div class="tab-item tab-item--active">
+                  <svg viewBox="0 0 24 24"><path d="M4.5 9.5a1.5 1.5 0 0 1 1.5-1.5h4.6l.9 1.1a1.2 1.2 0 0 0 .9.4H18a1.5 1.5 0 0 1 1.5 1.5v6.5A1.5 1.5 0 0 1 18 18H6a1.5 1.5 0 0 1-1.5-1.5V9.5Z" opacity="0.42"/><path d="M6.5 11a1.5 1.5 0 0 1 1.5-1.5h8A1.5 1.5 0 0 1 17.5 11v5A1.5 1.5 0 0 1 16 17.5H8A1.5 1.5 0 0 1 6.5 16v-5Z"/><circle cx="14.8" cy="13.2" r="1.1"/><path d="M9.2 15.2 11 13.1l1.3 1.2 2-2.4 1.8 2.3H9.2Z"/></svg>
+                  <span>Library</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24"><path d="M6.4 17.2 13.8 9.8l3.4 3.4-7.4 7.4H5.5v-3.4l.9-.9Z"/><path d="M14.8 8.4l2.3 2.3-1.5 1.5-2.3-2.3 1.5-1.5Z" opacity="0.55"/><rect x="4" y="18.6" width="16" height="1.6" rx="0.8"/></svg>
+                  <span>Notebook</span>
+                </div>
+                <div class="tab-item">
+                  <svg viewBox="0 0 24 24"><path d="M6.2 5.8a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.4l1.5 1.1V13.4H7.4a2.2 2.2 0 0 1-2.2-2.2V8a2.2 2.2 0 0 1 2.2-2.2h3.8V5.8H6.2Z"/><path d="M13.8 8.2a2.2 2.2 0 0 0-2.2 2.2v3.2c0 1.2 1 2.2 2.2 2.2h1.1l1.5 1.1V13.6h-1.1a2.2 2.2 0 0 1-2.2-2.2v-1a2.2 2.2 0 0 1 2.2-2.2h3.8V8.2h-3.8Z"/></svg>
+                  <span>Chat</span>
+                </div>
+                <div class="tab-item">
+                  <svg class="tab-icon-plus" viewBox="0 0 24 24"><path d="M12 5.4a.85.85 0 0 1 .85.85v4.9h4.9a.85.85 0 1 1 0 1.7h-4.9v4.9a.85.85 0 1 1-1.7 0v-4.9H6.25a.85.85 0 1 1 0-1.7h4.9V6.25A.85.85 0 0 1 12 5.4Z"/></svg>
+                  <span>Add new</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-unit">
+      <p class="frame-caption">Detail · Generating summary</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+          <nav class="detail-nav" aria-label="Detail navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+            <button type="button" class="detail-nav-share" aria-label="Share">
+              <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+            </button>
+          </nav>
+          <div class="screen-scroll screen-scroll--detail">
+            <section class="hero" aria-label="Article hero">
+              <div class="hero-image"><span>OG Image</span></div>
+            </section>
+            <section class="detail-header">
+              <div class="status-progress">
+                <span class="status-chip">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5 5.1 4.3h1.8a4.3 4.3 0 0 0-2.7 6.1l-1.4.8A5.8 5.8 0 0 1 8.4 2.9H10L8 1.5Zm0 13-2.9-2.8h1.8a4.3 4.3 0 0 0 2.7-6.1l1.4-.8A5.8 5.8 0 0 1 7.6 13.1H6L8 14.5Z"/></svg>
+                  Generating summary
+                </span>
+                <div class="progress-track" role="progressbar" aria-valuenow="35" aria-valuemin="0" aria-valuemax="100" aria-label="Generating summary">
+                  <div class="progress-fill progress-fill--35"></div>
+                </div>
+              </div>
+              <p class="detail-host">bsuh.bearblog.dev</p>
+              <h1 class="detail-title">agents need control flow, not more prompts</h1>
+            </section>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-unit">
+      <p class="frame-caption">Detail · Extracting details</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+          <nav class="detail-nav" aria-label="Detail navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+            <button type="button" class="detail-nav-share" aria-label="Share">
+              <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+            </button>
+          </nav>
+          <div class="screen-scroll screen-scroll--detail">
+            <section class="hero" aria-label="Article hero">
+              <div class="hero-image"><span>OG Image</span></div>
+            </section>
+            <section class="detail-header">
+              <div class="status-progress">
+                <span class="status-chip">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5 5.1 4.3h1.8a4.3 4.3 0 0 0-2.7 6.1l-1.4.8A5.8 5.8 0 0 1 8.4 2.9H10L8 1.5Zm0 13-2.9-2.8h1.8a4.3 4.3 0 0 0 2.7-6.1l1.4-.8A5.8 5.8 0 0 1 7.6 13.1H6L8 14.5Z"/></svg>
+                  Extracting details
+                </span>
+                <div class="progress-track" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" aria-label="Extracting details">
+                  <div class="progress-fill progress-fill--70"></div>
+                </div>
+              </div>
+              <p class="detail-host">bsuh.bearblog.dev</p>
+              <h1 class="detail-title">agents need control flow, not more prompts</h1>
+            </section>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-unit">
+      <p class="frame-caption">Detail · Creating tags</p>
+      <div class="phone-shell">
+        <div class="phone">
+          <header class="status-bar" aria-hidden="true">
+            <time>9:41</time>
+            <div class="status-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="5" y="5" width="3" height="7" rx="0.5" fill="currentColor"/><rect x="10" y="2" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 3.2C10.2 3.2 12.1 4.1 13.5 5.6L15 4C13.2 2.1 10.7 1 8 1 5.3 1 2.8 2.1 1 4L2.5 5.6C3.9 4.1 5.8 3.2 8 3.2Z" fill="currentColor"/><path d="M8 6.4C9.3 6.4 10.5 7 11.3 8L12.8 6.4C11.4 5 9.8 4.2 8 4.2 6.2 4.2 4.6 5 3.2 6.4L4.7 8C5.5 7 6.7 6.4 8 6.4Z" fill="currentColor"/><circle cx="8" cy="10.5" r="1.5" fill="currentColor"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" fill="none" opacity="0.35"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><rect x="24" y="4" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/></svg>
+            </div>
+          </header>
+          <nav class="detail-nav" aria-label="Detail navigation">
+            <button type="button" class="detail-nav-back" aria-label="Back">
+              <svg viewBox="0 0 13 20"><path d="M11 2 3 10l8 8"/></svg>
+            </button>
+            <button type="button" class="detail-nav-share" aria-label="Share">
+              <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>
+            </button>
+          </nav>
+          <div class="screen-scroll screen-scroll--detail">
+            <section class="hero" aria-label="Article hero">
+              <div class="hero-image"><span>OG Image</span></div>
+            </section>
+            <section class="detail-header">
+              <div class="status-progress">
+                <span class="status-chip">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1.5 5.1 4.3h1.8a4.3 4.3 0 0 0-2.7 6.1l-1.4.8A5.8 5.8 0 0 1 8.4 2.9H10L8 1.5Zm0 13-2.9-2.8h1.8a4.3 4.3 0 0 0 2.7-6.1l1.4-.8A5.8 5.8 0 0 1 7.6 13.1H6L8 14.5Z"/></svg>
+                  Creating tags
+                </span>
+                <div class="progress-track" role="progressbar" aria-label="Creating tags">
+                  <div class="progress-fill progress-fill--indeterminate"></div>
+                </div>
+              </div>
+              <p class="detail-host">bsuh.bearblog.dev</p>
+              <h1 class="detail-title">agents need control flow, not more prompts</h1>
+            </section>
+          </div>
+          <div class="home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

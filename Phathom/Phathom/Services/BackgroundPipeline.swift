@@ -723,6 +723,10 @@ enum BackgroundPipeline: Sendable {
             )
         }
 
+        defer {
+            AnalyzeProgressClock.end(itemID: itemID)
+        }
+
         guard let raw = item.rawText, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             guard !aborting() else {
                 return .cancelled
@@ -744,6 +748,10 @@ enum BackgroundPipeline: Sendable {
                         saveAndNotify(ctx)
                     }
                     throw PipelineLlmCancelled()
+                }
+
+                if let estimateKey = AnalyzeProgressModelIdentity.estimateKeyForConfiguredModels() {
+                    AnalyzeProgressClock.begin(itemID: itemID, estimateKey: estimateKey)
                 }
 
                 item.processingStatus = ProcessingStatus.summarizing.rawValue
@@ -832,6 +840,7 @@ enum BackgroundPipeline: Sendable {
             }
 
             let derivedEmptyForTags = item.decodedSummaryBullets.isEmpty && item.decodedExtracts.isEmpty
+            let taggingRan = !derivedEmptyForTags
             if !derivedEmptyForTags {
                 do {
                     try await SharedLlamaInference.shared.withSession(role: .taggingPreferred, unloadOnExit: true, pipelineItemID: itemID) { session in
@@ -874,6 +883,15 @@ enum BackgroundPipeline: Sendable {
             guard !aborting() else {
                 throw PipelineLlmCancelled()
             }
+
+            let usedPrimaryTaggingFallback = await SharedLlamaInference.shared.lastTaggingPreferredUsedPrimaryFallback
+            AnalyzeProgressPipelineRecording.recordCompletedWebOrNotePassIfNeeded(
+                kind: item.kind,
+                itemID: itemID,
+                articleCharacterCount: article.count,
+                taggingRan: taggingRan,
+                usedPrimaryTaggingFallback: usedPrimaryTaggingFallback
+            )
 
             item.processingStatus = ProcessingStatus.completed.rawValue
             item.processingDetail = nil
@@ -1418,6 +1436,41 @@ enum BackgroundPipeline: Sendable {
                 item.failureReason = "Missing photo data."
             }
         }
+    }
+}
+
+// MARK: - Analyze progress (slice 3)
+
+private enum AnalyzeProgressPipelineRecording {
+    nonisolated static func recordCompletedWebOrNotePassIfNeeded(
+        kind: ContentKind,
+        itemID: UUID,
+        articleCharacterCount: Int,
+        taggingRan: Bool,
+        usedPrimaryTaggingFallback: Bool
+    ) {
+        guard AnalyzeProgressEstimator.shouldRecord(kind: kind, reachedCompleted: true) else { return }
+        guard let start = AnalyzeProgressClock.startDate(for: itemID) else { return }
+        let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+        guard elapsedMs >= 0 else { return }
+        guard let primary = AnalyzeProgressModelIdentity.primaryIdentity() else { return }
+
+        let configuredTagging = AnalyzeProgressModelIdentity.configuredTaggingIdentityIfAny()
+        let ranTaggingIdentity = taggingRan ? AnalyzeProgressModelIdentity.ranTaggingFileIdentityIfAny() : nil
+
+        let storageKey = ModelPairKey.forStorage(
+            primary: primary,
+            configuredTagging: configuredTagging,
+            taggingRan: taggingRan,
+            usedPrimaryFallback: usedPrimaryTaggingFallback,
+            ranTaggingIdentity: ranTaggingIdentity
+        )
+
+        AnalyzeProgressStore.makeStandard().record(
+            key: storageKey,
+            analyzeMilliseconds: elapsedMs,
+            sourceCharacterCount: articleCharacterCount
+        )
     }
 }
 

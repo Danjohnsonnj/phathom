@@ -2,7 +2,7 @@
 
 **Canonical what-shipped-now summary.** Ground in **code + [`decisions.md`](../decisions.md) active index** — not delivery session logs. Update this file first when shipping or deferring features (append date + one line).
 
-**Last updated:** 2026-07-08 (Detail annotated markdown export)
+**Last updated:** 2026-10-17 (Analysis progress)
 
 ---
 
@@ -16,6 +16,7 @@
 | **Detail export** | Web articles: `…` menu → **Export markdown** (`==highlight==` + footnotes); **Share link** unchanged — 2026-07-08 |
 | **macOS v1** | Native Apple Silicon target shipped per **2026-06-13** decision — opt-in hand-offs: [`macos-v1-delivery.md`](../handoff/macos-v1-delivery.md) |
 | **Library / Notebook filters** | Independent **`@AppStorage`** per tab (`library.filter.*` vs `notebook.filter.*`); shared **`LibraryFilterBar`** UI — see **2026-06-21** decision |
+| **Analysis progress** | Settings → Display toggle, off by default. After three finished web or note passes for the current Primary + Tagging file pair, the library row and Detail show a chip plus a length-scaled bar during summarize, extracts, and tags. Device UAT passed 2026-10-17. |
 
 ## Not started / deferred
 

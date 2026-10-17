@@ -44,6 +44,7 @@ struct SettingsContent: View {
     @State private var showResetWebProcessingConfirm = false
     @State private var isResettingWebProcessingQueue = false
     @AppStorage(AppTextSizeStorage.key) private var textSizeRaw: String = AppTextSizePreference.default.rawValue
+    @AppStorage(AnalyzeProgressSettingsStorage.enabledKey) private var analyzeProgressEnabled = false
 
     private enum ModelTestPhase {
         case idle
@@ -574,7 +575,7 @@ struct SettingsContent: View {
         VStack(alignment: .leading, spacing: 8) {
             ZoneSectionHeader(
                 title: "Display",
-                subtitle: "Adjust text size across the app"
+                subtitle: "Text size and analysis progress"
             )
             settingsGroupedSurface {
                 VStack(alignment: .leading, spacing: 12) {
@@ -595,6 +596,13 @@ struct SettingsContent: View {
                     .pickerStyle(.segmented)
                     .tint(AppPalette.accent)
                     .accessibilityElement(children: .contain)
+
+                    settingsGroupedDivider
+
+                    Toggle("Analysis progress", isOn: $analyzeProgressEnabled)
+                        .appTypography(.body)
+                        .foregroundStyle(AppPalette.textPrimary)
+                        .tint(AppPalette.accent)
                 }
                 .padding(.horizontal, SettingsCardCell.horizontalPadding)
                 .padding(.vertical, SettingsCardCell.verticalPadding)

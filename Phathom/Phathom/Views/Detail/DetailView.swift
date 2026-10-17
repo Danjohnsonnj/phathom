@@ -342,7 +342,10 @@ struct DetailView: View {
 
     private var headerBlock: some View {
         VStack(alignment: .leading, spacing: 12) {
-            detailStatusChip
+            VStack(alignment: .leading, spacing: 6) {
+                detailStatusChip
+                AnalyzeProgressItemTrack(item: item)
+            }
 
             failedSection
 

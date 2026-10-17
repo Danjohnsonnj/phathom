@@ -121,12 +121,16 @@ struct GalleryListRow: View {
     private var metaRow: some View {
         HStack(spacing: 8) {
             if item.status != .completed {
-                ProcessingStatusBadge(
-                    status: item.status,
-                    contentKind: item.kind,
-                    processingDetail: item.processingDetail,
-                    onTap: chipAction(for: item)
-                )
+                VStack(alignment: .leading, spacing: 6) {
+                    ProcessingStatusBadge(
+                        status: item.status,
+                        contentKind: item.kind,
+                        processingDetail: item.processingDetail,
+                        onTap: chipAction(for: item)
+                    )
+                    AnalyzeProgressItemTrack(item: item)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(item.createdAt.formatted(Self.dateFormat))
                     .appTypography(.meta)
