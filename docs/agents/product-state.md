@@ -1,3 +1,11 @@
+---
+type: ProductState
+title: Product state (agent snapshot)
+description: Canonical what-shipped-now summary grounded in code and the decisions active index.
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+---
+
 # Product state (agent snapshot)
 
 **Canonical what-shipped-now summary.** Ground in **code + [`decisions.md`](../decisions.md) active index** — not delivery session logs. Update this file first when shipping or deferring features (append date + one line).

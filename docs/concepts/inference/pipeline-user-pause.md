@@ -3,7 +3,13 @@ type: Glossary
 title: PipelineUserPause
 description: Global user pause flag; gates schedule* and foreground/BG processing.
 tags: [inference, pipeline]
-anchor: Phathom/Phathom/Services/BackgroundPipeline.swift
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Services/BackgroundPipeline.swift
+sources:
+  - id: decision-2026-05-27
+    resource: docs/decisions.md
+    title: Library Pause
 ---
 
 # Definition

@@ -1,9 +1,11 @@
 ---
 type: Glossary
 title: Library search
-description: In-app Library search and CoreSpotlight indexing — fields, scope, and result shape.
+description: In-app library search bucketing (Stage 1 match + tag adjacency; Stage 2 Dive deeper).
 tags: [library, search, spotlight]
-anchor: Phathom/Phathom/Services/LibrarySearchService.swift
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Services/LibrarySearchService.swift
 ---
 
 # Definition
@@ -66,5 +68,5 @@ Phathom exposes **two search surfaces**. Both surface **`ContentItem`** library 
 
 - Code: [`LibrarySearchService.swift`](../../Phathom/Phathom/Services/LibrarySearchService.swift) · [`LibraryTab.swift`](../../Phathom/Phathom/Views/Library/LibraryTab.swift) · [`ContentItem+Spotlight.swift`](../../Phathom/PhathomCore/Sources/PhathomCore/ContentItem+Spotlight.swift) · [`ArchiveRetention.swift`](../../Phathom/Phathom/Services/ArchiveRetention.swift)
 - Decisions: [Spotlight keywords omit category](../decisions.md#decision-log) · [Archive + Spotlight](../decisions.md#decision-log) · [TagRelationService + Dive deeper](../decisions.md#decision-log) · [Notebook no search](../decisions.md#decision-log)
-- Related: [`TagRelationService`](../CONTEXT.md#library--ui-services) · [`rawText`](../CONTEXT.md#capture--source-text)
+- Related: [`TagRelationService`](./tag-relation-service.md) · [`rawText`](./raw-text.md)
 - Pitfalls: recall agentmemory tags `LibrarySearchService`, `Spotlight` (do not duplicate here)

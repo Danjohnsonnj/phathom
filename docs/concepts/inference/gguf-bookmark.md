@@ -3,7 +3,13 @@ type: Glossary
 title: GGUF bookmark
 description: Security-scoped bookmark to user-selected model file (not copied into app sandbox).
 tags: [inference, pipeline]
-anchor: Phathom/Phathom/Services/SharedLlamaInference.swift
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Services/SharedLlamaInference.swift
+sources:
+  - id: decision-2026-05-02
+    resource: docs/decisions.md
+    title: GGUF bookmark
 ---
 
 # Definition

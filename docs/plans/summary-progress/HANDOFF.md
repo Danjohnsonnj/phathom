@@ -13,6 +13,8 @@ generated: { by: "cursor-agent", at: "2026-10-17" }
 **Current phase:** Device UAT - passed
 **Next action:** None. Feature is in the working tree, device UAT passed 2026-10-17.
 
+**Shipped record:** [`docs/agents/product-state.md`](../../agents/product-state.md) — **Analysis progress** row.
+
 **Hard invariants:** Do not add parallel Llama calls. Do not change KV reuse (summarize → tags → extracts). Progress UI must not alter pipeline scheduling.
 
 **Required reading (this phase):**

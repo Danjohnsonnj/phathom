@@ -1,6 +1,6 @@
 # Inference & pipeline concepts
 
-Thin stubs — **links only**. Full glossary table: [`CONTEXT.md`](../../../CONTEXT.md#inference--pipeline).
+Thin stubs — **links only**. Parent index: [`docs/concepts/index.md`](../index.md).
 
 **Vendored engine:** `Phathom/vendor/llama/llama.xcframework` — build or copy: [`README.md`](../../../README.md) (XCFramework section).
 
@@ -15,5 +15,3 @@ Thin stubs — **links only**. Full glossary table: [`CONTEXT.md`](../../../CONT
 | [VisionContentAnalyzer](./vision-content-analyzer.md) | Media VLM via libmtmd |
 
 **Recall-then-read:** agentmemory `memory_recall(inference)` → this index → Swift (when MCP available).
-
-Parent index: [`docs/concepts/index.md`](../index.md)

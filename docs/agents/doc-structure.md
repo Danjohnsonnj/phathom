@@ -1,6 +1,6 @@
-# OKF-lite doc conventions
+# OKF doc conventions
 
-Navigation layer for Phathom docs — **behavior over conformance**. Partial migration is valid.
+Handoff frontmatter is on-touch only; archive bodies stay frozen.
 
 ---
 
@@ -8,24 +8,25 @@ Navigation layer for Phathom docs — **behavior over conformance**. Partial mig
 
 1. **Swift source** (`Phathom/`)
 2. [`docs/decisions.md`](../decisions.md)
-3. Hand-off briefs ([`docs/handoff/`](../handoff/index.md))
+3. Hand-off briefs ([`docs/handoff/`](../handoff/index.md)) and active plan next-actions ([`docs/plans/`](../plans/))
 4. Concept stubs ([`docs/concepts/`](../concepts/index.md))
 5. **agentmemory** (gist only — never overrides above)
 
 ---
 
+## Concept frontmatter (OKF v0.2)
+
+Locked card and folder allow-list: [`.cursor/skills/docs-maintenance/SKILL.md`](../../.cursor/skills/docs-maintenance/SKILL.md). Required on new or touched concepts: `type`, `title`, `description`, `status`, `generated` (`at` = ISO 8601 with zone). Extensions only: `resource` (Swift path, replaces `anchor`), `aliases` (omit if none), `sources` (locking decision). No `timestamp`, `anchor`, `layer`, or shipped/deferred flag on concepts.
+
 ## Stub content rules
 
-- **Frontmatter** (optional): `type`, `title`, `description`, `tags`, `anchor` (Swift path)
 - **Body:** one-line `# Definition` + `# Links` section only
 - **Never** paste decision rationale or agentmemory lessons into stubs
 - **Pitfalls:** stay in agentmemory; stubs link `recall agentmemory tags …`
 
-**Types:** `Glossary` · `Invariant` · `Handoff` · `DeliveryLog` · `AgentGuide`
-
 **Migration trigger:** extract a term when it appears in **Active invariants index**, agents cold-read it often, or you edit that glossary row.
 
-**Stop rule:** do not split remaining [`CONTEXT.md`](../../CONTEXT.md) rows until task UAT shows monolith read is costly.
+**Stop rule:** Glossary terms live in [`docs/concepts/`](../concepts/index.md); [`CONTEXT.md`](../../CONTEXT.md) is a pointer only — do not split [`docs/decisions.md`](../decisions.md).
 
 **Permissive consumption:** missing concept file ≠ blocker.
 

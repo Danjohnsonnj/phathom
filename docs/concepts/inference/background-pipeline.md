@@ -3,7 +3,9 @@ type: Glossary
 title: BackgroundPipeline
 description: Orchestrates scrape → embed → analyze and media vision path.
 tags: [inference, pipeline]
-anchor: Phathom/Phathom/Services/BackgroundPipeline.swift
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Services/BackgroundPipeline.swift
 ---
 
 # Definition

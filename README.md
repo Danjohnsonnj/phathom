@@ -6,7 +6,7 @@
 
 **Phathom** is a **local-first iOS “personal brain”**: capture links, notes, and media into your own library, run **on-device** analysis with **Llama.cpp**, and manage a capped **Focus Stack** for what you’re committed to read now—without sending your content to the cloud.
 
-**For agents:** start at **[`AGENTS.md`](AGENTS.md)** → **[`docs/agents/product-state.md`](docs/agents/product-state.md)** (what shipped now). Domain glossary: **[`CONTEXT.md`](CONTEXT.md)**.
+**For agents:** start at **[`AGENTS.md`](AGENTS.md)** → **[`docs/index.md`](docs/index.md)** → **[`docs/agents/product-state.md`](docs/agents/product-state.md)** (what shipped now). Domain glossary: **[`docs/concepts/index.md`](docs/concepts/index.md)** ([**`CONTEXT.md`](CONTEXT.md)** points here).
 
 ## Tab bar
 

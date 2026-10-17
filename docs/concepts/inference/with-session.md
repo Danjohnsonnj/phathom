@@ -1,9 +1,15 @@
 ---
-type: Glossary
+type: Invariant
 title: withSession
 description: Serialized GGUF access; no parallel Llama calls.
 tags: [inference, pipeline, invariant]
-anchor: Phathom/Phathom/Services/SharedLlamaInference.swift
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Services/SharedLlamaInference.swift
+sources:
+  - id: decision-2026-05-02
+    resource: docs/decisions.md
+    title: Serialized session
 ---
 
 # Definition

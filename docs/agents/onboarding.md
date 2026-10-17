@@ -1,3 +1,11 @@
+---
+type: AgentGuide
+title: Agent onboarding
+description: Cold-start paths, efficiency rules, and environment bootstrap for agents.
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+---
+
 # Agent onboarding
 
 Cold-start paths, efficiency rules, and environment bootstrap. **Always-on index:** [`AGENTS.md`](../../AGENTS.md).
@@ -11,7 +19,7 @@ Do **not** scan all of `Phathom/`. Read the smallest set for the task:
 | Task | Start here |
 |------|------------|
 | Decisions / invariants | [`docs/decisions.md`](../decisions.md) — index + matching rows |
-| Domain terms | [`CONTEXT.md`](../../CONTEXT.md) — glossary only |
+| Domain terms | [`docs/concepts/index.md`](../concepts/index.md) — glossary stubs |
 | Product state / what shipped | [`docs/agents/product-state.md`](product-state.md) |
 | Focus Stack — follow-ups / delivery | [`docs/handoff/focus-stack-delivery.md`](../handoff/focus-stack-delivery.md) (**opt-in**) |
 | Focus Stack — product brief | [`docs/handoff/focus-stack.md`](../handoff/focus-stack.md) |

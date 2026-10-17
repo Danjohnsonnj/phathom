@@ -1,9 +1,15 @@
 ---
-type: Glossary
+type: Invariant
 title: KV cache reuse
 description: Article prefix decoded once; per-task seq fork via llama_memory_seq_cp.
 tags: [inference, pipeline, invariant]
-anchor: Phathom/Phathom/Inference/LlamaCppRuntime.swift
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Inference/LlamaCppRuntime.swift
+sources:
+  - id: decision-2026-05-03
+    resource: docs/decisions.md
+    title: KV reuse
 ---
 
 # Definition

@@ -1,3 +1,11 @@
+---
+type: DecisionLog
+title: Phathom — Decision Log
+description: Append-only record of architectural and product decisions agents must preserve.
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+---
+
 # Phathom — Decision Log
 
 Append-only record of architectural and product decisions agents must preserve.

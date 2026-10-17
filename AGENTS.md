@@ -1,9 +1,10 @@
 # Phathom: Agent Context & Efficiency Map
 
-## Active work (handoff)
+## Docs
 
-Before doing anything else, read `docs/_handoff/HANDOFF.md` and follow its
-"Required reading (this phase)" list. Read `docs/_handoff/process.md` before committing.
+Hub: [`docs/index.md`](docs/index.md). When editing `docs/` or wrapping a session, follow [`.cursor/skills/docs-maintenance/SKILL.md`](.cursor/skills/docs-maintenance/SKILL.md).
+
+**Conflict resolution:** Code wins. `decisions.md` beats hand-offs and plans. Glossary terms live in [`docs/concepts/index.md`](docs/concepts/index.md) (`CONTEXT.md` is a pointer). Agentmemory never overrides code or decisions.
 
 ## System Role & Identity
 
@@ -14,26 +15,6 @@ Expert iOS engineer: local-first systems, on-device LLM, Metal-accelerated perfo
 Swift 6 (strict concurrency) · SwiftData (local-only) · `llama.cpp` via `llama.xcframework` · serialized pipeline (Scrape → Embed → Analyze)
 
 **XCFramework:** produce or refresh via [`README.md`](README.md) (`scripts/rebuild-llama-xcframework-with-mtmd.sh`; optional `SOURCE_XCF` copy). Runtime rules stay under [`docs/concepts/inference/`](docs/concepts/inference/index.md).
-
-## Source of truth
-
-Read **minimal files per task:**
-
-| Priority | Source                                                             | Purpose                                                                                                                                                                                                                                                                                                        |
-| :------: | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|    1     | **`Phathom/`**                                                     | Shipped behavior, schema, Swift paths                                                                                                                                                                                                                                                                          |
-|    2     | **[`docs/agents/product-state.md`](docs/agents/product-state.md)** | What shipped / deferred now (cold-start after this file)                                                                                                                                                                                                                                                       |
-|    3     | **[`CONTEXT.md`](CONTEXT.md)**                                     | Domain glossary (names); links to decisions                                                                                                                                                                                                                                                                    |
-|    4     | **[`docs/concepts/index.md`](docs/concepts/index.md)**             | Term lookup; inference stubs (**links only**)                                                                                                                                                                                                                                                                  |
-|    5     | **[`docs/decisions.md`](docs/decisions.md)**                       | Invariants and rationale                                                                                                                                                                                                                                                                                       |
-|    6     | **[`docs/design-tokens.md`](docs/design-tokens.md)**               | Cross-surface spacing, palette, material, button matrix                                                                                                                                                                                                                                                        |
-|    7     | **Hand-offs (opt-in)**                                             | [`docs/handoff/index.md`](docs/handoff/index.md) — not default cold-start                                                                                                                                                                                                                                      |
-|    —     | **UI evolution reference (archived, opt-in)**                      | [`library-ui-evolution.md`](docs/archive/library-ui-evolution.md) (locked §3) · [`ui-evolution-implementation-plan.md`](docs/archive/ui-evolution-implementation-plan.md) · [`design-mocks/`](docs/archive/design-mocks/) — Phases **0–4b shipped**; invariants in [`decisions.md`](docs/decisions.md) UI rows |
-|    8     | **[`README.md`](README.md)**                                       | Human orientation                                                                                                                                                                                                                                                                                              |
-
-**Archive:** [`docs/archive/`](docs/archive/) — opt-in only; not for cold start.
-
-**Conflict resolution:** Code > all prose. `decisions.md` > hand-offs > README. `CONTEXT.md` is glossary only. Agentmemory never overrides decisions or code.
 
 ## Hard invariants
 
@@ -51,7 +32,7 @@ Seven labels: `bug` / `enhancement` + five state labels. See [`docs/agents/triag
 
 ### Domain docs
 
-`Phathom/` → `CONTEXT.md` → `decisions.md` → hand-offs. See [`docs/agents/domain.md`](docs/agents/domain.md).
+`Phathom/` → [`docs/concepts/index.md`](docs/concepts/index.md) → `decisions.md` → hand-offs. See [`docs/agents/domain.md`](docs/agents/domain.md).
 
 ### Skills cheat sheet
 
@@ -59,11 +40,7 @@ Slash vs ask; pipeline order. See [`docs/agents/skills-cheatsheet.md`](docs/agen
 
 ## Agentmemory
 
-Optional **agentmemory** MCP for cross-session recall — **not required** to work in this repo (`docs/decisions.md`, `CONTEXT.md`, and code are sufficient).
-
-- **Session start:** Probe MCP with **`memory_recall`** on server **`user-agentmemory`** (read tool schema first — see [`agentmemory.md`](docs/agents/agentmemory.md#obligations); tool-not-found ≠ unavailable). If available → recall task domain silently; say **"Using agent memory MCP."** once if your host rules require it.
-- **If unavailable or errors:** Tell the user **once per session** — not a blocker; repo docs are authoritative. Use the notice in [`docs/agents/agentmemory.md`](docs/agents/agentmemory.md#when-mcp-is-unavailable). Then proceed without retrying unless the user asks.
-- **Playbook:** [`docs/agents/agentmemory.md`](docs/agents/agentmemory.md)
+Optional cross-session recall — playbook and session-start **`memory_recall`** obligations: [`docs/agents/agentmemory.md`](docs/agents/agentmemory.md).
 
 ## Manual QA
 
@@ -90,4 +67,4 @@ After touching [`MediaPhotoViewer.swift`](Phathom/Phathom/Views/Detail/MediaPhot
 | Cold start, file paths, verify ladder | [`docs/agents/onboarding.md`](docs/agents/onboarding.md)                             |
 | Verify policy (canonical)             | [`.cursor/rules/simulator-verify.mdc`](.cursor/rules/simulator-verify.mdc)           |
 | Doc migration assessment              | [`docs/agents/assessment-doc-migration.md`](docs/agents/assessment-doc-migration.md) |
-| OKF-lite conventions                  | [`docs/agents/doc-structure.md`](docs/agents/doc-structure.md)                       |
+| OKF conventions                       | [`docs/agents/doc-structure.md`](docs/agents/doc-structure.md)                       |

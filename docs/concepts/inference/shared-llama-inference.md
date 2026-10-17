@@ -3,7 +3,13 @@ type: Glossary
 title: SharedLlamaInference
 description: Single shared Llama session; primary vs optional tagging GGUF bookmarks.
 tags: [inference, pipeline]
-anchor: Phathom/Phathom/Services/SharedLlamaInference.swift
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Services/SharedLlamaInference.swift
+sources:
+  - id: decision-2026-05-15
+    resource: docs/decisions.md
+    title: Tagging GGUF
 ---
 
 # Definition

@@ -3,7 +3,13 @@ type: Glossary
 title: VisionContentAnalyzer
 description: VLM path for media via llama.cpp libmtmd (text GGUF + mmproj).
 tags: [inference, pipeline, media]
-anchor: Phathom/Phathom/Inference/VisionContentAnalyzer.swift
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Inference/VisionContentAnalyzer.swift
+sources:
+  - id: decision-2026-05-24
+    resource: docs/decisions.md
+    title: Media vision
 ---
 
 # Definition

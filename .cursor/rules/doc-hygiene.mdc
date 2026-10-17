@@ -1,15 +1,16 @@
 ---
 description: Phathom doc-hygiene reminder when editing agent-facing docs (product-state first, staleness sweep, archive frozen).
-globs: AGENTS.md,README.md,CONTEXT.md,docs/agents/**,docs/handoff/**
+globs: AGENTS.md,README.md,CONTEXT.md,docs/**/*.md
 alwaysApply: false
 ---
 
 # Doc hygiene — on touch
 
-Editing an agent-facing doc. Before finishing:
+Editing an agent-facing or OKF doc. Before finishing:
 
 - **Product state first:** ship/defer/priority change → update [`docs/agents/product-state.md`](../../docs/agents/product-state.md) before other agent docs.
 - **Sweep on touch:** run the canonical staleness sweep and fix stale banners/headers in this same edit.
 - **Archive frozen:** do not rewrite `docs/archive/**` bodies.
+- **Concept / bundle touch:** when a concept or settled doc changes materially, refresh the folder index (e.g. [`docs/agents/index.md`](../../docs/agents/index.md), [`docs/concepts/index.md`](../../docs/concepts/index.md)) and prepend [`docs/log.md`](../../docs/log.md) in the same pass.
 
-Canonical sweep command and fix tiers: [`docs/agents/doc-structure.md`](../../docs/agents/doc-structure.md).
+Playbook: [`.cursor/skills/docs-maintenance/SKILL.md`](../../.cursor/skills/docs-maintenance/SKILL.md). Staleness sweep command and fix tiers: [`docs/agents/doc-structure.md`](../../docs/agents/doc-structure.md).

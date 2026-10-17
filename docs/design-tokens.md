@@ -1,3 +1,12 @@
+---
+type: DesignTokens
+title: Design tokens
+description: Cross-surface design spec — palette, spacing, typography, material, chrome, and shared components.
+status: stable
+generated: { by: "cursor-agent", at: "2026-10-17T17:20:00Z" }
+resource: Phathom/Phathom/Helpers/AppPalette.swift
+---
+
 # Design tokens
 
 Cross-surface **design spec** — palette, spacing, typography, material, chrome, and shared components for Phathom.
