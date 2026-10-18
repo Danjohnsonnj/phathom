@@ -2,7 +2,7 @@
 
 Thin stubs — **links only**. Parent index: [`docs/concepts/index.md`](../index.md).
 
-**Vendored engine:** `Phathom/vendor/llama/llama.xcframework` — build or copy: [`README.md`](../../../README.md) (XCFramework section).
+**Vendored engine:** `Phathom/vendor/llama/llama.xcframework` — pinned to llama.cpp **b11719**; build or copy: [`README.md`](../../../README.md) (XCFramework section). A19+ Metal 4 tensor acceleration is runtime-detected from the embedded kernels; simulator inference remains CPU-only.
 
 | Term | Description |
 |------|-------------|

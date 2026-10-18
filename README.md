@@ -63,6 +63,8 @@ The repo expects a vendored framework at:
 
 Slices: **ios-arm64**, **ios-arm64-simulator**, and **macos-arm64** (multimodal **libmtmd** linked in).
 
+The vendored engine is pinned to upstream llama.cpp **b11719** (`5aeac37a3`, 2026-10-18). On A19-class and newer devices, including iPhone 18 Pro, the Metal 4 tensor path is runtime-detected and can use the GPU neural accelerators; older devices continue using the existing Metal kernels. The xcframework embeds the Metal libraries, including the tensor kernels.
+
 If that folder is missing or you need to refresh it, build with the in-repo script:
 
 **Prerequisites:** `cmake`, Xcode/`xcrun`, and a local clone of upstream [llama.cpp](https://github.com/ggml-org/llama.cpp) at `~/Local Documents/repos/llama.cpp`. To use another location, edit the `LLAMA_CPP_DIR` assignment inside the script (there is no env override).
@@ -78,6 +80,8 @@ SOURCE_XCF=/path/to/llama.xcframework bash scripts/setup-llama-xcframework.sh
 ```
 
 After a refresh: `bash scripts/build-phathom.sh all`.
+
+The refresh script also links llama.cpp's vendored hash archive, required by current `libmtmd` builds. On a supported device, verify the launch log contains successful f16/bfloat tensor probes and `using embedded metal library` before comparing performance. The iPhone 18 Pro verification completed successfully; the observed inference-speed difference was not large enough to claim a measured improvement.
 
 **Bridging expectation:** statically link **`llama.xcframework`**, **`import llama`** from Swift, toolchain links **`-lc++`** — no alternate Swift wrappers. Runtime invariants: [docs/concepts/inference/](docs/concepts/inference/index.md). Engine decisions: [docs/decisions.md](docs/decisions.md).
 

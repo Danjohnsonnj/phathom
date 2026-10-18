@@ -131,12 +131,13 @@ public nonisolated final class LlamaCppRuntime: @unchecked Sendable, LlamaCppBri
             throw VisionInferenceError.generationFailed("Missing llama model.")
         }
         let formatted = makeFormattedChatPrompt(userText: userBody, model: mdl)
+        let bitmapOptions = mtmd_helper_init_opt_default()
 
         let bitmapWrapper = resizedJPEG.withUnsafeBytes { raw -> mtmd_helper_bitmap_wrapper in
             guard let base = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
                 return mtmd_helper_bitmap_wrapper(bitmap: nil, video_ctx: nil)
             }
-            return mtmd_helper_bitmap_init_from_buf(vision, base, raw.count, false)
+            return mtmd_helper_bitmap_init_from_buf(vision, base, raw.count, false, bitmapOptions)
         }
         guard let bitmap = bitmapWrapper.bitmap else {
             throw VisionInferenceError.imageDecodeFailed

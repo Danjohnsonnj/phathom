@@ -14,7 +14,7 @@ Expert iOS engineer: local-first systems, on-device LLM, Metal-accelerated perfo
 
 Swift 6 (strict concurrency) · SwiftData (local-only) · `llama.cpp` via `llama.xcframework` · serialized pipeline (Scrape → Embed → Analyze)
 
-**XCFramework:** produce or refresh via [`README.md`](README.md) (`scripts/rebuild-llama-xcframework-with-mtmd.sh`; optional `SOURCE_XCF` copy). Runtime rules stay under [`docs/concepts/inference/`](docs/concepts/inference/index.md).
+**XCFramework:** produce or refresh via [`README.md`](README.md) (`scripts/rebuild-llama-xcframework-with-mtmd.sh`; optional `SOURCE_XCF` copy). The vendored engine is pinned to llama.cpp **b11719**; A19+ devices can use the Metal 4 GPU tensor path when the embedded kernels probe successfully. Runtime rules stay under [`docs/concepts/inference/`](docs/concepts/inference/index.md).
 
 ## Hard invariants
 

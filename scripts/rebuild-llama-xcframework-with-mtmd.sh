@@ -82,6 +82,7 @@ combine_mtmd_libs() {
     "${build_dir}/ggml/src/${release_dir}/libggml-cpu.a"
     "${build_dir}/ggml/src/ggml-metal/${release_dir}/libggml-metal.a"
     "${build_dir}/ggml/src/ggml-blas/${release_dir}/libggml-blas.a"
+    "${build_dir}/vendor/hash/${release_dir}/libvendor-hash.a"
     "${build_dir}/tools/mtmd/${release_dir}/libmtmd.a"
   )
   for lib in "${candidates[@]}"; do
