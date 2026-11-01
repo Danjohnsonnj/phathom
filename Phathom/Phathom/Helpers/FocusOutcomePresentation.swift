@@ -18,7 +18,7 @@ enum FocusOutcomePresentation {
         return "\(kindLabel) · completed \(dateLabel)"
     }
 
-    private static let closureDateFormat = Date.FormatStyle()
+    private nonisolated static let closureDateFormat = Date.FormatStyle()
         .month(.abbreviated)
         .day()
 }

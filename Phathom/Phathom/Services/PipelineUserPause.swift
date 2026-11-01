@@ -2,9 +2,9 @@ import Foundation
 
 /// User-initiated global pipeline pause. Persisted in `UserDefaults`; survives relaunch until Library Resume.
 enum PipelineUserPause: Sendable {
-    static let defaultsKey = "phathom.pipeline.userPaused"
+    nonisolated static let defaultsKey = "phathom.pipeline.userPaused"
 
-    private static let lock = NSLock()
+    private nonisolated static let lock = NSLock()
 
     nonisolated static var isPaused: Bool {
         lock.lock()

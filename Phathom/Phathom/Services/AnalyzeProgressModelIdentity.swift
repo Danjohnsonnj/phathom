@@ -1,4 +1,5 @@
 import Foundation
+import PhathomCore
 import PhathomInference
 
 enum AnalyzeProgressModelIdentity {

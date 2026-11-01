@@ -1,4 +1,5 @@
 import Foundation
+import PhathomCore
 
 struct AnalyzeProgressClockEntry: Sendable {
     var estimateKey: ModelPairKey
@@ -36,7 +37,7 @@ enum AnalyzeProgressClock {
         }
     }
 
-    private nonisolated(unsafe) static let box = Box()
+    private nonisolated static let box = Box()
 
     nonisolated static func begin(itemID: UUID, estimateKey: ModelPairKey) {
         box.begin(itemID: itemID, estimateKey: estimateKey)

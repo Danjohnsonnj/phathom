@@ -6,6 +6,17 @@ enum AnalyzeProgressPresentation: Equatable, Sendable {
     case hidden
     case determinate(fraction: Double)
     case indeterminate
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.hidden, .hidden), (.indeterminate, .indeterminate):
+            return true
+        case let (.determinate(lhsFraction), .determinate(rhsFraction)):
+            return lhsFraction == rhsFraction
+        default:
+            return false
+        }
+    }
 }
 
 enum AnalyzeProgressEstimator {

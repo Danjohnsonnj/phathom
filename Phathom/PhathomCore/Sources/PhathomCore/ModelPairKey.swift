@@ -1,18 +1,26 @@
-import Foundation
-
 /// On-disk GGUF identity for analyze-progress pairing (filename + byte count only).
-struct ModelFileIdentity: Equatable, Hashable, Sendable, Codable {
-    var filename: String
-    var byteCount: Int
+public struct ModelFileIdentity: Equatable, Hashable, Sendable, Codable {
+    public var filename: String
+    public var byteCount: Int
+
+    public init(filename: String, byteCount: Int) {
+        self.filename = filename
+        self.byteCount = byteCount
+    }
 }
 
 /// Primary + Tagging model pair for rate buckets.
-struct ModelPairKey: Equatable, Hashable, Sendable, Codable {
-    var primary: ModelFileIdentity
-    var tagging: ModelFileIdentity
+public struct ModelPairKey: Equatable, Hashable, Sendable, Codable {
+    public var primary: ModelFileIdentity
+    public var tagging: ModelFileIdentity
+
+    public init(primary: ModelFileIdentity, tagging: ModelFileIdentity) {
+        self.primary = primary
+        self.tagging = tagging
+    }
 
     /// Stable `UserDefaults` sub-key (not for UI).
-    var persistenceToken: String {
+    public var persistenceToken: String {
         [
             primary.filename,
             String(primary.byteCount),
@@ -22,7 +30,7 @@ struct ModelPairKey: Equatable, Hashable, Sendable, Codable {
     }
 
     /// Lookup when analyze starts: Primary plus configured Tagging when set, otherwise Primary plus Primary.
-    nonisolated static func forEstimate(
+    public nonisolated static func forEstimate(
         primary: ModelFileIdentity,
         configuredTagging: ModelFileIdentity?
     ) -> ModelPairKey {
@@ -30,7 +38,7 @@ struct ModelPairKey: Equatable, Hashable, Sendable, Codable {
     }
 
     /// Bucket key for a finished pass (pair that actually ran).
-    nonisolated static func forStorage(
+    public nonisolated static func forStorage(
         primary: ModelFileIdentity,
         configuredTagging: ModelFileIdentity?,
         taggingRan: Bool,

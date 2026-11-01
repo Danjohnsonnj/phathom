@@ -1,4 +1,5 @@
 import Foundation
+import PhathomCore
 
 enum AnalyzeProgressSettingsStorage {
     static let enabledKey = "phathom.analyzeProgress.enabled"
@@ -9,6 +10,12 @@ struct AnalyzeProgressTotals: Equatable, Sendable {
     var totalCappedCharacters: Int
     var sampleCount: Int
 
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.totalAnalyzeMilliseconds == rhs.totalAnalyzeMilliseconds
+            && lhs.totalCappedCharacters == rhs.totalCappedCharacters
+            && lhs.sampleCount == rhs.sampleCount
+    }
+
     nonisolated static let empty = AnalyzeProgressTotals(
         totalAnalyzeMilliseconds: 0,
         totalCappedCharacters: 0,
@@ -18,9 +25,9 @@ struct AnalyzeProgressTotals: Equatable, Sendable {
 
 /// Device-local analyze timing buckets per `ModelPairKey` (UserDefaults only).
 struct AnalyzeProgressStore: Sendable {
-    private static let bucketKeyPrefix = "analyzeProgress.bucket."
+    nonisolated private static let bucketKeyPrefix = "analyzeProgress.bucket."
 
-    let userDefaults: UserDefaults
+    nonisolated(unsafe) let userDefaults: UserDefaults
 
     nonisolated init(userDefaults: UserDefaults) {
         self.userDefaults = userDefaults
@@ -86,5 +93,35 @@ struct AnalyzeProgressStore: Sendable {
         var totalAnalyzeMilliseconds: Int
         var totalCappedCharacters: Int
         var sampleCount: Int
+
+        nonisolated init(
+            totalAnalyzeMilliseconds: Int,
+            totalCappedCharacters: Int,
+            sampleCount: Int
+        ) {
+            self.totalAnalyzeMilliseconds = totalAnalyzeMilliseconds
+            self.totalCappedCharacters = totalCappedCharacters
+            self.sampleCount = sampleCount
+        }
+
+        nonisolated init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            totalAnalyzeMilliseconds = try container.decode(Int.self, forKey: .totalAnalyzeMilliseconds)
+            totalCappedCharacters = try container.decode(Int.self, forKey: .totalCappedCharacters)
+            sampleCount = try container.decode(Int.self, forKey: .sampleCount)
+        }
+
+        nonisolated func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(totalAnalyzeMilliseconds, forKey: .totalAnalyzeMilliseconds)
+            try container.encode(totalCappedCharacters, forKey: .totalCappedCharacters)
+            try container.encode(sampleCount, forKey: .sampleCount)
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case totalAnalyzeMilliseconds
+            case totalCappedCharacters
+            case sampleCount
+        }
     }
 }

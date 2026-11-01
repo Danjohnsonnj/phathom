@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+import PhathomCore
 @testable import Phathom
 
 struct AnalyzeProgressStoreTests {

@@ -63,6 +63,8 @@ The repo expects a vendored framework at:
 
 Slices: **ios-arm64**, **ios-arm64-simulator**, and **macos-arm64** (multimodal **libmtmd** linked in).
 
+When linking the combined simulator, device, or macOS archive, `libtool` may report that some platform-specific object files have no symbols. These empty members are expected for unused kernel translation units and do not affect the resulting xcframework.
+
 The vendored engine is pinned to upstream llama.cpp **b11719** (`5aeac37a3`, 2026-10-18). On A19-class and newer devices, including iPhone 18 Pro, the Metal 4 tensor path is runtime-detected and can use the GPU neural accelerators; older devices continue using the existing Metal kernels. The xcframework embeds the Metal libraries, including the tensor kernels.
 
 If that folder is missing or you need to refresh it, build with the in-repo script:

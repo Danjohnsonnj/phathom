@@ -1,5 +1,9 @@
 # Docs chronology
 
+## 2026-11-01 — Swift 6 build-warning cleanup
+
+Moved pipeline-shared model-pair value types into PhathomCore, made nonisolated persistence helpers explicit under the app's MainActor default, and documented expected empty-object libtool warnings for the vendored llama archives. The native `build-warnings-concurrency` plan tracks the implementation and verification.
+
 ## 2026-10-18 — llama.cpp b11719 Metal 4 refresh
 
 Rebuilt the vendored `llama.xcframework` from llama.cpp b11719 with embedded Metal tensor kernels and the current `libmtmd` hash dependency. Updated the inference bridge for the new bitmap-init API. Simulator build succeeded; physical iPhone 18 Pro verification confirmed f16/bfloat tensor probes, embedded Metal library use, and working inference. Performance improvement was not claimed because the user observed no major difference and the sample was too small.

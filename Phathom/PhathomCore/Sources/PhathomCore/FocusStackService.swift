@@ -112,7 +112,7 @@ public enum FocusStackService {
         fromOffsets: IndexSet,
         toOffset: Int
     ) {
-        var ordered = entries.sorted { $0.sortOrder < $1.sortOrder }
+        let ordered = entries.sorted { $0.sortOrder < $1.sortOrder }
         let moving = fromOffsets.sorted().map { ordered[$0] }
         var remaining = ordered.enumerated()
             .filter { !fromOffsets.contains($0.offset) }

@@ -96,7 +96,31 @@ combine_mtmd_libs() {
     echo "No libraries to combine in ${build_dir}"
     exit 1
   fi
-  xcrun libtool -static "${libs[@]}" -o "${output_lib}"
+  local work_dir
+  work_dir="$(mktemp -d)"
+  local -a objects=()
+  local index=0
+  for lib in "${libs[@]}"; do
+    local archive_dir="${work_dir}/archive-${index}"
+    mkdir -p "${archive_dir}"
+    (
+      cd "${archive_dir}"
+      xcrun ar -x "${lib}"
+    )
+    while IFS= read -r -d '' object; do
+      if [ -n "$(xcrun nm -gU "${object}" 2>/dev/null)" ]; then
+        objects+=("${object}")
+      fi
+    done < <(find "${archive_dir}" -type f -name '*.o' -print0)
+    index=$((index + 1))
+  done
+  if [ "${#objects[@]}" -eq 0 ]; then
+    rm -rf "${work_dir}"
+    echo "No object files with global symbols in ${build_dir}"
+    exit 1
+  fi
+  xcrun libtool -static "${objects[@]}" -o "${output_lib}"
+  rm -rf "${work_dir}"
   echo "Combined ${#libs[@]} archives -> ${output_lib}"
 }
 
